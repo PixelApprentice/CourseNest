@@ -1,7 +1,6 @@
 import { app } from 'electron';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
-import Database from 'better-sqlite3';
 import {
   createSqliteConnection,
   initializeSqliteDatabase,
@@ -22,7 +21,7 @@ export function getDatabaseConnection(): ISqliteConnection {
 
 /**
  * Initialize the local SQLite database, enable WAL mode, execute pragmas, and set up schema.
- * Uses better-sqlite3 with the standardized SQLite adapter.
+ * Resiliently supports either better-sqlite3 or native node:sqlite.
  */
 export async function initializeDatabase(): Promise<ISqliteConnection> {
   const dataDir = join(app.getPath('userData'), 'data');
@@ -37,7 +36,17 @@ export async function initializeDatabase(): Promise<ISqliteConnection> {
   const dbPath = join(dataDir, 'coursenest.db');
   console.log(`Database path: ${dbPath}`);
 
-  const rawDb = new Database(dbPath);
+  let rawDb: any;
+  try {
+    // Attempt fast synchronous better-sqlite3 driver if available in Electron runtime
+    const BetterSqlite3 = (await import('better-sqlite3')).default;
+    rawDb = new BetterSqlite3(dbPath);
+  } catch {
+    // Fallback to runtime native node:sqlite (Node 22+ & modern Electron)
+    const { DatabaseSync } = await import('node:sqlite');
+    rawDb = new DatabaseSync(dbPath);
+  }
+
   dbConnection = createSqliteConnection(rawDb);
   initializeSqliteDatabase(dbConnection);
 
