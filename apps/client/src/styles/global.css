@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* 
+ * CourseNest Design System Tokens
+ * Source: CourseNest UI/UX Blueprint & Implementation Brief
+ * Direction: Calm learning studio; focused, trustworthy, editorial, practical.
+ */
+
+:root {
+  /* Light Theme Color Tokens */
+  --cn-bg: #F6F7F5;
+  --cn-surface: #FFFFFF;
+  --cn-surface-subtle: #EDF1EE;
+  --cn-text-primary: #17221D;
+  --cn-text-secondary: #53625A;
+  --cn-text-muted: #788A80;
+  --cn-border: #D8E0DB;
+  
+  /* Primary & Accent (Evergreen Studio) */
+  --cn-primary: #28664F;
+  --cn-primary-hover: #20533F;
+  --cn-primary-tint: #E4F2EA;
+  --cn-accent: #D18A50;
+  
+  /* Status Semantics (Always paired with icons and labels) */
+  --cn-info: #245EA8;
+  --cn-info-tint: #E8F1FC;
+  --cn-success: #237A57;
+  --cn-success-tint: #E3F5ED;
+  --cn-warning: #9A5B13;
+  --cn-warning-tint: #FCF4E8;
+  --cn-danger: #B42318;
+  --cn-danger-tint: #FEECEB;
+
+  /* Geometry & Spacing */
+  --cn-radius-sm: 6px;
+  --cn-radius-md: 8px;
+  --cn-radius-lg: 12px;
+  --cn-radius-xl: 16px;
+  
+  /* Control heights */
+  --cn-control-compact: 36px;
+  --cn-control-default: 40px;
+  --cn-control-touch: 48px;
+}
+
+[data-theme="dark"],
+.dark {
+  /* Dark Theme Color Tokens */
+  --cn-bg: #101713;
+  --cn-surface: #171F1A;
+  --cn-surface-subtle: #202A23;
+  --cn-text-primary: #F0F5F1;
+  --cn-text-secondary: #B3C1B7;
+  --cn-text-muted: #84958A;
+  --cn-border: #2D3A31;
+  
+  --cn-primary: #79C6A2;
+  --cn-primary-hover: #94D9B6;
+  --cn-primary-tint: #1C392B;
+  --cn-accent: #F0B47B;
+
+  --cn-info: #6BA3E8;
+  --cn-info-tint: #182A3E;
+  --cn-success: #56B88D;
+  --cn-success-tint: #163628;
+  --cn-warning: #E09543;
+  --cn-warning-tint: #3B2A15;
+  --cn-danger: #F06A60;
+  --cn-danger-tint: #3D1917;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --cn-bg: #101713;
+    --cn-surface: #171F1A;
+    --cn-surface-subtle: #202A23;
+    --cn-text-primary: #F0F5F1;
+    --cn-text-secondary: #B3C1B7;
+    --cn-text-muted: #84958A;
+    --cn-border: #2D3A31;
+    
+    --cn-primary: #79C6A2;
+    --cn-primary-hover: #94D9B6;
+    --cn-primary-tint: #1C392B;
+    --cn-accent: #F0B47B;
+
+    --cn-info: #6BA3E8;
+    --cn-info-tint: #182A3E;
+    --cn-success: #56B88D;
+    --cn-success-tint: #163628;
+    --cn-warning: #E09543;
+    --cn-warning-tint: #3B2A15;
+    --cn-danger: #F06A60;
+    --cn-danger-tint: #3D1917;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--cn-text-primary);
+  background-color: var(--cn-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code, kbd, samp, pre {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Accessible focus ring */
+:focus-visible {
+  outline: 2px solid var(--cn-primary);
+  outline-offset: 2px;
+}

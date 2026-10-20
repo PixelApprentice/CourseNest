@@ -1,0 +1,35 @@
+{
+  "name": "coursenest",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CourseNest — AI-assisted, local-first educational platform",
+  "scripts": {
+    "dev": "pnpm --filter @coursenest/client dev",
+    "dev:desktop": "pnpm --filter @coursenest/desktop dev",
+    "build": "pnpm -r build",
+    "build:packages": "pnpm --filter './packages/**' build",
+    "build:client": "pnpm --filter @coursenest/client build",
+    "build:desktop": "pnpm --filter @coursenest/desktop build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "electron",
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+out
+coverage
+.venv
+__pycache__
+*.egg-info
+apps/android/android

@@ -1,0 +1,98 @@
+{
+  "manifestSchemaVersion": "1.0.0",
+  "course": {
+    "id": "course-cs101",
+    "title": "CS 101: Systems Programming & Operating Principles",
+    "description": "A comprehensive university introduction to computer architecture, processes, memory management, virtual memory, concurrency, and file systems.",
+    "language": "en",
+    "instructorName": "Prof. Elena Rostova",
+    "subject": "Computer Science",
+    "tags": ["Operating Systems", "Systems", "C", "Architecture"],
+    "estimatedDurationMinutes": 360,
+    "learningObjectives": [
+      "Understand the Von Neumann architecture and CPU execution cycle",
+      "Analyze process states, context switching, and concurrency primitives",
+      "Master virtual memory paging, page tables, and address translation",
+      "Implement safe memory management and avoid buffer overflows"
+    ],
+    "version": "1.0.0",
+    "contentFingerprint": "sha256-a1b2c3d4e5f67890"
+  },
+  "sections": [
+    {
+      "id": "sec-arch",
+      "title": "Section 1: Architecture & Execution Models",
+      "description": "Hardware foundations, register files, cache hierarchies, and instruction pipelining.",
+      "position": 1,
+      "estimatedDurationMinutes": 120,
+      "lessons": [
+        {
+          "id": "les-1-1",
+          "title": "1.1 Memory Hierarchy & CPU Registers",
+          "description": "Examines L1/L2/L3 caches, register sets, and latency numbers every programmer should know.",
+          "position": 1,
+          "estimatedDurationMinutes": 35,
+          "completionPolicy": "all_blocks_completed",
+          "isRequired": true,
+          "blocks": [
+            {
+              "id": "blk-1-1-v1",
+              "type": "video",
+              "position": 1,
+              "title": "Lecture: Hardware Foundations & The Memory Wall",
+              "durationSeconds": 1240,
+              "src": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+            },
+            {
+              "id": "blk-1-1-t1",
+              "type": "rich_text",
+              "position": 2,
+              "content": "### Latency Numbers Every Systems Engineer Should Know\n\nAccessing CPU registers occurs in less than **1 cycle (~0.5 ns)**. In contrast, retrieving data from **L1 Cache** requires approximately 4 cycles (1 ns), **L2 Cache** roughly 10 cycles, and **Main RAM** between 60–100 ns."
+            },
+            {
+              "id": "blk-1-1-d1",
+              "type": "document",
+              "position": 3,
+              "filename": "CS101_Lecture01_Architecture_Diagrams.pdf",
+              "fileSizeBytes": 3450000,
+              "mimeType": "application/pdf"
+            },
+            {
+              "id": "blk-1-1-dl1",
+              "type": "download",
+              "position": 4,
+              "filename": "cache_simulator_starter.tar.gz",
+              "fileSizeBytes": 1820000,
+              "mimeType": "application/gzip",
+              "checksumSha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+            }
+          ]
+        },
+        {
+          "id": "les-1-2",
+          "title": "1.2 Concurrency, Threads & Race Conditions",
+          "description": "Understanding mutexes, semaphores, atomic operations, and memory barriers.",
+          "position": 2,
+          "estimatedDurationMinutes": 45,
+          "completionPolicy": "required_blocks_completed",
+          "isRequired": true,
+          "blocks": [
+            {
+              "id": "blk-1-2-t1",
+              "type": "rich_text",
+              "position": 1,
+              "content": "### Critical Sections and Mutex Locks\n\nA **data race** occurs when two or more concurrent threads access the same memory location concurrently without synchronization."
+            },
+            {
+              "id": "blk-1-2-q1",
+              "type": "quiz",
+              "position": 2,
+              "activityId": "act-quiz-1",
+              "title": "Checkpoint Quiz: Concurrency & Synchronization"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

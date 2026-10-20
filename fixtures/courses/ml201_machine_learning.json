@@ -1,0 +1,48 @@
+{
+  "manifestSchemaVersion": "1.0.0",
+  "course": {
+    "id": "course-ml201",
+    "title": "Machine Learning: Algorithms, Datasets & Inference",
+    "description": "Hands-on applied machine learning covering data pre-processing, gradient descent, linear models, tree ensembles, and offline model evaluation.",
+    "language": "en",
+    "instructorName": "Dr. Marcus Vance",
+    "subject": "Data Science & AI",
+    "tags": ["Machine Learning", "Python", "Algorithms", "Statistics"],
+    "estimatedDurationMinutes": 300,
+    "learningObjectives": [
+      "Formulate supervised learning problems and loss functions",
+      "Implement gradient descent and regularization techniques",
+      "Evaluate models using precision, recall, and ROC-AUC"
+    ],
+    "version": "1.0.0",
+    "contentFingerprint": "sha256-b2c3d4e5f6789012"
+  },
+  "sections": [
+    {
+      "id": "sec-ml-1",
+      "title": "Section 1: Supervised Learning Fundamentals",
+      "description": "Loss surfaces, gradient estimation, and overfitting prevention.",
+      "position": 1,
+      "estimatedDurationMinutes": 90,
+      "lessons": [
+        {
+          "id": "les-ml-1-1",
+          "title": "1.1 Linear Regression & The Bias-Variance Tradeoff",
+          "description": "Deriving the normal equation and gradient descent formulation.",
+          "position": 1,
+          "estimatedDurationMinutes": 40,
+          "completionPolicy": "all_blocks_completed",
+          "isRequired": true,
+          "blocks": [
+            {
+              "id": "blk-ml-1",
+              "type": "rich_text",
+              "position": 1,
+              "content": "### The Bias-Variance Tradeoff\n\nWhen training machine learning models, expected error decomposes into Bias^2 + Variance + Irreducible Error."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

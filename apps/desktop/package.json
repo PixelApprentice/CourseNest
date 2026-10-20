@@ -1,0 +1,32 @@
+{
+  "name": "@coursenest/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json",
+    "clean": "rm -rf dist dist-electron out",
+    "pack": "electron-builder --dir",
+    "dist:linux": "electron-builder --linux",
+    "dist:win": "electron-builder --win"
+  },
+  "dependencies": {
+    "@coursenest/domain": "workspace:*",
+    "@coursenest/database-contracts": "workspace:*",
+    "@coursenest/sqlite-adapter": "workspace:*",
+    "@coursenest/config": "workspace:*",
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.0",
+    "electron-vite": "^3.0.0",
+    "@types/better-sqlite3": "^7.6.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@coursenest/sqlite-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types test/sqlite-adapter.test.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@coursenest/domain": "workspace:*",
+    "@coursenest/database-contracts": "workspace:*",
+    "@coursenest/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,56 @@
+name: Bug Report
+description: Create a report to help us fix an issue or defect
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report an issue in **CourseNest**!
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Affected Platform
+      description: Which client or service encountered the issue?
+      options:
+        - Electron Desktop (Linux)
+        - Electron Desktop (Windows)
+        - Web Client (Browser)
+        - Android Mobile
+        - FastAPI Central Server
+        - Core Engine / Importer Package
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: When importing a 2GB course ZIP archive with nested folders, the import hangs at stage 3...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: What steps are needed to trigger this behavior?
+      value: |
+        1. Open CourseNest Desktop
+        2. Navigate to 'Import Course'
+        3. Upload archive 'cs101.zip'
+        4. Observe the error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs or Error Stack Traces
+      description: Paste any terminal or DevTools console logs here.
+      render: shell

@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "composite": false,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "noEmit": true
+  },
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/validation" },
+    { "path": "../../packages/config" },
+    { "path": "../../packages/ui" },
+    { "path": "../../packages/importer" },
+    { "path": "../../packages/storage-adapters" }
+  ]
+}

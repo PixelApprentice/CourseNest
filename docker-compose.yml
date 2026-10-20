@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: coursenest-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: coursenest
+      POSTGRES_PASSWORD: coursenest_dev_secret_change_in_prod
+      POSTGRES_DB: coursenest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coursenest -d coursenest"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./apps/server
+      dockerfile: Dockerfile
+    container_name: coursenest-server
+    restart: unless-stopped
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8000
+      DATABASE_URL: postgresql+asyncpg://coursenest:coursenest_dev_secret_change_in_prod@postgres:5432/coursenest
+      SECRET_KEY: dev_insecure_secret_key_must_be_overridden_in_production_32chars
+      DEBUG: "true"
+      BACKEND_CORS_ORIGINS: '["http://localhost","http://localhost:80","http://localhost:3000","http://localhost:5173"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      - server_storage:/app/storage
+      - ./fixtures:/app/fixtures:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    container_name: coursenest-client
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+
+volumes:
+  postgres_data:
+    driver: local
+  server_storage:
+    driver: local
