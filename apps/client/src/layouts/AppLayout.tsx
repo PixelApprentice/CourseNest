@@ -58,6 +58,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (path.startsWith('/import')) return { section: 'Tools', title: 'Ingest Materials' };
     if (path.startsWith('/course/')) return { section: 'Courses', title: 'Curriculum Dossier' };
     if (path.startsWith('/settings')) return { section: 'System', title: 'Vault Settings' };
+    if (path.startsWith('/logs')) return { section: 'Diagnostics', title: 'System Logs' };
     return { section: 'Studio', title: APP_NAME };
   };
 

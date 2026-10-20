@@ -7,6 +7,14 @@ import { validateArchivePath } from './security.js';
 
 const gunzip = promisify(gunzipCb);
 
+export interface MultiArchiveExtractionResult {
+  archivePath: string;
+  archiveBaseName: string;
+  files: string[];
+  status: 'success' | 'partial' | 'error';
+  error?: string;
+}
+
 export async function extractArchive(
   sourcePath: string,
   sandboxDir: string,
@@ -26,6 +34,50 @@ export async function extractArchive(
   }
 
   return extractedFiles;
+}
+
+/**
+ * Extracts multiple archives belonging to one course (e.g. part1.zip, part2.zip, module1.zip).
+ * Each archive is sandboxed safely. If one archive has a corrupt entry, others continue cleanly.
+ */
+export async function extractMultipleArchives(
+  sourcePaths: string[],
+  sandboxDir: string,
+  onProgress: (archiveName: string, file: string, status: 'extracting' | 'completed' | 'error') => void = () => {},
+): Promise<MultiArchiveExtractionResult[]> {
+  await mkdir(sandboxDir, { recursive: true });
+  const results: MultiArchiveExtractionResult[] = [];
+
+  for (const archivePath of sourcePaths) {
+    const baseName = path.basename(archivePath, path.extname(archivePath));
+    // Sandbox each archive in its own designated module folder
+    const archiveDestDir = path.join(sandboxDir, baseName);
+    const archiveFiles: string[] = [];
+
+    try {
+      await mkdir(archiveDestDir, { recursive: true });
+      const files = await extractArchive(archivePath, archiveDestDir, (file, status) => {
+        onProgress(baseName, file, status);
+      });
+
+      results.push({
+        archivePath,
+        archiveBaseName: baseName,
+        files: files.map((f) => path.join(baseName, f)),
+        status: 'success',
+      });
+    } catch (err: any) {
+      results.push({
+        archivePath,
+        archiveBaseName: baseName,
+        files: archiveFiles.map((f) => path.join(baseName, f)),
+        status: archiveFiles.length > 0 ? 'partial' : 'error',
+        error: err.message ?? String(err),
+      });
+    }
+  }
+
+  return results;
 }
 
 async function extractZipAdm(

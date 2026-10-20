@@ -1,6 +1,9 @@
 import { ipcMain, dialog, app, Notification } from 'electron';
 import { join } from 'path';
-import { readFile, stat, readdir } from 'fs/promises';
+import { readFile, stat, readdir, access } from 'fs/promises';
+import { constants } from 'fs';
+
+let configuredExternalMountPath: string | null = null;
 
 export function registerIpcHandlers(): void {
   // ── File Dialogs ────────────────────────────────────────────────────
@@ -24,7 +27,7 @@ export function registerIpcHandlers(): void {
         filters: options?.filters ?? [
           {
             name: 'Course Materials',
-            extensions: ['zip', 'pdf', 'docx', 'pptx', 'mp4', 'webm', 'mkv'],
+            extensions: ['zip', 'tar.gz', 'tgz', 'pdf', 'docx', 'pptx', 'mp4', 'webm', 'mkv', 'json'],
           },
           { name: 'All Files', extensions: ['*'] },
         ],
@@ -36,21 +39,29 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('dialog:openDirectory', async () => {
     const result = await dialog.showOpenDialog({
-      properties: ['openDirectory'],
+      properties: ['openDirectory', 'createDirectory'],
     });
-    return result.canceled ? null : (result.filePaths[0] ?? null);
+    if (!result.canceled && result.filePaths[0]) {
+      configuredExternalMountPath = result.filePaths[0];
+      return result.filePaths[0];
+    }
+    return null;
   });
 
-  // ── Filesystem ──────────────────────────────────────────────────────
+  // ── Filesystem & Removable Storage ──────────────────────────────────
 
   ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
-    // Validate path is within allowed directories
     const dataDir = join(app.getPath('userData'), 'data');
+    const tempDir = app.getPath('temp');
     const resolvedPath = join(filePath);
 
-    // Basic path traversal protection
-    if (!resolvedPath.startsWith(dataDir) && !resolvedPath.startsWith(app.getPath('temp'))) {
-      throw new Error('Access denied: file is outside allowed directories');
+    // Validate path is within allowed boundaries (internal dataDir, temp, or configured external mount)
+    const isAllowedInternal = resolvedPath.startsWith(dataDir) || resolvedPath.startsWith(tempDir);
+    const isAllowedExternal = configuredExternalMountPath ? resolvedPath.startsWith(configuredExternalMountPath) : false;
+    const isStandardMediaMount = resolvedPath.startsWith('/media') || resolvedPath.startsWith('/mnt') || resolvedPath.startsWith('/Volumes');
+
+    if (!isAllowedInternal && !isAllowedExternal && !isStandardMediaMount) {
+      throw new Error('Access denied: file is outside authorized storage directories');
     }
 
     const buffer = await readFile(resolvedPath);
@@ -76,6 +87,21 @@ export function registerIpcHandlers(): void {
     }));
   });
 
+  // Check whether an external USB or SD directory is currently mounted and accessible
+  ipcMain.handle('storage:checkVolumeAccess', async (_event, volumePath: string) => {
+    try {
+      await access(volumePath, constants.R_OK);
+      return { isMounted: true, path: volumePath };
+    } catch {
+      return { isMounted: false, path: volumePath, error: 'Volume inaccessible or disconnected' };
+    }
+  });
+
+  ipcMain.handle('storage:setExternalMountPath', (_event, mountPath: string) => {
+    configuredExternalMountPath = mountPath;
+    return { success: true, mountPath };
+  });
+
   // ── App Info ────────────────────────────────────────────────────────
 
   ipcMain.handle('app:getPath', (_event, name: 'userData' | 'temp' | 'documents' | 'downloads') => {
@@ -96,6 +122,7 @@ export function registerIpcHandlers(): void {
     version: app.getVersion(),
     isPackaged: app.isPackaged,
     dataDir: join(app.getPath('userData'), 'data'),
+    externalMountPath: configuredExternalMountPath,
   }));
 
   // ── Notifications ───────────────────────────────────────────────────

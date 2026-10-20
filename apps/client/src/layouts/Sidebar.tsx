@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Library, Upload, Settings, ShieldCheck, Database } from 'lucide-react';
+import { Home, Library, Upload, Settings, ShieldCheck, Database, Terminal } from 'lucide-react';
 import { BrandLogo } from '../components/BrandLogo';
 import { useVaultCourses, getVaultAnalytics } from '../lib/courseStore';
 
@@ -8,6 +8,7 @@ const navItems = [
   { to: '/library', icon: Library, label: 'Course Vault' },
   { to: '/import', icon: Upload, label: 'Ingest Materials' },
   { to: '/settings', icon: Settings, label: 'Vault Settings' },
+  { to: '/logs', icon: Terminal, label: 'System Logs' },
 ] as const;
 
 export function Sidebar() {

@@ -1,16 +1,25 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { APP_NAME, APP_VERSION } from '@coursenest/config';
 import { getVaultAnalytics, resetVaultToDefaults } from '../../lib/courseStore';
+import { 
+  useStorageConfig, 
+  setVolumeType, 
+  setExternalMountPath, 
+  toggleMountStatus, 
+  createSafetyBackup 
+} from '../../lib/storageConfig';
 import { 
   Download, 
   Moon, 
   Sun, 
   Sliders, 
   ShieldCheck, 
-  AlertTriangle,
-  CheckCircle2,
-  Database,
-  RotateCcw
+  AlertTriangle, 
+  CheckCircle2, 
+  Database, 
+  HardDrive,
+  Terminal
 } from 'lucide-react';
 
 export function SettingsPage() {
@@ -19,13 +28,18 @@ export function SettingsPage() {
   const [autoplayNext, setAutoplayNext] = useState(true);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showExportSuccess, setShowExportSuccess] = useState(false);
+  const [backupNotice, setBackupNotice] = useState<string | null>(null);
+  const [customPathInput, setCustomPathInput] = useState('');
+
+  const { config: storageConfig } = useStorageConfig();
   const [analytics, setAnalytics] = useState(getVaultAnalytics());
 
   useEffect(() => {
     const savedTheme = (localStorage.getItem('cn-theme') as 'light' | 'dark') || 'system';
     setTheme(savedTheme);
     setAnalytics(getVaultAnalytics());
-  }, []);
+    setCustomPathInput(storageConfig.externalMountPath);
+  }, [storageConfig.externalMountPath]);
 
   const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
     setTheme(newTheme);
@@ -46,6 +60,7 @@ export function SettingsPage() {
       exportTimestamp: new Date().toISOString(),
       vaultStorageDump: { ...localStorage },
       analytics: getVaultAnalytics(),
+      storageConfig,
     };
 
     const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
@@ -60,30 +75,155 @@ export function SettingsPage() {
     setTimeout(() => setShowExportSuccess(false), 3500);
   };
 
+  const handleCreateSnapshot = () => {
+    const res = createSafetyBackup();
+    if (res.success) {
+      setBackupNotice(`Safety snapshot captured (${(res.sizeBytes / 1024).toFixed(1)} KB)`);
+      setTimeout(() => setBackupNotice(null), 3000);
+    }
+  };
+
   const handleResetDefaults = () => {
     resetVaultToDefaults();
     setAnalytics(getVaultAnalytics());
     setShowResetModal(false);
   };
 
+  const handleSaveMountPath = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (customPathInput.trim()) {
+      setExternalMountPath(customPathInput.trim());
+    }
+  };
+
   return (
     <div className="p-6 md:p-10 max-w-3xl mx-auto space-y-8">
       <div>
         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
-          Vault Settings
+          Vault Settings & Storage
         </h1>
         <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] mt-1">
-          Manage offline storage, appearance preferences, data backups, and air-gapped system telemetry.
+          Manage storage volumes, removable external disks, safety backups, and system diagnostics.
         </p>
       </div>
 
-      {/* Storage Management Telemetry */}
+      {/* Removable Media & Storage Volumes Manager */}
+      <section className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 space-y-5">
+        <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-4">
+          <div className="flex items-center gap-2.5">
+            <HardDrive size={18} className="text-[var(--cn-primary)]" />
+            <h2 className="text-sm font-bold font-mono text-[var(--cn-text-primary)] uppercase tracking-wider">
+              Media Volume & External Disk Configuration
+            </h2>
+          </div>
+          <span
+            className={`text-[10px] font-mono px-2.5 py-1 rounded font-bold border ${
+              storageConfig.isMounted
+                ? 'bg-[var(--cn-success-tint)] text-[var(--cn-success)] border-[var(--cn-success)]/40'
+                : 'bg-[var(--cn-danger-tint)] text-[var(--cn-danger)] border-[var(--cn-danger)]/40'
+            }`}
+          >
+            {storageConfig.isMounted ? '● VOLUME MOUNTED' : '○ DISCONNECTED'}
+          </span>
+        </div>
+
+        {/* Volume Type Selector */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+          <button
+            onClick={() => setVolumeType('internal')}
+            className={`p-4 rounded-xl border text-left transition-all space-y-1 ${
+              storageConfig.volumeType === 'internal'
+                ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 shadow-xs'
+                : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)]'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[var(--cn-text-primary)]">Internal Storage</span>
+              {storageConfig.volumeType === 'internal' && <CheckCircle2 size={15} className="text-[var(--cn-primary)]" />}
+            </div>
+            <p className="text-[11px] text-[var(--cn-text-muted)]">
+              Stores courses and media inside app's private sandbox. Always accessible.
+            </p>
+          </button>
+
+          <button
+            onClick={() => setVolumeType('external')}
+            className={`p-4 rounded-xl border text-left transition-all space-y-1 ${
+              storageConfig.volumeType === 'external'
+                ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 shadow-xs'
+                : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)]'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[var(--cn-text-primary)]">External USB / SD Disk</span>
+              {storageConfig.volumeType === 'external' && <CheckCircle2 size={15} className="text-[var(--cn-primary)]" />}
+            </div>
+            <p className="text-[11px] text-[var(--cn-text-muted)]">
+              Redirects heavy video assets to external volume to conserve device storage.
+            </p>
+          </button>
+        </div>
+
+        {/* External Path Form & Disconnect Simulation */}
+        {storageConfig.volumeType === 'external' && (
+          <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] space-y-3">
+            <form onSubmit={handleSaveMountPath} className="space-y-1.5">
+              <label className="text-xs font-mono font-semibold text-[var(--cn-text-secondary)]">
+                External Mount Path (Linux / USB / SD Card)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customPathInput}
+                  onChange={(e) => setCustomPathInput(e.target.value)}
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono text-[var(--cn-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)]"
+                />
+                <button
+                  type="submit"
+                  className="px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors"
+                >
+                  Save Path
+                </button>
+              </div>
+            </form>
+
+            {/* Test Simulation Controls */}
+            <div className="pt-2 border-t border-[var(--cn-border)] flex items-center justify-between text-xs font-mono">
+              <span className="text-[11px] text-[var(--cn-text-muted)]">
+                Test Unplugged Fallback:
+              </span>
+              <button
+                onClick={() => toggleMountStatus(!storageConfig.isMounted)}
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-semibold border transition-colors ${
+                  storageConfig.isMounted
+                    ? 'border-[var(--cn-warning)]/40 text-[var(--cn-warning)] hover:bg-[var(--cn-warning-tint)]'
+                    : 'bg-[var(--cn-success)] text-white border-[var(--cn-success)] hover:bg-[var(--cn-success)]/90'
+                }`}
+              >
+                {storageConfig.isMounted ? 'Simulate Unplugging USB' : 'Simulate Reconnecting USB'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono space-y-1">
+          <p className="font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5">
+            <ShieldCheck size={14} className="text-[var(--cn-success)]" />
+            Offline Resiliency Guarantee
+          </p>
+          <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
+            All course enrollments, lecture notes, bookmarks, and quiz scores are strictly saved to internal device storage. If an external drive is unplugged, learning records are never lost.
+          </p>
+        </div>
+      </section>
+
+      {/* Safety Snapshots & Data Backups */}
       <section className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 space-y-5">
         <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-4">
           <div className="flex items-center gap-2.5">
             <Database size={18} className="text-[var(--cn-primary)]" />
             <h2 className="text-sm font-bold font-mono text-[var(--cn-text-primary)] uppercase tracking-wider">
-              Local Vault Storage
+              Safety Snapshot & Data Backups
             </h2>
           </div>
           <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)] px-2.5 py-1 rounded bg-[var(--cn-surface-subtle)] border border-[var(--cn-border)]">
@@ -91,58 +231,48 @@ export function SettingsPage() {
           </span>
         </div>
 
-        {/* Breakdown bar */}
-        <div className="space-y-2">
-          <div className="h-2 w-full bg-[var(--cn-bg)] rounded-full overflow-hidden flex border border-[var(--cn-border)]">
-            <div className="bg-[var(--cn-primary)] h-full" style={{ width: '70%' }} title="Course Media & Manifests" />
-            <div className="bg-[var(--cn-info)] h-full" style={{ width: '20%' }} title="SQLite Relational State" />
-            <div className="bg-[var(--cn-accent)] h-full" style={{ width: '10%' }} title="Notes, Bookmarks & Quizzes" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-[11px] font-mono text-[var(--cn-text-muted)] pt-1">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[var(--cn-primary)] shrink-0" />
-              Manifests: {analytics.totalCourses} courses
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[var(--cn-info)] shrink-0" />
-              Completed: {analytics.completedLessons} units
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[var(--cn-accent)] shrink-0" />
-              Notes: {analytics.notesCount} entries
-            </span>
-          </div>
-        </div>
-
-        {/* Vault Actions */}
-        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-[var(--cn-border)]/60">
+        <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={handleExportData}
+            onClick={handleCreateSnapshot}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
           >
-            <Download size={14} />
-            <span>Export Vault Backup (.json)</span>
+            <ShieldCheck size={14} />
+            <span>Create Immediate Safety Snapshot</span>
           </button>
 
           <button
-            onClick={() => setShowResetModal(true)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-danger)] hover:border-[var(--cn-danger)]/50 transition-colors"
+            onClick={handleExportData}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
           >
-            <RotateCcw size={14} />
-            <span>Reset Vault Manifests</span>
+            <Download size={14} />
+            <span>Export Full Backup (.json)</span>
           </button>
+
+          <Link
+            to="/logs"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-primary)] hover:border-[var(--cn-primary)]/40 transition-colors"
+          >
+            <Terminal size={14} />
+            <span>View System Logs</span>
+          </Link>
         </div>
+
+        {backupNotice && (
+          <div className="p-3.5 rounded-xl bg-[var(--cn-success-tint)] text-[var(--cn-success)] text-xs font-mono font-medium flex items-center gap-2 border border-[var(--cn-success)]/30">
+            <CheckCircle2 size={15} />
+            <span>{backupNotice}</span>
+          </div>
+        )}
 
         {showExportSuccess && (
           <div className="p-3.5 rounded-xl bg-[var(--cn-success-tint)] text-[var(--cn-success)] text-xs font-mono font-medium flex items-center gap-2 border border-[var(--cn-success)]/30">
             <CheckCircle2 size={15} />
-            <span>Encrypted local JSON archive downloaded successfully.</span>
+            <span>Complete student timeline and database exported successfully.</span>
           </div>
         )}
       </section>
 
-      {/* Appearance Section */}
+      {/* Visual Appearance Section */}
       <section className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 space-y-4">
         <h2 className="text-sm font-bold font-mono text-[var(--cn-text-muted)] uppercase tracking-wider">
           Visual Theme
@@ -208,21 +338,6 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* Architectural Guarantee Box */}
-      <section className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 text-xs text-[var(--cn-text-secondary)] space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-sm text-[var(--cn-text-primary)]">{APP_NAME} Air-Gap Architecture</span>
-          <span className="font-mono text-[11px] text-[var(--cn-primary)] font-bold">v{APP_VERSION}</span>
-        </div>
-        <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-          CourseNest executes exclusively on local runtime primitives. Manifests, databases, bookmarks, and video files are persisted strictly within your machine's private application boundaries.
-        </p>
-        <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--cn-success)] pt-2 border-t border-[var(--cn-border)]">
-          <ShieldCheck size={14} />
-          <span>Zero telemetry • Zero external analytical beacons • 100% Offline</span>
-        </div>
-      </section>
-
       {/* Reset Vault Modal */}
       {showResetModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -237,7 +352,7 @@ export function SettingsPage() {
             </div>
 
             <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
-              This will re-initialize the course vault with the verified foundational curriculums (CS-101 and ML-201) and clear temporary staging caches.
+              This will re-initialize the course vault with foundational curriculums (CS-101 and ML-201).
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--cn-border)]">

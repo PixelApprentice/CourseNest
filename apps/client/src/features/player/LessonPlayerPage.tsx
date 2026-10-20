@@ -20,6 +20,9 @@ import {
   type QuizQuestion,
   type UserBookmark
 } from '../../lib/courseStore';
+import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
+import { addLog } from '../../lib/logger';
+import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
 import { 
   ArrowLeft, 
   ChevronLeft, 
@@ -42,12 +45,14 @@ import {
   Clock,
   Trash2,
   Share2,
-  HardDrive
+  HardDrive,
+  Eye
 } from 'lucide-react';
 
 export function LessonPlayerPage() {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
   const { courses } = useVaultCourses();
+  const { config: storageConfig } = useStorageConfig();
 
   // Find course, section, and lesson
   const courseData = courses.find((c: CourseData) => c.id === courseId) ?? courses[0];
@@ -60,6 +65,14 @@ export function LessonPlayerPage() {
   const [notesContent, setNotesContent] = useState('');
   const [newBookmarkTitle, setNewBookmarkTitle] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
+
+  // Embedded Document Reader Modal state
+  const [activeDocViewer, setActiveDocViewer] = useState<{
+    filename: string;
+    fileSizeBytes?: number;
+    description?: string;
+    snippet?: string;
+  } | null>(null);
 
   // Video Player state
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -162,12 +175,14 @@ export function LessonPlayerPage() {
       } else if (e.key === 'f' || e.key === 'F') {
         e.preventDefault();
         videoRef.current?.requestFullscreen();
+      } else if (e.key === 'Escape' && activeDocViewer) {
+        setActiveDocViewer(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, currentTime, isMuted]);
+  }, [isPlaying, currentTime, isMuted, activeDocViewer]);
 
   if (!courseData || !activeLesson) {
     return (
@@ -209,6 +224,12 @@ export function LessonPlayerPage() {
     const nextState = !isCompleted;
     setIsCompleted(nextState);
     setLessonProgress(courseData.id, activeLesson.id, { completed: nextState });
+    addLog(
+      'INFO',
+      'PLAYER',
+      `Lesson marked ${nextState ? 'Completed' : 'Incomplete'}: ${activeLesson.title}`,
+      `Course: ${courseData.title} • Unit ID: ${activeLesson.id}`,
+    );
   };
 
   // Save notes handler
@@ -234,6 +255,7 @@ export function LessonPlayerPage() {
     a.download = `notes_${activeLesson.id}.md`;
     a.click();
     URL.revokeObjectURL(url);
+    addLog('INFO', 'PLAYER', `Exported notes for ${activeLesson.title} as Markdown (.md)`);
   };
 
   // Add bookmark
@@ -261,8 +283,16 @@ export function LessonPlayerPage() {
     setQuizSubmitted(true);
     saveQuizResult(activeLesson.id, score, maxScore);
 
+    const isPassed = (score / maxScore) * 100 >= activeLesson.quiz.passingScorePercent;
+    addLog(
+      isPassed ? 'INFO' : 'WARN',
+      'PLAYER',
+      `Checkpoint quiz submitted: ${score}/${maxScore} pts (${Math.round((score / maxScore) * 100)}%)`,
+      `Assessment: ${activeLesson.quiz.title} • Status: ${isPassed ? 'PASSED' : 'RETRY NEEDED'}`,
+    );
+
     // If score meets passing percentage, automatically mark lesson complete
-    if ((score / maxScore) * 100 >= activeLesson.quiz.passingScorePercent) {
+    if (isPassed) {
       setIsCompleted(true);
       setLessonProgress(courseData.id, activeLesson.id, { completed: true });
     }
@@ -275,6 +305,8 @@ export function LessonPlayerPage() {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
+
+  const isExternalDisconnected = storageConfig.volumeType === 'external' && !storageConfig.isMounted;
 
   return (
     <div className="flex flex-col h-full bg-[var(--cn-bg)]">
@@ -295,6 +327,14 @@ export function LessonPlayerPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Storage status chip */}
+          {isExternalDisconnected && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border border-[var(--cn-warning)]/40">
+              <HardDrive size={11} />
+              EXT DISK UNPLUGGED
+            </span>
+          )}
+
           {/* Completion checkmark */}
           <button
             onClick={handleToggleCompletion}
@@ -365,6 +405,46 @@ export function LessonPlayerPage() {
             // 1. VIDEO BLOCK
             if (block.type === 'video') {
               const src = block.src || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+              // If External Storage is Disconnected, show graceful fallback card
+              if (isExternalDisconnected) {
+                return (
+                  <div key={block.id} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[var(--cn-warning)]/40 bg-[var(--cn-surface)] p-8 flex flex-col items-center justify-center text-center space-y-3">
+                    <div className="w-12 h-12 rounded-xl bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] flex items-center justify-center">
+                      <HardDrive size={24} />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">
+                        External Media Drive Disconnected
+                      </h4>
+                      <p className="text-xs text-[var(--cn-text-muted)] max-w-md font-mono leading-relaxed">
+                        Course video media is located on: <span className="text-[var(--cn-warning)] font-semibold">{storageConfig.externalMountPath}</span>.
+                        Please reconnect your external USB volume.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        onClick={() => toggleMountStatus(true)}
+                        className="px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+                      >
+                        Verify Volume Connection
+                      </button>
+                      <Link
+                        to="/settings"
+                        className="px-4 py-2 rounded-lg border border-[var(--cn-border)] text-xs font-mono text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]"
+                      >
+                        Storage Settings
+                      </Link>
+                    </div>
+
+                    <p className="text-[10px] text-[var(--cn-success)] font-mono pt-1">
+                      ✓ Lecture notes, study outlines, and checkpoint quizzes remain fully active and safely preserved.
+                    </p>
+                  </div>
+                );
+              }
+
               return (
                 <div key={block.id} className="space-y-3">
                   <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden relative shadow-2xl border border-[var(--cn-border)] group">
@@ -491,7 +571,7 @@ export function LessonPlayerPage() {
               );
             }
 
-            // 3. DOCUMENT VIEWER / SLIDE DECK BLOCK
+            // 3. DOCUMENT VIEWER / SLIDE DECK BLOCK (EMBEDDED READER)
             if (block.type === 'document') {
               const filename = block.filename || 'Document.pdf';
               const size = block.fileSizeBytes || 1024000;
@@ -509,13 +589,22 @@ export function LessonPlayerPage() {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => alert(`Opened local cached document: ${filename}`)}
-                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] transition-colors"
-                  >
-                    <Download size={13} />
-                    <span>Open Reader</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        setActiveDocViewer({
+                          filename,
+                          fileSizeBytes: size,
+                          description: 'Course Lecture Handout & Architectural Specifications',
+                          snippet: block.content,
+                        })
+                      }
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+                    >
+                      <Eye size={13} />
+                      <span>Open Embedded Reader</span>
+                    </button>
+                  </div>
                 </div>
               );
             }
@@ -536,7 +625,10 @@ export function LessonPlayerPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => alert(`Saved ${filename} to local Downloads folder`)}
+                    onClick={() => {
+                      alert(`Saved ${filename} to local Downloads folder`);
+                      addLog('INFO', 'PLAYER', `Saved asset ${filename} to user storage`);
+                    }}
                     className="px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-medium hover:bg-[var(--cn-primary-hover)] transition-colors"
                   >
                     Export Starter
@@ -548,7 +640,7 @@ export function LessonPlayerPage() {
             return null;
           })}
 
-          {/* 5. INTERACTIVE CHECKPOINT QUIZ (IF PRESENT ON LESSON) */}
+          {/* 5. INTERACTIVE CHECKPOINT QUIZ */}
           {activeLesson.quiz && (
             <div className="p-6 md:p-8 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-6">
               <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-4">
@@ -798,6 +890,18 @@ export function LessonPlayerPage() {
           </aside>
         )}
       </div>
+
+      {/* Embedded Document Reader Modal */}
+      {activeDocViewer && (
+        <EmbeddedDocumentViewer
+          filename={activeDocViewer.filename}
+          fileSizeBytes={activeDocViewer.fileSizeBytes}
+          description={activeDocViewer.description}
+          contentSnippet={activeDocViewer.snippet}
+          onClose={() => setActiveDocViewer(null)}
+          isModal={true}
+        />
+      )}
 
       {/* Bottom Sticky Lesson Navigation */}
       <footer className="h-16 px-6 border-t border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0">

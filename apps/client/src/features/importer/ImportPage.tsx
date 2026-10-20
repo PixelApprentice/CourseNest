@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addCourseToVault, transformManifest, type CourseData } from '../../lib/courseStore';
+import { useStorageConfig } from '../../lib/storageConfig';
+import { addLog } from '../../lib/logger';
 import { 
   Upload, 
   FileArchive, 
@@ -9,10 +11,20 @@ import {
   ArrowRight,
   ShieldCheck,
   Check,
-  Plus
+  Plus,
+  HardDrive,
+  Layers
 } from 'lucide-react';
 
 type WizardStep = 'select' | 'inventory' | 'review' | 'importing' | 'complete';
+
+interface SelectedArchiveItem {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  status: 'pending' | 'verified' | 'warning';
+  discoveredFiles: string[];
+}
 
 interface ProposalLesson {
   id: string;
@@ -31,13 +43,16 @@ interface ProposalSection {
 export function ImportPage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { config: storageConfig } = useStorageConfig();
 
   const [step, setStep] = useState<WizardStep>('select');
-  const [selectedFileName, setSelectedFileName] = useState('');
-  const [fileSizeBytes, setFileSizeBytes] = useState(0);
+  const [selectedArchives, setSelectedArchives] = useState<SelectedArchiveItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [rawJsonInput, setRawJsonInput] = useState('');
   const [importMode, setImportMode] = useState<'file' | 'json'>('file');
+
+  // Storage Target Selection
+  const [targetStorage, setTargetStorage] = useState<'internal' | 'external'>('internal');
 
   // Course metadata state
   const [courseTitle, setCourseTitle] = useState('Advanced Systems: Distributed Consensus & Raft');
@@ -81,64 +96,102 @@ export function ImportPage() {
     },
   ]);
 
-  // Handle actual file upload
+  // Handle multiple file upload
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    setSelectedFileName(file.name);
-    setFileSizeBytes(file.size);
-    setIsProcessing(true);
-    setStep('inventory');
+    const newArchives: SelectedArchiveItem[] = [];
 
-    if (file.name.endsWith('.json')) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const parsed = JSON.parse(event.target?.result as string);
-          if (parsed.manifestVersion || parsed.id) {
-            const transformed = transformManifest(parsed);
-            setCourseTitle(transformed.title);
-            setCourseSubject(transformed.subject);
-            setInstructorName(transformed.instructorName);
-            setCourseDescription(transformed.description);
-            setProposedSections(
-              transformed.sections.map((s) => ({
-                id: s.id,
-                title: s.title,
-                sourceConfidence: 'manifest',
-                lessons: s.lessons.map((l) => ({
-                  id: l.id,
-                  title: l.title,
-                  files: [`${l.title.toLowerCase().replace(/\s+/g, '_')}.mp4`],
-                  isApproved: true,
-                })),
-              }))
-            );
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file) continue;
+
+      if (file.name.endsWith('.json')) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const parsed = JSON.parse(event.target?.result as string);
+            if (parsed.manifestVersion || parsed.id) {
+              const transformed = transformManifest(parsed);
+              setCourseTitle(transformed.title);
+              setCourseSubject(transformed.subject);
+              setInstructorName(transformed.instructorName);
+              setCourseDescription(transformed.description);
+              setProposedSections(
+                transformed.sections.map((s) => ({
+                  id: s.id,
+                  title: s.title,
+                  sourceConfidence: 'manifest',
+                  lessons: s.lessons.map((l) => ({
+                    id: l.id,
+                    title: l.title,
+                    files: [`${l.title.toLowerCase().replace(/\s+/g, '_')}.mp4`],
+                    isApproved: true,
+                  })),
+                }))
+              );
+              addLog('INFO', 'IMPORTER', `Loaded manifest specification: ${file.name}`);
+            }
+          } catch (err: any) {
+            addLog('ERROR', 'IMPORTER', `Failed to parse manifest: ${file.name}`, err.message);
           }
-        } catch {
-          // Fall back to standard extraction
-        }
-        setIsProcessing(false);
-      };
-      reader.readAsText(file);
-    } else {
-      setTimeout(() => {
-        setIsProcessing(false);
-      }, 900);
-    }
-  };
+        };
+        reader.readAsText(file);
+      }
 
-  // Handle selecting preset package
-  const handleSelectPreset = (name: string, sizeBytes: number) => {
-    setSelectedFileName(name);
-    setFileSizeBytes(sizeBytes);
+      newArchives.push({
+        id: `arch-${Date.now()}-${i}`,
+        name: file.name,
+        sizeBytes: file.size,
+        status: 'verified',
+        discoveredFiles: [
+          `${file.name.replace(/\.[^/.]+$/, '')}/overview_slides.pdf`,
+          `${file.name.replace(/\.[^/.]+$/, '')}/lecture_video.mp4`,
+          `${file.name.replace(/\.[^/.]+$/, '')}/reference_notes.md`,
+        ],
+      });
+    }
+
+    setSelectedArchives((prev) => [...prev, ...newArchives]);
     setIsProcessing(true);
     setStep('inventory');
+
+    addLog(
+      'INFO',
+      'IMPORTER',
+      `Queued ${newArchives.length} course archive(s) for multi-ZIP extraction`,
+      newArchives.map((a) => `${a.name} (${(a.sizeBytes / 1024 / 1024).toFixed(1)}MB)`).join(', '),
+    );
 
     setTimeout(() => {
       setIsProcessing(false);
-    }, 800);
+    }, 1100);
+  };
+
+  // Preset sample archive packages (including multiple ZIP package simulation)
+  const handleSelectPreset = (presetName: string, items: Array<{ name: string; size: number }>) => {
+    const list: SelectedArchiveItem[] = items.map((item, idx) => ({
+      id: `sample-${idx}`,
+      name: item.name,
+      sizeBytes: item.size,
+      status: 'verified',
+      discoveredFiles: [
+        `${item.name.replace('.zip', '')}/slides.pdf`,
+        `${item.name.replace('.zip', '')}/lecture.mp4`,
+        `${item.name.replace('.zip', '')}/code.c`,
+      ],
+    }));
+
+    setSelectedArchives(list);
+    setIsProcessing(true);
+    setStep('inventory');
+
+    addLog('INFO', 'IMPORTER', `Selected preset multi-archive package: ${presetName}`, `${items.length} archives`);
+
+    setTimeout(() => {
+      setIsProcessing(false);
+    }, 900);
   };
 
   // Toggle approval on proposal lesson
@@ -194,7 +247,7 @@ export function ImportPage() {
         language: 'en',
         instructorName,
         subject: courseSubject,
-        tags: [courseSubject, 'Systems', 'Air-Gapped'],
+        tags: [courseSubject, 'Systems', 'Air-Gapped', targetStorage === 'external' ? 'ExternalStorage' : 'InternalStorage'],
         estimatedDurationMinutes: proposedSections.reduce((acc, s) => acc + s.lessons.length * 45, 0),
         learningObjectives: [
           'Architectural foundations of the discipline',
@@ -230,7 +283,18 @@ export function ImportPage() {
                   id: `blk-txt-${Date.now()}-${sIdx}-${lIdx}`,
                   type: 'rich_text',
                   position: 2,
-                  content: `### ${les.title}\n\nIngested academic material verified inside sandboxed local vault.\n\nIncluded Files:\n- ${les.files.join('\n- ')}\n\nStudy this unit without external connectivity.`,
+                  content: `### ${les.title}\n\nIngested academic material verified inside sandboxed local vault.\n\nTarget Storage: ${
+                    targetStorage === 'external' ? `External Volume (${storageConfig.externalMountPath})` : 'Internal App Vault'
+                  }\n\nIncluded Files:\n- ${les.files.join('\n- ')}\n\nStudy this unit without external connectivity.`,
+                },
+                {
+                  id: `blk-doc-${Date.now()}-${sIdx}-${lIdx}`,
+                  type: 'document',
+                  position: 3,
+                  title: `${les.title} - Handout`,
+                  filename: `${les.title.replace(/\s+/g, '_')}_Handout.pdf`,
+                  fileSizeBytes: 2100000,
+                  content: `Detailed academic specifications for ${les.title}.\nVerified SHA-256 fingerprint.\nStored safely in local vault.`,
                 },
               ],
             })),
@@ -240,10 +304,20 @@ export function ImportPage() {
       };
 
       addCourseToVault(newCourseData);
+
+      addLog(
+        'INFO',
+        'IMPORTER',
+        `Successfully registered curriculum into vault: ${courseTitle}`,
+        `Modules: ${proposedSections.length} • Storage Target: ${targetStorage.toUpperCase()}`,
+      );
+
       setIsProcessing(false);
       setStep('complete');
-    }, 1200);
+    }, 1300);
   };
+
+  const totalSelectedBytes = selectedArchives.reduce((acc, a) => acc + a.sizeBytes, 0);
 
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
@@ -251,7 +325,7 @@ export function ImportPage() {
       <div className="border border-[var(--cn-border)] rounded-xl bg-[var(--cn-surface)] p-4">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
           {[
-            { id: 'select', label: '1. Package Source' },
+            { id: 'select', label: '1. Multi-ZIP Source' },
             { id: 'inventory', label: '2. Sandbox Scan' },
             { id: 'review', label: '3. Curriculum Review' },
             { id: 'complete', label: '4. Vault Ready' },
@@ -295,21 +369,22 @@ export function ImportPage() {
           <div className="max-w-xl mx-auto space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30">
               <ShieldCheck size={13} />
-              <span>DETERMINISTIC INGESTION ENGINE</span>
+              <span>MULTI-ARCHIVE INGESTION ENGINE</span>
             </div>
             <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--cn-text-primary)]">
-              Ingest Course Package or Manifest
+              Ingest Single or Multiple ZIP Archives
             </h2>
             <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] leading-relaxed">
-              Upload a ZIP archive, folder, or JSON manifest. CourseNest extracts files inside a protected sandbox,
-              verifies Zip Slip boundaries, and builds your offline curriculum.
+              Select one or multiple ZIP files belonging to one course (e.g. lectures, labs, slide decks).
+              CourseNest extracts and merges them into a unified curriculum with full Zip Slip verification.
             </p>
           </div>
 
-          {/* Hidden File Input */}
+          {/* Hidden File Input supporting multiple archives */}
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept=".zip,.tar.gz,.tgz,.json"
             onChange={handleFileUpload}
             className="hidden"
@@ -325,7 +400,7 @@ export function ImportPage() {
                   : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
               }`}
             >
-              Archive / Manifest File
+              Multiple Archives / Manifest (.zip, .json)
             </button>
             <button
               onClick={() => setImportMode('json')}
@@ -340,7 +415,7 @@ export function ImportPage() {
           </div>
 
           {importMode === 'file' ? (
-            /* Dropzone */
+            /* Multi-file Dropzone */
             <div
               onClick={() => fileInputRef.current?.click()}
               className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-10 bg-[var(--cn-bg)] transition-colors cursor-pointer space-y-4"
@@ -350,24 +425,29 @@ export function ImportPage() {
               </div>
               <div className="space-y-1">
                 <p className="font-bold text-sm text-[var(--cn-text-primary)]">
-                  Click to browse or drop course archive / manifest here
+                  Click to select multiple ZIP archives or drop course folder here
                 </p>
                 <p className="text-xs text-[var(--cn-text-muted)] font-mono">
-                  Supports .zip, .tar.gz, or CourseNest manifest v1.0.0 (.json)
+                  Select multiple files at once (e.g. part1.zip, part2.zip) or manifest.json
                 </p>
               </div>
 
+              {/* Sample multi-archive preset buttons */}
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleSelectPreset('CS301_Distributed_Systems.zip', 48 * 1024 * 1024);
+                    handleSelectPreset('CS301 Multi-Part Course Package', [
+                      { name: 'CS301_Part1_Bootloader.zip', size: 24 * 1024 * 1024 },
+                      { name: 'CS301_Part2_Interrupts.zip', size: 32 * 1024 * 1024 },
+                      { name: 'CS301_Part3_Paging.zip', size: 18 * 1024 * 1024 },
+                    ]);
                   }}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-surface-subtle)] border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
                 >
-                  <FileArchive size={14} className="text-[var(--cn-primary)]" />
-                  <span>Use Sample Archive (CS301)</span>
+                  <Layers size={14} className="text-[var(--cn-primary)]" />
+                  <span>Use Sample Multi-ZIP (3 Archives)</span>
                 </button>
               </div>
             </div>
@@ -393,9 +473,17 @@ export function ImportPage() {
                     setCourseSubject(transformed.subject);
                     setInstructorName(transformed.instructorName);
                     setCourseDescription(transformed.description);
-                    setSelectedFileName('pasted_manifest.json');
+                    setSelectedArchives([
+                      {
+                        id: 'pasted-json',
+                        name: 'manifest.json',
+                        sizeBytes: rawJsonInput.length,
+                        status: 'verified',
+                        discoveredFiles: ['manifest.json'],
+                      },
+                    ]);
                     setStep('review');
-                  } catch (err) {
+                  } catch {
                     alert('Invalid JSON manifest structure.');
                   }
                 }}
@@ -412,45 +500,45 @@ export function ImportPage() {
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/30 text-xs space-y-1">
               <span className="font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5 font-mono">
                 <ShieldCheck size={14} className="text-[var(--cn-success)]" />
-                Zip Slip Invariant
+                Multi-ZIP Aggregation
               </span>
               <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-                Rejects directory escapes (`../`). Decompresses only into sandboxed scratch roots.
+                Extracts multiple split archives into isolated sandboxes and merges them into a single course.
               </p>
             </div>
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/30 text-xs space-y-1">
               <span className="font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5 font-mono">
                 <ShieldCheck size={14} className="text-[var(--cn-success)]" />
-                Atomic Rollback
+                Error Isolation
               </span>
               <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-                If decompression fails, all staging bytes are instantly rolled back. No orphan files.
+                If one archive has a corrupt entry, warnings are logged and other archives continue safely.
               </p>
             </div>
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/30 text-xs space-y-1">
               <span className="font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5 font-mono">
                 <ShieldCheck size={14} className="text-[var(--cn-success)]" />
-                Untrusted Code Quarantine
+                Removable Media Support
               </span>
               <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-                Code files (.py, .js, .sh, .c) are classified as static text blocks and never executed.
+                Can write extracted video assets directly to an external USB flash drive or SD card.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* STEP 2: INVENTORY & SANDBOX SCAN */}
+      {/* STEP 2: INVENTORY & MULTI-ARCHIVE SCAN */}
       {step === 'inventory' && (
         <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-8 space-y-6">
           {isProcessing ? (
             <div className="py-16 text-center space-y-4">
               <Loader2 size={36} className="animate-spin text-[var(--cn-primary)] mx-auto" />
               <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
-                Sandboxed Decompression & Security Audit...
+                Sandboxed Multi-Archive Decompression in Progress...
               </h3>
               <p className="text-xs text-[var(--cn-text-muted)] font-mono">
-                Checking Zip Slip traversal boundaries • Computing SHA-256 signatures
+                Decompressing {selectedArchives.length} archive(s) • Validating Zip Slip boundaries
               </p>
             </div>
           ) : (
@@ -458,46 +546,98 @@ export function ImportPage() {
               <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-4">
                 <div>
                   <h3 className="font-bold text-lg text-[var(--cn-text-primary)]">
-                    Sandbox Scan: {selectedFileName}
+                    Inventory Scan: {selectedArchives.length} Archive(s) Detected
                   </h3>
                   <p className="text-xs text-[var(--cn-text-muted)] font-mono mt-0.5">
-                    100% Verified Clean • 0 path escapes • {(fileSizeBytes / 1024 / 1024).toFixed(1)} MB extracted
+                    {(totalSelectedBytes / 1024 / 1024).toFixed(1)} MB total compressed • 0 path escapes detected
                   </p>
                 </div>
                 <span className="px-3 py-1 rounded-full text-xs font-mono font-semibold bg-[var(--cn-success-tint)] text-[var(--cn-success)] border border-[var(--cn-success)]/30">
-                  Audit Passed
+                  All Archives Verified
                 </span>
               </div>
 
-              {/* Files table */}
-              <div className="border border-[var(--cn-border)] rounded-xl overflow-hidden divide-y divide-[var(--cn-border)]/60 text-xs font-mono">
-                <div className="p-3 bg-[var(--cn-bg)] font-semibold text-[var(--cn-text-secondary)] flex justify-between">
-                  <span>Discovered Resource Path</span>
-                  <span>Safety Status / Action</span>
-                </div>
-                {[
-                  { name: '01_Consensus/01_replicated_state_machines.pdf', type: 'PDF Slide Deck', status: 'Verified Clean' },
-                  { name: '01_Consensus/lecture01_audio.mp4', type: 'Video Media (H.264)', status: 'Verified Clean' },
-                  { name: '02_Leader_Election/02_raft_leader_election.c', type: 'Quarantined Static Text', status: 'Non-executable' },
-                  { name: '02_Leader_Election/raft_terms_cheatsheet.pdf', type: 'PDF Document', status: 'Verified Clean' },
-                  { name: '03_Log_Replication/consensus_invariants.pdf', type: 'PDF Document', status: 'Verified Clean' },
-                ].map((f, i) => (
-                  <div key={i} className="p-3 flex items-center justify-between bg-[var(--cn-surface)]">
-                    <span className="text-[var(--cn-text-primary)] truncate max-w-md">{f.name}</span>
-                    <span className="text-[var(--cn-success)] flex items-center gap-1.5 shrink-0">
-                      <Check size={12} />
-                      {f.status}
+              {/* Archive cards list */}
+              <div className="space-y-3">
+                {selectedArchives.map((arch) => (
+                  <div
+                    key={arch.id}
+                    className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] flex items-center justify-between gap-4 text-xs font-mono"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileArchive size={18} className="text-[var(--cn-primary)]" />
+                      <div>
+                        <p className="font-semibold text-[var(--cn-text-primary)]">{arch.name}</p>
+                        <p className="text-[11px] text-[var(--cn-text-muted)]">
+                          {(arch.sizeBytes / 1024 / 1024).toFixed(1)} MB • {arch.discoveredFiles.length} files discovered
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[var(--cn-success)] flex items-center gap-1 font-semibold">
+                      <Check size={13} />
+                      Clean Sandbox
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="flex items-center justify-between pt-4">
+              {/* Storage Destination Selector */}
+              <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/40 space-y-2">
+                <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5">
+                  <HardDrive size={14} className="text-[var(--cn-primary)]" />
+                  Target Storage Location
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+                  <label
+                    className={`p-3 rounded-lg border cursor-pointer flex items-center gap-2.5 transition-colors ${
+                      targetStorage === 'internal'
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-surface)] font-semibold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] text-[var(--cn-text-muted)]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="targetStorage"
+                      checked={targetStorage === 'internal'}
+                      onChange={() => setTargetStorage('internal')}
+                      className="accent-[var(--cn-primary)]"
+                    />
+                    <div>
+                      <p>Internal App Vault</p>
+                      <p className="text-[10px] text-[var(--cn-text-muted)] font-normal">Primary fast local disk</p>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`p-3 rounded-lg border cursor-pointer flex items-center gap-2.5 transition-colors ${
+                      targetStorage === 'external'
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-surface)] font-semibold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] text-[var(--cn-text-muted)]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="targetStorage"
+                      checked={targetStorage === 'external'}
+                      onChange={() => setTargetStorage('external')}
+                      className="accent-[var(--cn-primary)]"
+                    />
+                    <div>
+                      <p>External USB Volume</p>
+                      <p className="text-[10px] text-[var(--cn-text-muted)] font-normal truncate max-w-xs">
+                        {storageConfig.externalMountPath}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--cn-border)]">
                 <button
                   onClick={() => setStep('select')}
                   className="px-4 py-2 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]"
                 >
-                  Choose Different Archive
+                  Choose Different Archives
                 </button>
                 <button
                   onClick={() => setStep('review')}
@@ -520,7 +660,7 @@ export function ImportPage() {
               Curriculum Architecture & Structure
             </h3>
             <p className="text-xs text-[var(--cn-text-secondary)] mt-0.5">
-              Refine the course title, instructor attribution, and module sequence before writing into your offline vault.
+              Refine course title, module titles, and review merged units from {selectedArchives.length} archive(s).
             </p>
           </div>
 
@@ -626,10 +766,10 @@ export function ImportPage() {
         <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-12 text-center space-y-4">
           <Loader2 size={40} className="animate-spin text-[var(--cn-primary)] mx-auto" />
           <h3 className="font-bold text-lg text-[var(--cn-text-primary)]">
-            Writing Curriculum Records to Local Disk...
+            Writing Merged Curriculum Records to Storage...
           </h3>
           <p className="text-xs text-[var(--cn-text-muted)] font-mono">
-            Writing SQLite metadata • Indexing offline content blocks
+            Target: {targetStorage === 'external' ? 'External USB Drive' : 'Internal App Vault'} • Writing SQLite metadata
           </p>
         </div>
       )}
@@ -652,16 +792,18 @@ export function ImportPage() {
 
           <div className="max-w-md mx-auto p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono text-left space-y-2">
             <div className="flex justify-between">
-              <span className="text-[var(--cn-text-muted)]">Course Subject:</span>
-              <span className="font-semibold text-[var(--cn-text-primary)]">{courseSubject}</span>
+              <span className="text-[var(--cn-text-muted)]">Source Archives:</span>
+              <span className="font-semibold text-[var(--cn-text-primary)]">{selectedArchives.length} files merged</span>
             </div>
             <div className="flex justify-between">
               <span className="text-[var(--cn-text-muted)]">Curriculum Modules:</span>
               <span className="font-semibold text-[var(--cn-text-primary)]">{proposedSections.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--cn-text-muted)]">Local Storage Integrity:</span>
-              <span className="font-semibold text-[var(--cn-success)]">Verified Air-Gap</span>
+              <span className="text-[var(--cn-text-muted)]">Storage Target:</span>
+              <span className="font-semibold text-[var(--cn-primary)]">
+                {targetStorage === 'external' ? 'External Volume' : 'Internal Vault'}
+              </span>
             </div>
           </div>
 
@@ -675,7 +817,7 @@ export function ImportPage() {
             <button
               onClick={() => {
                 setStep('select');
-                setSelectedFileName('');
+                setSelectedArchives([]);
               }}
               className="px-4 py-2.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]"
             >

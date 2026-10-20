@@ -6,6 +6,7 @@ import os from 'node:os';
 import AdmZip from 'adm-zip';
 import {
   extractArchive,
+  extractMultipleArchives,
   sniffMimeTypeFromBuffer,
   detectMimeType,
   detectResourceType,
@@ -179,5 +180,28 @@ describe('Importer Package & Security Architecture', () => {
     const pyEntry = result.report.filesImported.find((f) => f.originalPath.endsWith('.py'));
     assert.ok(pyEntry);
     assert.ok(pyEntry.reason?.includes('Untrusted code; sandboxed as static text resource'));
+  });
+
+  it('safely extracts multiple archives for one course in a single batch', async () => {
+    // Archive 1: module1.zip
+    const zip1 = new AdmZip();
+    zip1.addFile('notes.txt', Buffer.from('module 1 notes'));
+    const zip1Path = path.join(tempDir, 'module1.zip');
+    zip1.writeZip(zip1Path);
+
+    // Archive 2: module2.zip
+    const zip2 = new AdmZip();
+    zip2.addFile('handout.pdf', Buffer.from('%PDF-1.4 handout'));
+    const zip2Path = path.join(tempDir, 'module2.zip');
+    zip2.writeZip(zip2Path);
+
+    const sandbox = path.join(tempDir, 'multi_sandbox');
+    const results = await extractMultipleArchives([zip1Path, zip2Path], sandbox);
+
+    assert.equal(results.length, 2);
+    assert.equal(results[0]?.status, 'success');
+    assert.equal(results[1]?.status, 'success');
+    assert.ok(results[0]?.files.some((f) => f.includes('notes.txt')));
+    assert.ok(results[1]?.files.some((f) => f.includes('handout.pdf')));
   });
 });
