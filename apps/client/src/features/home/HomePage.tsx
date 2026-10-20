@@ -1,99 +1,175 @@
 import { Link } from 'react-router-dom';
-import { useCourses } from '../../lib/courseStore';
+import { useVaultCourses, getCourseProgressPercent, getVaultAnalytics, type CourseData } from '../../lib/courseStore';
 import { CourseCard } from '../../components/CourseCard';
-import { APP_NAME } from '@coursenest/config';
 import { 
   Play, 
   Upload, 
   Library, 
   BookOpen, 
   CheckCircle2, 
-  Sparkles,
-  ArrowRight
+  ShieldCheck,
+  ArrowRight,
+  HardDrive,
+  StickyNote,
+  Award,
+  Zap
 } from 'lucide-react';
+import { APP_NAME } from '@coursenest/config';
 
 export function HomePage() {
-  const { courses } = useCourses();
+  const { courses } = useVaultCourses();
+  const analytics = getVaultAnalytics();
 
-  // Find a course to continue
-  const continueCourse = courses[0];
-  const firstSection = continueCourse?.sections[0];
-  const firstLesson = firstSection?.lessons[0];
+  // Find active course to resume (prioritize course with highest progress or first course)
+  const sortedCourses = [...courses].sort((a: CourseData, b: CourseData) => {
+    return getCourseProgressPercent(b) - getCourseProgressPercent(a);
+  });
+
+  const activeCourseData = sortedCourses[0];
+  const activeProgress = activeCourseData ? getCourseProgressPercent(activeCourseData) : 0;
+  const firstSection = activeCourseData?.sections[0];
+  const resumeLesson = firstSection?.lessons[0];
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-10">
-      {/* Welcome Banner */}
-      <section className="bg-gradient-to-r from-[var(--cn-surface)] to-[var(--cn-surface-subtle)] border border-[var(--cn-border)] rounded-2xl p-6 md:p-8">
-        <div className="max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] mb-4">
-            <Sparkles size={13} />
-            <span>Local-First Learning Environment</span>
+      {/* Obsidian Academic Hero Banner */}
+      <section className="relative overflow-hidden rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] p-6 md:p-8">
+        <div 
+          className="absolute inset-0 opacity-10 pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(var(--cn-primary) 1px, transparent 1px)`,
+            backgroundSize: '24px 24px',
+          }}
+        />
+
+        <div className="relative z-10 max-w-2xl space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30">
+            <ShieldCheck size={14} />
+            <span>AIR-GAPPED OFFLINE STUDIO</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[var(--cn-text-primary)] mb-2">
-            Welcome to {APP_NAME}
+
+          <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
+            Focus deeply without digital noise.
           </h1>
-          <p className="text-sm md:text-base text-[var(--cn-text-secondary)] leading-relaxed mb-6">
-            Study uninterrupted without internet access. Import your archives, PDFs, and slide decks, 
-            or continue studying your offline-ready university curriculum.
+
+          <p className="text-sm md:text-base text-[var(--cn-text-secondary)] leading-relaxed">
+            {APP_NAME} turns your device into an autonomous academic workstation. All videos, lecture notes,
+            slide decks, and checkpoint assessments execute 100% locally from your machine.
           </p>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
               to="/import"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-sm font-medium hover:bg-[var(--cn-primary-hover)] transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
             >
-              <Upload size={16} />
-              <span>Import Course Materials</span>
+              <Upload size={15} />
+              <span>Ingest Course Package</span>
             </Link>
             <Link
               to="/library"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)] transition-colors"
             >
-              <Library size={16} />
-              <span>Browse Library ({courses.length})</span>
+              <Library size={15} />
+              <span>Explore Vault ({courses.length} Courses)</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Continue Learning Card */}
-      {continueCourse && firstLesson && (
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-[var(--cn-text-primary)] flex items-center gap-2">
-              <Play size={18} className="text-[var(--cn-primary)]" />
-              <span>Continue Learning</span>
+      {/* Learning Telemetry Grid */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
+          <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
+            <span className="text-[11px] font-mono uppercase tracking-wider">Vault Courses</span>
+            <BookOpen size={15} className="text-[var(--cn-primary)]" />
+          </div>
+          <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.totalCourses}</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">{analytics.totalLessons} curriculum units</p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
+          <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
+            <span className="text-[11px] font-mono uppercase tracking-wider">Lessons Done</span>
+            <Award size={15} className="text-[var(--cn-success)]" />
+          </div>
+          <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.completedLessons}</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Verified offline completion</p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
+          <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
+            <span className="text-[11px] font-mono uppercase tracking-wider">Study Notes</span>
+            <StickyNote size={15} className="text-[var(--cn-accent)]" />
+          </div>
+          <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.notesCount}</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Private local markdown</p>
+        </div>
+
+        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
+          <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
+            <span className="text-[11px] font-mono uppercase tracking-wider">Local Storage</span>
+            <HardDrive size={15} className="text-[var(--cn-info)]" />
+          </div>
+          <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.estimatedStorageMB} MB</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Zero remote dependencies</p>
+        </div>
+      </section>
+
+      {/* Active Course Resume Dossier */}
+      {activeCourseData && resumeLesson && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)] flex items-center gap-2">
+              <Zap size={15} className="text-[var(--cn-primary)]" />
+              <span>Active Curriculum in Session</span>
             </h2>
             <Link
-              to={`/course/${continueCourse.course.id}`}
-              className="text-xs text-[var(--cn-primary)] hover:underline flex items-center gap-1 font-medium"
+              to={`/course/${activeCourseData.id}`}
+              className="text-xs text-[var(--cn-primary)] hover:underline flex items-center gap-1 font-mono font-medium"
             >
-              <span>Course overview</span>
+              <span>View Full Syllabus</span>
               <ArrowRight size={13} />
             </Link>
           </div>
 
-          <div className="border border-[var(--cn-border)] rounded-xl bg-[var(--cn-surface)] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="space-y-1.5 max-w-xl">
-              <div className="flex items-center gap-2 text-xs text-[var(--cn-text-muted)]">
-                <span className="font-medium text-[var(--cn-primary)]">{continueCourse.course.subject}</span>
-                <span>•</span>
-                <span>{firstSection?.section.title}</span>
+          <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:border-[var(--cn-border-highlight)] transition-colors">
+            <div className="space-y-2 max-w-xl">
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="px-2 py-0.5 rounded bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-semibold">
+                  {activeCourseData.subject}
+                </span>
+                <span className="text-[var(--cn-text-muted)]">•</span>
+                <span className="text-[var(--cn-text-secondary)]">{activeCourseData.title}</span>
               </div>
-              <h3 className="text-lg font-semibold text-[var(--cn-text-primary)]">
-                {firstLesson.lesson.title}
+
+              <h3 className="text-lg font-bold text-[var(--cn-text-primary)]">
+                {resumeLesson.title}
               </h3>
-              <p className="text-xs text-[var(--cn-text-secondary)] line-clamp-2">
-                {firstLesson.lesson.description}
+
+              <p className="text-xs text-[var(--cn-text-secondary)] line-clamp-2 leading-relaxed">
+                {resumeLesson.description || 'Continue your structured self-paced study with video lecture, lecture slides, and checkpoints.'}
               </p>
+
+              {/* Progress preview */}
+              <div className="flex items-center gap-3 pt-1">
+                <div className="h-1.5 w-32 bg-[var(--cn-surface-subtle)] rounded-full overflow-hidden border border-[var(--cn-border)]">
+                  <div
+                    className="h-full bg-[var(--cn-primary)] rounded-full"
+                    style={{ width: `${activeProgress}%` }}
+                  />
+                </div>
+                <span className="text-[11px] font-mono text-[var(--cn-text-muted)]">
+                  {activeProgress}% Completed
+                </span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4 w-full md:w-auto shrink-0">
+            <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
               <Link
-                to={`/course/${continueCourse.course.id}/lesson/${firstLesson.lesson.id}`}
-                className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-sm font-medium hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
+                to={`/course/${activeCourseData.id}/lesson/${resumeLesson.id}`}
+                className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-all shadow-sm"
               >
-                <Play size={16} />
+                <Play size={14} fill="currentColor" />
                 <span>Resume Lesson</span>
               </Link>
             </div>
@@ -101,77 +177,88 @@ export function HomePage() {
         </section>
       )}
 
-      {/* My Courses Section */}
-      <section>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-[var(--cn-text-primary)] flex items-center gap-2">
-            <BookOpen size={18} className="text-[var(--cn-primary)]" />
-            <span>My Courses Available Offline</span>
+      {/* Vault Courses Section */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)] flex items-center gap-2">
+            <BookOpen size={15} className="text-[var(--cn-primary)]" />
+            <span>Enrolled Curriculums in Vault</span>
           </h2>
           <Link
             to="/library"
-            className="text-xs text-[var(--cn-primary)] hover:underline font-medium"
+            className="text-xs font-mono text-[var(--cn-primary)] hover:underline font-medium"
           >
-            View all
+            Vault Directory ({courses.length})
           </Link>
         </div>
 
         {courses.length === 0 ? (
-          <div className="border border-dashed border-[var(--cn-border)] rounded-xl p-10 text-center bg-[var(--cn-surface)]">
-            <BookOpen size={40} className="mx-auto mb-3 text-[var(--cn-text-muted)]" />
-            <p className="font-semibold text-sm text-[var(--cn-text-primary)]">No courses imported yet</p>
-            <p className="text-xs text-[var(--cn-text-muted)] mt-1 mb-4">
-              Import a course archive or folder to start learning offline.
-            </p>
+          <div className="border border-dashed border-[var(--cn-border)] rounded-2xl p-12 text-center bg-[var(--cn-surface)] space-y-4">
+            <BookOpen size={40} className="mx-auto text-[var(--cn-text-muted)]" />
+            <div>
+              <p className="font-bold text-sm text-[var(--cn-text-primary)]">Your vault is currently empty</p>
+              <p className="text-xs text-[var(--cn-text-muted)] mt-1">
+                Ingest a university course package or manifest to begin learning completely offline.
+              </p>
+            </div>
             <Link
               to="/import"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-medium"
             >
               <Upload size={14} />
-              <span>Import your first course</span>
+              <span>Ingest First Course</span>
             </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {courses.map(({ course, sections }) => (
-              <CourseCard
-                key={course.id}
-                course={course}
-                progressPercent={course.id === 'course-cs101' ? 45 : 15}
-                lastLessonId={sections[0]?.lessons[0]?.lesson.id}
-              />
-            ))}
+            {courses.map((course: CourseData) => {
+              const progress = getCourseProgressPercent(course);
+              const totalLessons = course.sections.reduce((acc: number, s) => acc + s.lessons.length, 0);
+
+              return (
+                <CourseCard
+                  key={course.id}
+                  course={course}
+                  progressPercent={progress}
+                  totalSections={course.sections.length}
+                  totalLessons={totalLessons}
+                  lastLessonId={course.sections[0]?.lessons[0]?.id}
+                />
+              );
+            })}
           </div>
         )}
       </section>
 
-      {/* Value Pillars (Offline Guarantee) */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-[var(--cn-border)]">
-        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
-          <div className="flex items-center gap-2 font-semibold text-sm text-[var(--cn-text-primary)]">
-            <CheckCircle2 size={16} className="text-[var(--cn-success)]" />
-            <span>100% Offline Capable</span>
+      {/* Obsidian Academic Guarantees */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-[var(--cn-border)]">
+        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
+          <div className="flex items-center gap-2 font-bold text-xs text-[var(--cn-text-primary)]">
+            <CheckCircle2 size={15} className="text-[var(--cn-success)]" />
+            <span>Deterministic Storage</span>
           </div>
-          <p className="text-xs text-[var(--cn-text-muted)]">
-            Videos, PDFs, slides, and notes run completely off local disk.
+          <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
+            Content is validated with SHA-256 cryptographic hashes. Deduplication saves disk bytes.
           </p>
         </div>
-        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
-          <div className="flex items-center gap-2 font-semibold text-sm text-[var(--cn-text-primary)]">
-            <CheckCircle2 size={16} className="text-[var(--cn-success)]" />
-            <span>Local-First Storage</span>
+
+        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
+          <div className="flex items-center gap-2 font-bold text-xs text-[var(--cn-text-primary)]">
+            <CheckCircle2 size={15} className="text-[var(--cn-success)]" />
+            <span>Zero-Phone-Home Privacy</span>
           </div>
-          <p className="text-xs text-[var(--cn-text-muted)]">
-            Progress and bookmarks survive app restarts without server sync.
+          <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
+            No telemetry, no analytics beacons, and no ads. Your learning timeline belongs strictly to you.
           </p>
         </div>
-        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
-          <div className="flex items-center gap-2 font-semibold text-sm text-[var(--cn-text-primary)]">
-            <CheckCircle2 size={16} className="text-[var(--cn-success)]" />
-            <span>Safe Archive Import</span>
+
+        <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
+          <div className="flex items-center gap-2 font-bold text-xs text-[var(--cn-text-primary)]">
+            <CheckCircle2 size={15} className="text-[var(--cn-success)]" />
+            <span>Sandboxed Extraction</span>
           </div>
-          <p className="text-xs text-[var(--cn-text-muted)]">
-            Zip Slip protected, duplicate hashing, and deterministic sequencing.
+          <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
+            Every ZIP or archive is decompressed inside sandboxed boundaries with Zip Slip protection.
           </p>
         </div>
       </section>

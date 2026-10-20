@@ -1,20 +1,21 @@
 import { Link } from 'react-router-dom';
-import type { Course } from '@coursenest/domain';
-import { DownloadStatus } from '@coursenest/domain';
+import type { CourseData } from '../lib/courseStore';
 import { 
   CheckCircle2, 
-  CloudDownload, 
-  Cloud, 
   Clock, 
   Play, 
-  BookOpen, 
-  Trash2 
+  Layers, 
+  Trash2,
+  HardDrive,
+  FileText
 } from 'lucide-react';
 
 interface CourseCardProps {
-  course: Course;
+  course: CourseData;
   progressPercent?: number;
   lastLessonId?: string;
+  totalLessons?: number;
+  totalSections?: number;
   onRemoveDownload?: (courseId: string) => void;
   viewMode?: 'grid' | 'list';
 }
@@ -23,122 +24,146 @@ export function CourseCard({
   course,
   progressPercent = 0,
   lastLessonId,
+  totalLessons = 4,
+  totalSections = 2,
   onRemoveDownload,
   viewMode = 'grid',
 }: CourseCardProps) {
-  const isDownloaded = course.localAvailability === DownloadStatus.Downloaded;
-  const isDownloading = course.localAvailability === DownloadStatus.Downloading;
-
   const durationHours = course.estimatedDurationMinutes 
-    ? `${Math.round(course.estimatedDurationMinutes / 60)}h` 
+    ? `${(course.estimatedDurationMinutes / 60).toFixed(1)}h` 
     : null;
+
+  // Extract a clean course code from id or subject (e.g., "CS-101", "ML-201")
+  const codeMatch = course.id ? course.id.match(/([a-zA-Z]+)(\d+)/) : null;
+  const courseCode = (codeMatch && codeMatch[1] && codeMatch[2])
+    ? `${codeMatch[1].toUpperCase()}-${codeMatch[2]}`
+    : 'ACAD-01';
 
   return (
     <div
-      className={`rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] overflow-hidden transition-shadow hover:shadow-md flex ${
-        viewMode === 'list' ? 'flex-row items-center p-4 gap-6' : 'flex-col'
+      className={`group relative rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-border-highlight)] transition-all duration-200 overflow-hidden flex ${
+        viewMode === 'list' ? 'flex-row items-center p-5 gap-6' : 'flex-col'
       }`}
     >
-      {/* Thumbnail or Fallback Header */}
+      {/* Tactical Dossier Header / Preview Area */}
       <div
         className={`${
           viewMode === 'list'
-            ? 'w-48 h-32 rounded-lg shrink-0'
-            : 'w-full h-40'
-        } bg-gradient-to-br from-[var(--cn-primary-tint)] to-[var(--cn-surface-subtle)] flex items-center justify-center relative border-b border-[var(--cn-border)]`}
+            ? 'w-52 h-36 rounded-lg shrink-0'
+            : 'w-full h-36'
+        } relative overflow-hidden bg-[var(--cn-bg)] border-b border-[var(--cn-border)] flex flex-col justify-between p-4`}
       >
-        <BookOpen size={36} className="text-[var(--cn-primary)] opacity-40" />
+        {/* Subtle geometric pattern background */}
+        <div 
+          className="absolute inset-0 opacity-15 pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(var(--cn-border) 1px, transparent 1px)`,
+            backgroundSize: '16px 16px',
+          }}
+        />
 
-        {/* Offline / Download status badge (always icon + text) */}
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-[var(--cn-surface)]/90 backdrop-blur-sm border border-[var(--cn-border)]">
-          {isDownloaded ? (
-            <>
-              <CheckCircle2 size={12} className="text-[var(--cn-success)]" />
-              <span className="text-[var(--cn-text-secondary)]">Available Offline</span>
-            </>
-          ) : isDownloading ? (
-            <>
-              <CloudDownload size={12} className="text-[var(--cn-info)] animate-pulse" />
-              <span className="text-[var(--cn-text-secondary)]">Downloading</span>
-            </>
-          ) : (
-            <>
-              <Cloud size={12} className="text-[var(--cn-text-muted)]" />
-              <span className="text-[var(--cn-text-secondary)]">Online Only</span>
-            </>
-          )}
+        {/* Top Badges */}
+        <div className="relative z-10 flex items-center justify-between">
+          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-primary)] shadow-xs">
+            {courseCode}
+          </span>
+
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[var(--cn-surface)]/90 backdrop-blur-sm border border-[var(--cn-border)] text-[var(--cn-success)]">
+            <CheckCircle2 size={11} className="text-[var(--cn-success)]" />
+            <span>OFFLINE VAULT</span>
+          </div>
+        </div>
+
+        {/* Course Code Watermark / Subject Preview */}
+        <div className="relative z-10 flex items-end justify-between">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--cn-text-muted)] font-mono">
+              {course.subject || 'Engineering'}
+            </span>
+            <p className="text-xs font-medium text-[var(--cn-text-secondary)]">
+              {course.instructorName}
+            </p>
+          </div>
+
+          <div className="text-[10px] font-mono text-[var(--cn-text-muted)] flex items-center gap-1">
+            <HardDrive size={11} />
+            <span>Local Vault</span>
+          </div>
         </div>
       </div>
 
-      {/* Course Info */}
-      <div className="p-5 flex-1 flex flex-col justify-between">
+      {/* Course Info & Progress */}
+      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
         <div>
-          <div className="flex items-center gap-2 mb-1.5 text-xs text-[var(--cn-text-muted)]">
-            <span>{course.subject || 'General'}</span>
-            {durationHours && (
-              <>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock size={12} />
-                  {durationHours}
-                </span>
-              </>
-            )}
-          </div>
-
-          <h3 className="font-semibold text-base text-[var(--cn-text-primary)] line-clamp-1 mb-1">
+          <h3 className="font-sans font-bold text-base text-[var(--cn-text-primary)] group-hover:text-[var(--cn-primary)] transition-colors line-clamp-1 mb-1.5">
             {course.title}
           </h3>
 
-          <p className="text-xs text-[var(--cn-text-secondary)] line-clamp-2 mb-4">
+          <p className="text-xs text-[var(--cn-text-secondary)] line-clamp-2 leading-relaxed">
             {course.description}
           </p>
         </div>
 
-        <div>
-          {/* Progress Indicator */}
-          <div className="mb-4">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-[var(--cn-text-muted)]">Progress</span>
-              <span className="font-medium text-[var(--cn-text-secondary)]">{progressPercent}%</span>
-            </div>
-            <div className="h-1.5 w-full bg-[var(--cn-surface-subtle)] rounded-full overflow-hidden border border-[var(--cn-border)]">
-              <div
-                className="h-full bg-[var(--cn-primary)] rounded-full transition-all"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
+        {/* Curriculum Metadata Matrix */}
+        <div className="flex items-center gap-4 text-[11px] font-mono text-[var(--cn-text-muted)] pt-1 border-t border-[var(--cn-border)]/60">
+          <span className="flex items-center gap-1.5">
+            <Layers size={13} className="text-[var(--cn-primary)]" />
+            {totalSections} Modules
+          </span>
+          <span className="flex items-center gap-1.5">
+            <FileText size={13} className="text-[var(--cn-primary)]" />
+            {totalLessons} Lessons
+          </span>
+          {durationHours && (
+            <span className="flex items-center gap-1.5">
+              <Clock size={13} className="text-[var(--cn-primary)]" />
+              {durationHours}
+            </span>
+          )}
+        </div>
 
-          {/* Action Row */}
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
+        {/* Learning Progress Bar */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-[11px] font-mono">
+            <span className="text-[var(--cn-text-muted)]">Progress</span>
+            <span className="font-semibold text-[var(--cn-text-primary)]">{progressPercent}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-[var(--cn-surface-subtle)] rounded-full overflow-hidden border border-[var(--cn-border)]">
+            <div
+              className="h-full bg-[var(--cn-primary)] rounded-full transition-all duration-300"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Action Row */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
+          <Link
+            to={lastLessonId ? `/course/${course.id}/lesson/${lastLessonId}` : `/course/${course.id}`}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+          >
+            <Play size={12} fill="currentColor" />
+            <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Curriculum'}</span>
+          </Link>
+
+          <div className="flex items-center gap-1.5">
             <Link
-              to={lastLessonId ? `/course/${course.id}/lesson/${lastLessonId}` : `/course/${course.id}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-medium hover:bg-[var(--cn-primary-hover)] transition-colors"
+              to={`/course/${course.id}`}
+              className="px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
             >
-              <Play size={13} />
-              <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Course'}</span>
+              Dossier
             </Link>
 
-            <div className="flex items-center gap-1">
-              <Link
-                to={`/course/${course.id}`}
-                className="px-2.5 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
+            {onRemoveDownload && (
+              <button
+                onClick={() => onRemoveDownload(course.id)}
+                title="Remove course from local vault"
+                aria-label="Remove downloaded course files"
+                className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-colors"
               >
-                Overview
-              </Link>
-
-              {isDownloaded && onRemoveDownload && (
-                <button
-                  onClick={() => onRemoveDownload(course.id)}
-                  title="Remove local media files (keeps learning records)"
-                  aria-label="Remove downloaded course files"
-                  className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-colors"
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </div>
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>

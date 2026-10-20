@@ -1,120 +1,110 @@
 @import "tailwindcss";
 
 /* 
- * CourseNest Design System Tokens
- * Source: CourseNest UI/UX Blueprint & Implementation Brief
- * Direction: Calm learning studio; focused, trustworthy, editorial, practical.
+ * CourseNest Impeccable Design System Tokens
+ * Aesthetic: Academic Focus & Modern Studio (Anti-AI-Slop Craft)
+ * Fonts: Plus Jakarta Sans (Headings), Inter (Body), JetBrains Mono (Code/Telemetry)
  */
 
 :root {
-  /* Light Theme Color Tokens */
-  --cn-bg: #F6F7F5;
-  --cn-surface: #FFFFFF;
-  --cn-surface-subtle: #EDF1EE;
-  --cn-text-primary: #17221D;
-  --cn-text-secondary: #53625A;
-  --cn-text-muted: #788A80;
-  --cn-border: #D8E0DB;
-  
-  /* Primary & Accent (Evergreen Studio) */
-  --cn-primary: #28664F;
-  --cn-primary-hover: #20533F;
-  --cn-primary-tint: #E4F2EA;
-  --cn-accent: #D18A50;
-  
-  /* Status Semantics (Always paired with icons and labels) */
-  --cn-info: #245EA8;
-  --cn-info-tint: #E8F1FC;
-  --cn-success: #237A57;
-  --cn-success-tint: #E3F5ED;
-  --cn-warning: #9A5B13;
-  --cn-warning-tint: #FCF4E8;
-  --cn-danger: #B42318;
-  --cn-danger-tint: #FEECEB;
+  /* Fonts */
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Geometry & Spacing */
-  --cn-radius-sm: 6px;
-  --cn-radius-md: 8px;
-  --cn-radius-lg: 12px;
-  --cn-radius-xl: 16px;
+  /* Light Theme (Paper Crisp Academic Studio) */
+  --cn-bg: #F8FAF9;
+  --cn-surface: #FFFFFF;
+  --cn-surface-subtle: #F0F4F2;
+  --cn-surface-hover: #E5ECE8;
+  --cn-surface-active: #D8E2DC;
   
-  /* Control heights */
-  --cn-control-compact: 36px;
-  --cn-control-default: 40px;
-  --cn-control-touch: 48px;
+  --cn-text-primary: #121C16;
+  --cn-text-secondary: #485950;
+  --cn-text-muted: #73887E;
+  --cn-border: #DCE4DF;
+  --cn-border-subtle: #E8EFEA;
+  
+  --cn-primary: #059669;
+  --cn-primary-hover: #047857;
+  --cn-primary-tint: #ECFDF5;
+  --cn-primary-text: #FFFFFF;
+  
+  --cn-accent: #D97706;
+  --cn-accent-tint: #FFFBEB;
+  
+  --cn-success: #16A34A;
+  --cn-warning: #D97706;
+  --cn-danger: #DC2626;
+
+  --cn-radius-sm: 6px;
+  --cn-radius-md: 10px;
+  --cn-radius-lg: 14px;
+  --cn-radius-xl: 20px;
 }
 
 [data-theme="dark"],
 .dark {
-  /* Dark Theme Color Tokens */
-  --cn-bg: #101713;
-  --cn-surface: #171F1A;
-  --cn-surface-subtle: #202A23;
-  --cn-text-primary: #F0F5F1;
-  --cn-text-secondary: #B3C1B7;
-  --cn-text-muted: #84958A;
-  --cn-border: #2D3A31;
+  /* Dark Theme (Obsidian Deep Pine Learning Studio) */
+  --cn-bg: #0A0F0D;
+  --cn-surface: #111815;
+  --cn-surface-subtle: #18231F;
+  --cn-surface-hover: #1F2D28;
+  --cn-surface-active: #273832;
   
-  --cn-primary: #79C6A2;
-  --cn-primary-hover: #94D9B6;
-  --cn-primary-tint: #1C392B;
-  --cn-accent: #F0B47B;
-
-  --cn-info: #6BA3E8;
-  --cn-info-tint: #182A3E;
-  --cn-success: #56B88D;
-  --cn-success-tint: #163628;
-  --cn-warning: #E09543;
-  --cn-warning-tint: #3B2A15;
-  --cn-danger: #F06A60;
-  --cn-danger-tint: #3D1917;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --cn-bg: #101713;
-    --cn-surface: #171F1A;
-    --cn-surface-subtle: #202A23;
-    --cn-text-primary: #F0F5F1;
-    --cn-text-secondary: #B3C1B7;
-    --cn-text-muted: #84958A;
-    --cn-border: #2D3A31;
-    
-    --cn-primary: #79C6A2;
-    --cn-primary-hover: #94D9B6;
-    --cn-primary-tint: #1C392B;
-    --cn-accent: #F0B47B;
-
-    --cn-info: #6BA3E8;
-    --cn-info-tint: #182A3E;
-    --cn-success: #56B88D;
-    --cn-success-tint: #163628;
-    --cn-warning: #E09543;
-    --cn-warning-tint: #3B2A15;
-    --cn-danger: #F06A60;
-    --cn-danger-tint: #3D1917;
-  }
+  --cn-text-primary: #F2F7F4;
+  --cn-text-secondary: #9EB3A7;
+  --cn-text-muted: #64786E;
+  --cn-border: #22312A;
+  --cn-border-subtle: #17221C;
+  
+  --cn-primary: #10B981;
+  --cn-primary-hover: #34D399;
+  --cn-primary-tint: #064E3B;
+  --cn-primary-text: #042F24;
+  
+  --cn-accent: #F59E0B;
+  --cn-accent-tint: #451A03;
+  
+  --cn-success: #10B981;
+  --cn-warning: #F59E0B;
+  --cn-danger: #EF4444;
 }
 
 body {
-  margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: var(--cn-text-primary);
+  font-family: var(--font-body);
   background-color: var(--cn-bg);
+  color: var(--cn-text-primary);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-code, kbd, samp, pre {
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
-*, *::before, *::after {
-  box-sizing: border-box;
+code, pre, .font-mono {
+  font-family: var(--font-mono);
 }
 
-/* Accessible focus ring */
-:focus-visible {
-  outline: 2px solid var(--cn-primary);
-  outline-offset: 2px;
+/* Custom Tactical Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cn-border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cn-text-muted);
 }

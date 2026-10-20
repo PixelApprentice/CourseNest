@@ -1,17 +1,15 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { BrandLogo } from '../components/BrandLogo';
 import { 
-  Wifi, 
-  WifiOff, 
   Search, 
   Moon, 
   Sun, 
   Home, 
   Library, 
   Upload, 
-  Settings,
-  BookOpen
+  Settings
 } from 'lucide-react';
 import { APP_NAME } from '@coursenest/config';
 
@@ -52,72 +50,78 @@ export function AppLayout({ children }: AppLayoutProps) {
     localStorage.setItem('cn-theme', nextTheme ? 'dark' : 'light');
   };
 
-  // Determine page title
-  const getPageTitle = () => {
+  // Determine page title & breadcrumb
+  const getPageContext = () => {
     const path = location.pathname;
-    if (path === '/') return 'Home';
-    if (path.startsWith('/library')) return 'Course Library';
-    if (path.startsWith('/import')) return 'Import Materials';
-    if (path.startsWith('/course/')) return 'Course Overview';
-    if (path.startsWith('/settings')) return 'Settings';
-    return APP_NAME;
+    if (path === '/') return { section: 'Vault', title: 'Curriculum Overview' };
+    if (path.startsWith('/library')) return { section: 'Vault', title: 'Course Library' };
+    if (path.startsWith('/import')) return { section: 'Tools', title: 'Ingest Materials' };
+    if (path.startsWith('/course/')) return { section: 'Courses', title: 'Curriculum Dossier' };
+    if (path.startsWith('/settings')) return { section: 'System', title: 'Vault Settings' };
+    return { section: 'Studio', title: APP_NAME };
   };
 
+  const context = getPageContext();
+
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)]">
+    <div className="flex h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased">
       {/* Desktop Sidebar */}
       <div className="hidden md:flex shrink-0">
         <Sidebar />
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top bar with context, offline status, theme, search */}
-        <header className="h-14 px-6 border-b border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0">
+        {/* Top Header Bar */}
+        <header className="h-16 px-6 border-b border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <span className="md:hidden font-semibold text-[var(--cn-primary)] flex items-center gap-2">
-              <BookOpen size={20} />
-              {APP_NAME}
-            </span>
-            <span className="hidden md:inline-block text-sm font-medium text-[var(--cn-text-muted)]">
-              /
-            </span>
-            <h1 className="text-sm font-semibold text-[var(--cn-text-primary)]">
-              {getPageTitle()}
-            </h1>
+            <div className="md:hidden">
+              <BrandLogo size="sm" showBadge={false} />
+            </div>
+
+            <div className="hidden md:flex items-center gap-2 text-xs text-[var(--cn-text-muted)] font-mono">
+              <span>{context.section}</span>
+              <span>/</span>
+              <span className="font-sans font-semibold text-[var(--cn-text-primary)] text-sm">{context.title}</span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Offline status badge — always pairs icon with clear text */}
+            {/* Offline Vault Air-Gap Indicator */}
             <div 
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-medium border ${
                 isOnline
-                  ? 'bg-[var(--cn-success-tint)] text-[var(--cn-success)] border-[var(--cn-success)]/30'
-                  : 'bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border-[var(--cn-warning)]/40'
+                  ? 'bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] border-[var(--cn-border)]'
+                  : 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40'
               }`}
-              title={isOnline ? 'Online — local courses remain fully offline capable' : 'Offline — all downloaded materials are available'}
+              title="CourseNest runs entirely on local disk without telemetry or remote dependencies"
             >
-              {isOnline ? <Wifi size={13} /> : <WifiOff size={13} />}
-              <span>{isOnline ? 'Local & Synced' : 'Offline Mode'}</span>
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--cn-primary)] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--cn-primary)]"></span>
+              </span>
+              <span className="text-[11px] font-semibold tracking-wide">
+                LOCAL VAULT {isOnline ? 'READY' : 'OFFLINE'}
+              </span>
             </div>
 
-            {/* Quick search link */}
+            {/* Quick search button */}
             <Link
               to="/library"
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
+              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors"
               title="Search courses"
               aria-label="Search courses"
             >
-              <Search size={17} />
+              <Search size={16} />
             </Link>
 
             {/* Theme switcher */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
+              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors"
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-label="Toggle color theme"
             >
-              {isDark ? <Sun size={17} /> : <Moon size={17} />}
+              {isDark ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
         </header>
@@ -127,38 +131,38 @@ export function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
 
-        {/* Mobile bottom navigation bar for phones/tablets */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-14 bg-[var(--cn-surface)] border-t border-[var(--cn-border)] flex items-center justify-around z-20">
+        {/* Mobile bottom navigation bar */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--cn-surface)] border-t border-[var(--cn-border)] flex items-center justify-around z-30">
           <Link
             to="/"
-            className={`flex flex-col items-center gap-1 text-xs ${
+            className={`flex flex-col items-center gap-1 text-[11px] ${
               location.pathname === '/' ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >
             <Home size={18} />
-            Home
+            Overview
           </Link>
           <Link
             to="/library"
-            className={`flex flex-col items-center gap-1 text-xs ${
+            className={`flex flex-col items-center gap-1 text-[11px] ${
               location.pathname.startsWith('/library') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >
             <Library size={18} />
-            Courses
+            Vault
           </Link>
           <Link
             to="/import"
-            className={`flex flex-col items-center gap-1 text-xs ${
+            className={`flex flex-col items-center gap-1 text-[11px] ${
               location.pathname.startsWith('/import') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >
             <Upload size={18} />
-            Import
+            Ingest
           </Link>
           <Link
             to="/settings"
-            className={`flex flex-col items-center gap-1 text-xs ${
+            className={`flex flex-col items-center gap-1 text-[11px] ${
               location.pathname.startsWith('/settings') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >

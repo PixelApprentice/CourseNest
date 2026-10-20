@@ -14,6 +14,7 @@
     "@coursenest/domain": "workspace:*",
     "@coursenest/validation": "workspace:*",
     "@coursenest/config": "workspace:*",
+    "@coursenest/course-manifest": "workspace:*",
     "@coursenest/ui": "workspace:*",
     "@coursenest/importer": "workspace:*",
     "@coursenest/storage-adapters": "workspace:*",
