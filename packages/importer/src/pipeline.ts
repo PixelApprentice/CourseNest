@@ -19,27 +19,64 @@ export interface DiscoveredFile {
 export interface ImportPipelineOptions {
   jobId: string;
   sourceType: 'archive' | 'directory' | 'files';
-  knownChecksums?: Set<string>;
+  sourcePath?: string;
   sandboxDir?: string;
+  destinationDir?: string;
+  knownChecksums?: Set<string>;
 }
 
-const CODE_EXTENSIONS = new Set(['.py', '.js', '.jsx', '.ts', '.tsx', '.sh', '.c', '.cpp', '.cxx']);
+export const CODE_EXTENSIONS = new Set([
+  '.py', '.js', '.jsx', '.ts', '.tsx', '.sh', '.bash', '.c', '.cpp', '.cxx', '.h', '.hpp',
+  '.java', '.go', '.rs', '.php', '.rb', '.pl', '.sql',
+]);
 
 export function isCodeExtension(ext: string): boolean {
-  return CODE_EXTENSIONS.has(ext);
+  return CODE_EXTENSIONS.has(ext.toLowerCase());
 }
 
-export function isUntrustedCode(resourceType: ResourceType): boolean {
-  return resourceType === ResourceType.SourceCode;
+export function isUntrustedCode(resourceType: ResourceType, ext?: string): boolean {
+  return resourceType === ResourceType.SourceCode || (ext ? isCodeExtension(ext) : false);
 }
 
 export class AtomicImportManager {
   private stagedDir: string | null = null;
-  private originalFiles: Map<string, string> = new Map();
+  private stagedFiles: Set<string> = new Set();
 
-  async startJob(): Promise<void> {
-    this.stagedDir = path.join(os.tmpdir(), `korse-import-${Date.now()}`);
+  async startJob(baseStagingDir?: string): Promise<string> {
+    const uniqueId = `korse-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    this.stagedDir = path.join(baseStagingDir ?? os.tmpdir(), uniqueId);
     await fs.mkdir(this.stagedDir, { recursive: true });
+    return this.stagedDir;
+  }
+
+  async stageFile(relativePath: string, content: Buffer | string): Promise<string> {
+    if (!this.stagedDir) {
+      throw new Error('Import job not started. Call startJob() first.');
+    }
+    const targetPath = path.join(this.stagedDir, relativePath);
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(targetPath, content);
+    this.stagedFiles.add(relativePath);
+    return targetPath;
+  }
+
+  async commit(destinationDir?: string): Promise<string[]> {
+    if (!this.stagedDir) return [];
+
+    const committedFiles: string[] = [];
+    if (destinationDir) {
+      await fs.mkdir(destinationDir, { recursive: true });
+      for (const file of this.stagedFiles) {
+        const src = path.join(this.stagedDir, file);
+        const dest = path.join(destinationDir, file);
+        await fs.mkdir(path.dirname(dest), { recursive: true });
+        await fs.copyFile(src, dest);
+        committedFiles.push(file);
+      }
+    }
+
+    await this.rollback();
+    return committedFiles;
   }
 
   async rollback(): Promise<void> {
@@ -47,19 +84,15 @@ export class AtomicImportManager {
       await fs.rm(this.stagedDir, { recursive: true, force: true });
       this.stagedDir = null;
     }
-    this.originalFiles.clear();
-  }
-
-  async commit(): Promise<void> {
-    if (this.stagedDir) {
-      await fs.rm(this.stagedDir, { recursive: true, force: true });
-      this.stagedDir = null;
-    }
-    this.originalFiles.clear();
+    this.stagedFiles.clear();
   }
 
   getStagedDir(): string | null {
     return this.stagedDir;
+  }
+
+  getStagedFiles(): string[] {
+    return Array.from(this.stagedFiles);
   }
 }
 
@@ -90,7 +123,7 @@ export class CourseImportEngine {
     } catch (err) {
       if (err instanceof SecurityValidationError) {
         report.securityIssues.push({
-          path: 'unknown',
+          path: options.sourcePath ?? 'archive',
           issue: err.message,
           severity: 'critical',
         });
@@ -99,10 +132,10 @@ export class CourseImportEngine {
     }
 
     try {
-      await this.atomicManager.startJob();
+      await this.atomicManager.startJob(options.sandboxDir);
     } catch (err) {
       report.failures.push({
-        originalPath: 'unknown',
+        originalPath: options.sourcePath ?? 'sandbox',
         error: (err as Error).message,
         isRecoverable: false,
       });
@@ -116,12 +149,13 @@ export class CourseImportEngine {
       }
     }
 
+    const targetSandbox = options.sandboxDir ?? this.atomicManager.getStagedDir() ?? os.tmpdir();
     let hasCriticalIssues = false;
 
     for (const file of files) {
       // 1. Path Security
       try {
-        validateArchivePath(file.relativePath, 'unknown');
+        validateArchivePath(file.relativePath, targetSandbox);
       } catch (err) {
         if (err instanceof SecurityValidationError) {
           report.securityIssues.push({
@@ -163,13 +197,7 @@ export class CourseImportEngine {
       const resourceType = detectResourceType(file.relativePath);
       const mimeType = detectMimeType(file.relativePath);
       const hierarchy = inferHierarchyFromPath(file.relativePath);
-
-      // 4. Code execution safeguard: mark untrusted code as static text
       const ext = getFileExtension(file.relativePath);
-      if (isCodeExtension(ext) && resourceType === ResourceType.SourceCode) {
-        // Code blocks stored as static text resources - never executed by renderer/shell/main process
-        // The system enforces that code is stored strictly as text and not executed
-      }
 
       const entry: ImportFileEntry = {
         originalPath: file.relativePath,
@@ -181,6 +209,11 @@ export class CourseImportEngine {
         suggestedLesson: hierarchy.suggestedLessonTitle,
         status: resourceType === ResourceType.Unknown ? 'unsupported' : 'imported',
       };
+
+      // 4. Code execution safeguard: flag code files as static text only
+      if (isUntrustedCode(resourceType, ext)) {
+        entry.reason = 'Untrusted code; sandboxed as static text resource (non-executable)';
+      }
 
       report.filesDiscovered.push(entry);
 
@@ -217,10 +250,10 @@ export class CourseImportEngine {
 
     // Commit staged files atomically
     try {
-      await this.atomicManager.commit();
+      await this.atomicManager.commit(options.destinationDir);
     } catch (err) {
       report.failures.push({
-        originalPath: 'unknown',
+        originalPath: options.destinationDir ?? 'destination',
         error: (err as Error).message,
         isRecoverable: true,
       });

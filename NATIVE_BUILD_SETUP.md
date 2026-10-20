@@ -1,62 +1,60 @@
-# Native Build Setup for CourseNest
+# Native SQLite & Build Setup for CourseNest
 
-## pnpm v10 Native Build Configuration
+## Overview & Architecture
 
-### Problem
+CourseNest is designed with a **two-tier SQLite persistence strategy** to ensure frictionless developer onboarding and native production execution:
 
-In pnpm v10, build scripts are blocked by default. `better-sqlite3` and `electron` require native C++ compilation via node-gyp.
+1. **Development & CLI (Zero C++ Build Friction)**:
+   - Built on Node.js 22+ native `node:sqlite` via `@coursenest/sqlite-adapter`.
+   - Node 22 ships with built-in SQLite (WAL mode, transactions, prepared statements) compiled directly into the Node binary.
+   - Developers and contributors can clone the repository, run tests, and develop web/CLI components **without requiring `node-gyp`, Python, or a C++ compiler**.
 
-### Solution Implemented
+2. **Electron Desktop Application**:
+   - Built with Electron 33+ and bundled via `electron-vite`.
+   - Native modules (`better-sqlite3`) target the Electron runtime ABI (rather than arbitrary host Node.js versions).
 
-1. **Created `.npmrc`** at repo root with:
-   - `node-linker=hoisted` to allow native modules to find dependencies
-   - `public-hoist-pattern` for sqlite/electron/node-gyp
-   - Better-sqlite3 binary preferences
+---
 
-2. **Updated `apps/desktop/package.json`** with postinstall hook for `pnpm approve-builds`
+## pnpm v10 Build Scripts Configuration
 
-### For Contributors
+In pnpm v10+, native build scripts (`install`, `postinstall`) are blocked by default for security.
 
-#### First time setup:
+### Configuration in CourseNest
+- In `package.json`:
+  ```json
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
+  }
+  ```
+  This allows trusted binaries (`electron` and `esbuild`) to install non-interactively without blocking CI or local scripts.
 
+- In `.npmrc`:
+  ```ini
+  node-linker=isolated
+  public-hoist-pattern[]=*sqlite*
+  public-hoist-pattern[]=*electron*
+  public-hoist-pattern[]=*esbuild*
+  ```
+  Ensures standard workspace isolation for packages while hoisting shared tooling.
+
+---
+
+## Troubleshooting Native Builds
+
+### If developing the Electron Desktop app on Linux:
 ```bash
-# Install dependencies
-pnpm install
-
-# Approve build scripts for native packages
-pnpm approve-builds
-
-# Or approve specific packages
-pnpm approve-builds --approve-all
+sudo apt-get install -y build-essential python3
 ```
 
-#### Windows contributors need:
+### If developing the Electron Desktop app on Windows:
+- Install **Visual Studio Build Tools 2022** with the "Desktop development with C++" workload.
 
-- Visual Studio Build Tools 2022+
-- Windows SDK
-
-#### macOS contributors need:
-
-- Xcode Command Line Tools: `xcode-select --install`
-
-#### Linux contributors need:
-
-```bash
-sudo apt-get install build-essential python3
-```
-
-### Prebuilt Binaries
-
-Better-sqlite3 v11+ provides prebuilt binaries. If builds fail:
-
-1. Ensure `NODE_LINKER=hoisted` is set
-2. Check `.npmrc` configuration
-3. Run `pnpm rebuild` after `pnpm approve-builds`
-
-### Verification
-
-```bash
-pnpm --filter @coursenest/desktop list better-sqlite3 electron
-```
-
-Should show installed without build errors.
+### If running on newer Node versions (e.g. Node 24/26):
+- Host development uses `@coursenest/sqlite-adapter` with native `node:sqlite`.
+- If building native `better-sqlite3` specifically for Electron:
+  ```bash
+  pnpm --filter @coursenest/desktop rebuild
+  ```

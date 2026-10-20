@@ -1,9 +1,11 @@
 import AdmZip from 'adm-zip';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
-import { Buffer } from 'buffer';
+import { gunzip as gunzipCb } from 'node:zlib';
 import { promisify } from 'util';
 import { validateArchivePath } from './security.js';
+
+const gunzip = promisify(gunzipCb);
 
 export async function extractArchive(
   sourcePath: string,
@@ -12,69 +14,52 @@ export async function extractArchive(
 ): Promise<string[]> {
   await mkdir(sandboxDir, { recursive: true });
 
-  const ext = sourcePath.slice(sourcePath.lastIndexOf('.')).toLowerCase();
+  const ext = sourcePath.toLowerCase();
   const extractedFiles: string[] = [];
 
-  if (ext === '.zip') {
+  if (ext.endsWith('.zip')) {
     await extractZipAdm(sourcePath, sandboxDir, extractedFiles, onProgress);
-  } else if (ext === '.tar.gz' || ext === '.tgz') {
+  } else if (ext.endsWith('.tar.gz') || ext.endsWith('.tgz')) {
     await extractTarGz(sourcePath, sandboxDir, extractedFiles, onProgress);
   } else {
-    throw new Error(`Unsupported archive format: ${ext}`);
+    throw new Error(`Unsupported archive format: ${sourcePath}`);
   }
 
   return extractedFiles;
 }
 
-function extractZipAdm(
+async function extractZipAdm(
   sourcePath: string,
   destDir: string,
   extractedFiles: string[],
   onProgress: (file: string, status: 'extracting' | 'completed' | 'error') => void,
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
+  const zip = new AdmZip(sourcePath);
+  const entries = zip.getEntries();
+
+  for (const entry of entries) {
+    if (entry.isDirectory) continue;
+
+    const entryName = entry.entryName.replace(/\\/g, '/');
+
+    // Strict Zip Slip path validation BEFORE extracting or writing
     try {
-      const zip = new AdmZip(sourcePath);
-      zip.extractAllTo(destDir, true);
-
-      // Read the extracted files and track them
-      const entries = zip.getEntries();
-      for (const entry of entries) {
-        if (entry.isDirectory) continue;
-
-        const normalized = entry.name.replace(/\\/g, '/');
-        const relativePath = path.relative(destDir, entry.name).replace(/\\/g, '/');
-
-        // Validate path against zip slip
-        try {
-          validateArchivePath(normalized, destDir);
-        } catch {
-          onProgress(relativePath, 'error');
-          continue;
-        }
-
-        // Read the file content
-        const data = entry.getData();
-        const buffer = Buffer.from(data);
-        const targetPath = path.join(destDir, normalized);
-
-        mkdir(path.dirname(targetPath), { recursive: true }).then(() => {
-          writeFile(targetPath, buffer)
-            .then(() => {
-              extractedFiles.push(relativePath);
-              onProgress(relativePath, 'completed');
-            })
-            .catch((_err) => {
-              onProgress(relativePath, 'error');
-            });
-        });
-      }
-
-      resolve();
-    } catch (e) {
-      reject(e);
+      validateArchivePath(entryName, destDir);
+    } catch (err) {
+      onProgress(entryName, 'error');
+      throw err;
     }
-  });
+
+    onProgress(entryName, 'extracting');
+    const targetPath = path.join(destDir, entryName);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+
+    const buffer = entry.getData();
+    await writeFile(targetPath, buffer);
+
+    extractedFiles.push(entryName);
+    onProgress(entryName, 'completed');
+  }
 }
 
 function computeTarFileEnd(offset: number, size: number): number {
@@ -90,49 +75,52 @@ async function extractTarGz(
   onProgress: (file: string, status: 'extracting' | 'completed' | 'error') => void,
 ): Promise<void> {
   const raw = await readFile(sourcePath);
-  const gunzip = promisify(require('zlib').gunzip);
   const decompressed = await gunzip(raw);
 
   let offset = 0;
   while (offset + 512 <= decompressed.length) {
-    const header = decompressed.slice(offset, offset + 512);
-    const name = header.slice(0, 100).toString('utf-8').replace(/\0+$/, '');
+    const header = decompressed.subarray(offset, offset + 512);
+    const name = header.subarray(0, 100).toString('utf-8').replace(/\0+$/, '');
     if (!name || name === './') {
       offset = computeTarFileEnd(offset, 0);
       continue;
     }
 
-    const size = parseInt(header.slice(124, 136).toString('utf-8').replace(/\0+$/, ''), 8);
+    const sizeStr = header.subarray(124, 136).toString('utf-8').replace(/\0+$/, '').trim();
+    const size = sizeStr ? parseInt(sizeStr, 8) : 0;
+    const typeflag = String.fromCharCode(header[156] || 0);
     const normalized = name.replace(/\\/g, '/');
-    const targetPath = path.join(destDir, normalized);
-    const relativePath = path.relative(destDir, targetPath).replace(/\\/g, '/');
 
-    try {
-      validateArchivePath(normalized, destDir);
-    } catch {
-      offset = computeTarFileEnd(offset, size);
-      onProgress(normalized, 'error');
+    if (typeflag === '5' || normalized.endsWith('/')) {
+      const dirPath = path.join(destDir, normalized);
+      await mkdir(dirPath, { recursive: true });
+      offset = computeTarFileEnd(offset, 0);
       continue;
     }
 
-    mkdir(path.dirname(targetPath), { recursive: true }).then(() => {
-      if (size > 0) {
-        const contentStart = offset + 512;
-        const contentEnd = contentStart + size;
-        const content = decompressed.slice(contentStart, contentEnd);
-        writeFile(targetPath, content)
-          .then(() => {
-            extractedFiles.push(relativePath);
-            onProgress(relativePath, 'completed');
-          })
-          .catch((_err) => {
-            onProgress(relativePath, 'error');
-          });
-      } else {
-        onProgress(normalized, 'completed');
-      }
-    });
+    try {
+      validateArchivePath(normalized, destDir);
+    } catch (err) {
+      onProgress(normalized, 'error');
+      offset = computeTarFileEnd(offset, size);
+      throw err;
+    }
 
+    onProgress(normalized, 'extracting');
+    const targetPath = path.join(destDir, normalized);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+
+    if (size > 0) {
+      const contentStart = offset + 512;
+      const contentEnd = contentStart + size;
+      const content = decompressed.subarray(contentStart, contentEnd);
+      await writeFile(targetPath, content);
+    } else {
+      await writeFile(targetPath, Buffer.alloc(0));
+    }
+
+    extractedFiles.push(normalized);
+    onProgress(normalized, 'completed');
     offset = computeTarFileEnd(offset, size);
   }
 }
