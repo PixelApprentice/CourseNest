@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   useVaultCourses, 
@@ -23,6 +23,7 @@ import {
 import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
+import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { 
   ArrowLeft, 
   ChevronLeft, 
@@ -30,11 +31,6 @@ import {
   Bookmark as BookmarkIcon, 
   StickyNote, 
   CheckCircle2, 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
   Download, 
   FileText, 
   HelpCircle, 
@@ -74,13 +70,8 @@ export function LessonPlayerPage() {
     snippet?: string;
   } | null>(null);
 
-  // Video Player state
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  // Video Playback Time tracking for notes and bookmarks
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
 
   // Quiz state
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
@@ -113,44 +104,16 @@ export function LessonPlayerPage() {
 
     // Restore video time
     const savedTime = getSavedPlaybackTime(lId);
-    if (videoRef.current && savedTime > 0) {
-      videoRef.current.currentTime = savedTime;
+    if (savedTime > 0) {
+      setCurrentTime(savedTime);
     }
   }, [activeLesson, courseData]);
 
-  // Toggle Play / Pause
-  const handleTogglePlay = () => {
-    if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      videoRef.current.play();
-      setIsPlaying(true);
-    }
-  };
-
-  const seekRelative = (delta: number) => {
-    if (!videoRef.current) return;
-    const newTime = Math.max(0, Math.min(videoRef.current.duration || 100, videoRef.current.currentTime + delta));
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
   const seekTo = (seconds: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.currentTime = seconds;
     setCurrentTime(seconds);
-    if (!isPlaying) {
-      videoRef.current.play();
-      setIsPlaying(true);
+    if (activeLesson) {
+      savePlaybackTime(activeLesson.id, seconds);
     }
-  };
-
-  const toggleMute = () => {
-    if (!videoRef.current) return;
-    videoRef.current.muted = !isMuted;
-    setIsMuted(!isMuted);
   };
 
   // Keyboard shortcuts
@@ -160,29 +123,14 @@ export function LessonPlayerPage() {
         return;
       }
 
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handleTogglePlay();
-      } else if (e.code === 'ArrowLeft') {
-        e.preventDefault();
-        seekRelative(-5);
-      } else if (e.code === 'ArrowRight') {
-        e.preventDefault();
-        seekRelative(5);
-      } else if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault();
-        toggleMute();
-      } else if (e.key === 'f' || e.key === 'F') {
-        e.preventDefault();
-        videoRef.current?.requestFullscreen();
-      } else if (e.key === 'Escape' && activeDocViewer) {
+      if (e.key === 'Escape' && activeDocViewer) {
         setActiveDocViewer(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying, currentTime, isMuted, activeDocViewer]);
+  }, [activeDocViewer]);
 
   if (!courseData || !activeLesson) {
     return (
@@ -198,26 +146,6 @@ export function LessonPlayerPage() {
   const prevLesson = currentLessonIndex > 0 ? allLessons[currentLessonIndex - 1] : null;
   const nextLesson = currentLessonIndex < allLessons.length - 1 ? allLessons[currentLessonIndex + 1] : null;
   const bookmarks: UserBookmark[] = getLessonBookmarks(activeLesson.id);
-
-  // Video time update
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    const curr = videoRef.current.currentTime;
-    setCurrentTime(curr);
-    if (Math.floor(curr) % 2 === 0) {
-      savePlaybackTime(activeLesson.id, curr);
-    }
-  };
-
-  // Video loaded metadata
-  const handleLoadedMetadata = () => {
-    if (!videoRef.current) return;
-    setDuration(videoRef.current.duration);
-    const saved = getSavedPlaybackTime(activeLesson.id);
-    if (saved > 0 && saved < videoRef.current.duration) {
-      videoRef.current.currentTime = saved;
-    }
-  };
 
   // Toggle Lesson Completion
   const handleToggleCompletion = () => {
@@ -447,107 +375,22 @@ export function LessonPlayerPage() {
 
               return (
                 <div key={block.id} className="space-y-3">
-                  <div className="w-full aspect-video bg-black rounded-2xl overflow-hidden relative shadow-2xl border border-[var(--cn-border)] group">
-                    <video
-                      ref={videoRef}
-                      src={src}
-                      className="w-full h-full object-contain cursor-pointer"
-                      onClick={handleTogglePlay}
-                      onTimeUpdate={handleTimeUpdate}
-                      onLoadedMetadata={handleLoadedMetadata}
-                      onPlay={() => setIsPlaying(true)}
-                      onPause={() => setIsPlaying(false)}
-                    />
-
-                    {/* Custom Video Controls Bar */}
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-2.5 opacity-95 group-hover:opacity-100 transition-opacity">
-                      {/* Scrub Bar */}
-                      <input
-                        type="range"
-                        min={0}
-                        max={duration || 100}
-                        value={currentTime}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          if (videoRef.current) videoRef.current.currentTime = val;
-                          setCurrentTime(val);
-                        }}
-                        className="w-full h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-[var(--cn-primary)]"
-                      />
-
-                      <div className="flex items-center justify-between text-white text-xs font-mono">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={handleTogglePlay}
-                            className="p-1 hover:text-[var(--cn-primary)] transition-colors"
-                            aria-label={isPlaying ? 'Pause' : 'Play'}
-                          >
-                            {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                          </button>
-
-                          <button
-                            onClick={() => seekRelative(-5)}
-                            className="text-[11px] hover:text-[var(--cn-primary)] px-1"
-                            title="Rewind 5s (Left Arrow)"
-                          >
-                            -5s
-                          </button>
-                          <button
-                            onClick={() => seekRelative(5)}
-                            className="text-[11px] hover:text-[var(--cn-primary)] px-1"
-                            title="Forward 5s (Right Arrow)"
-                          >
-                            +5s
-                          </button>
-
-                          <button
-                            onClick={toggleMute}
-                            className="p-1 hover:text-[var(--cn-primary)] transition-colors"
-                            aria-label={isMuted ? 'Unmute' : 'Mute'}
-                          >
-                            {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                          </button>
-
-                          <span className="text-[11px]">
-                            {formatTime(currentTime)} / {formatTime(duration)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          {/* Speed Selector */}
-                          <select
-                            value={playbackSpeed}
-                            onChange={(e) => {
-                              const spd = parseFloat(e.target.value);
-                              setPlaybackSpeed(spd);
-                              if (videoRef.current) videoRef.current.playbackRate = spd;
-                            }}
-                            className="bg-black/70 border border-white/20 rounded px-2 py-0.5 text-xs text-white focus:outline-none font-mono"
-                          >
-                            <option value="0.75">0.75×</option>
-                            <option value="1">1.0×</option>
-                            <option value="1.25">1.25×</option>
-                            <option value="1.5">1.5×</option>
-                            <option value="2.0">2.0×</option>
-                          </select>
-
-                          {/* Fullscreen button */}
-                          <button
-                            onClick={() => videoRef.current?.requestFullscreen()}
-                            className="p-1 hover:text-[var(--cn-primary)] transition-colors"
-                            aria-label="Fullscreen"
-                          >
-                            <Maximize size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <VlcMediaViewer
+                    src={src}
+                    title={activeLesson.title}
+                    initialTime={getSavedPlaybackTime(activeLesson.id)}
+                    onTimeUpdate={(curr) => {
+                      setCurrentTime(curr);
+                      if (Math.floor(curr) % 2 === 0) {
+                        savePlaybackTime(activeLesson.id, curr);
+                      }
+                    }}
+                  />
 
                   <div className="flex items-center justify-between text-xs font-mono text-[var(--cn-text-muted)]">
                     <span className="flex items-center gap-1.5">
-                      <HardDrive size={12} className="text-[var(--cn-success)]" />
-                      Playback position auto-saved to vault database
+                      <HardDrive size={12} className="text-[var(--cn-brand)]" />
+                      VLC-Grade Stream • Playback position auto-saved to vault database
                     </span>
                     <span className="hidden sm:inline">Shortcuts: Space (play/pause), ←/→ (seek 5s), M (mute), F (fullscreen)</span>
                   </div>

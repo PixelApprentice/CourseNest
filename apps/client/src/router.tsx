@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { HomePage } from './features/home/HomePage';
+import { LandingPage } from './features/landing/LandingPage';
 import { LibraryPage } from './features/library/LibraryPage';
 import { ImportPage } from './features/importer/ImportPage';
 import { CourseLandingPage } from './features/course/CourseLandingPage';
@@ -12,6 +13,8 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/welcome" element={<LandingPage />} />
+      <Route path="/landing" element={<LandingPage />} />
       <Route path="/library" element={<LibraryPage />} />
       <Route path="/import" element={<ImportPage />} />
       <Route path="/course/:courseId" element={<CourseLandingPage />} />

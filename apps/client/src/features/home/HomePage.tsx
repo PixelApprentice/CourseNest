@@ -12,7 +12,8 @@ import {
   HardDrive,
   StickyNote,
   Award,
-  Zap
+  Zap,
+  Sparkles,
 } from 'lucide-react';
 import { APP_NAME } from '@coursenest/config';
 
@@ -59,8 +60,15 @@ export function HomePage() {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
+              to="/welcome"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-brand)]/40 bg-[var(--cn-primary-tint)] text-[#57C564] text-xs font-semibold hover:bg-[#57C564]/20 transition-colors shadow-xs"
+            >
+              <Sparkles size={15} />
+              <span>Platform Showcase & Engines</span>
+            </Link>
+            <Link
               to="/import"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[#0A0A0B] text-xs font-bold hover:bg-[#69D475] transition-colors shadow-sm"
             >
               <Upload size={15} />
               <span>Ingest Course Package</span>

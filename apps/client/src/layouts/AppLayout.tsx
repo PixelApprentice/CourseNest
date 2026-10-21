@@ -54,6 +54,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const getPageContext = () => {
     const path = location.pathname;
     if (path === '/') return { section: 'Vault', title: 'Curriculum Overview' };
+    if (path === '/welcome' || path === '/landing') return { section: 'Platform', title: 'Open-Source Showcase' };
     if (path.startsWith('/library')) return { section: 'Vault', title: 'Course Library' };
     if (path.startsWith('/import')) return { section: 'Tools', title: 'Ingest Materials' };
     if (path.startsWith('/course/')) return { section: 'Courses', title: 'Curriculum Dossier' };
