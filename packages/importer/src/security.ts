@@ -1,3 +1,4 @@
+import path from 'path';
 import { IMPORT_LIMITS } from '@coursenest/config';
 
 export class SecurityValidationError extends Error {
@@ -9,22 +10,48 @@ export class SecurityValidationError extends Error {
 
 /**
  * Validate that an entry path inside an archive does not escape the destination directory.
- * Protects against Zip Slip directory traversal vulnerabilities.
+ * Protects against Zip Slip directory traversal vulnerabilities, null byte injections,
+ * drive letter escaping, and path depth exhaustion attacks.
  */
-export function validateArchivePath(entryPath: string, _destinationDir?: string): string {
+export function validateArchivePath(entryPath: string, destinationDir?: string): string {
+  // Reject null-byte injections
+  if (entryPath.includes('\0')) {
+    throw new SecurityValidationError(
+      `Null byte detected in archive entry: "${entryPath}"`,
+      'PATH_TRAVERSAL_DETECTED',
+    );
+  }
+
   // Normalize forward and back slashes
   const normalized = entryPath.replace(/\\/g, '/');
 
-  // Reject paths containing parent navigation attempts
-  if (normalized.includes('../') || normalized.startsWith('/')) {
+  // Check for absolute path, drive prefix, or parent traversal segments
+  const segments = normalized.split('/');
+  if (
+    normalized.startsWith('/') ||
+    /^[a-zA-Z]:/.test(normalized) ||
+    segments.some((seg) => seg === '..')
+  ) {
     throw new SecurityValidationError(
       `Path traversal detected in archive entry: "${entryPath}"`,
       'PATH_TRAVERSAL_DETECTED',
     );
   }
 
+  // If destinationDir is provided, canonicalize and verify strict containment
+  if (destinationDir) {
+    const resolvedDest = path.resolve(destinationDir);
+    const resolvedTarget = path.resolve(resolvedDest, normalized);
+    if (!resolvedTarget.startsWith(resolvedDest + path.sep) && resolvedTarget !== resolvedDest) {
+      throw new SecurityValidationError(
+        `Path traversal escapes destination sandbox: "${entryPath}"`,
+        'PATH_TRAVERSAL_DETECTED',
+      );
+    }
+  }
+
   // Ensure path depth is bounded
-  const depth = normalized.split('/').filter(Boolean).length;
+  const depth = segments.filter(Boolean).length;
   if (depth > IMPORT_LIMITS.maxPathDepth) {
     throw new SecurityValidationError(
       `Path depth exceeds maximum allowed (${depth} > ${IMPORT_LIMITS.maxPathDepth}): "${entryPath}"`,

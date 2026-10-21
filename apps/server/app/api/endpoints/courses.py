@@ -1,12 +1,14 @@
 """Course CRUD endpoints."""
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db
 from app.db.models.course import Course
+from app.db.session import get_db
 
 router = APIRouter()
 
@@ -50,9 +52,9 @@ async def list_courses(
     offset: int = Query(default=0, ge=0),
     search: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """List published courses with pagination and optional search."""
-    query = select(Course).where(Course.is_published == True)
+    query = select(Course).where(Course.is_published.is_(True))
 
     if search:
         query = query.where(Course.title.ilike(f"%{search}%"))

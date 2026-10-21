@@ -1,9 +1,37 @@
 import { ipcMain, dialog, app, Notification } from 'electron';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { readFile, stat, readdir, access } from 'fs/promises';
 import { constants } from 'fs';
 
 let configuredExternalMountPath: string | null = null;
+
+function validatePathBoundary(targetPath: string): string {
+  const resolvedPath = resolve(targetPath);
+  const dataDir = resolve(app.getPath('userData'));
+  const tempDir = resolve(app.getPath('temp'));
+  const documentsDir = resolve(app.getPath('documents'));
+  const downloadsDir = resolve(app.getPath('downloads'));
+
+  const isAllowedInternal =
+    resolvedPath.startsWith(dataDir) ||
+    resolvedPath.startsWith(tempDir) ||
+    resolvedPath.startsWith(documentsDir) ||
+    resolvedPath.startsWith(downloadsDir);
+  const isAllowedExternal = configuredExternalMountPath
+    ? resolvedPath.startsWith(resolve(configuredExternalMountPath))
+    : false;
+  const isStandardMediaMount =
+    resolvedPath.startsWith('/media') ||
+    resolvedPath.startsWith('/run/media') ||
+    resolvedPath.startsWith('/mnt') ||
+    resolvedPath.startsWith('/Volumes') ||
+    /^[a-zA-Z]:\\/.test(resolvedPath);
+
+  if (!isAllowedInternal && !isAllowedExternal && !isStandardMediaMount) {
+    throw new Error(`Access denied: path "${targetPath}" is outside authorized storage directories`);
+  }
+  return resolvedPath;
+}
 
 export function registerIpcHandlers(): void {
   // ── File Dialogs ────────────────────────────────────────────────────
@@ -51,25 +79,14 @@ export function registerIpcHandlers(): void {
   // ── Filesystem & Removable Storage ──────────────────────────────────
 
   ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
-    const dataDir = join(app.getPath('userData'), 'data');
-    const tempDir = app.getPath('temp');
-    const resolvedPath = join(filePath);
-
-    // Validate path is within allowed boundaries (internal dataDir, temp, or configured external mount)
-    const isAllowedInternal = resolvedPath.startsWith(dataDir) || resolvedPath.startsWith(tempDir);
-    const isAllowedExternal = configuredExternalMountPath ? resolvedPath.startsWith(configuredExternalMountPath) : false;
-    const isStandardMediaMount = resolvedPath.startsWith('/media') || resolvedPath.startsWith('/mnt') || resolvedPath.startsWith('/Volumes');
-
-    if (!isAllowedInternal && !isAllowedExternal && !isStandardMediaMount) {
-      throw new Error('Access denied: file is outside authorized storage directories');
-    }
-
+    const resolvedPath = validatePathBoundary(filePath);
     const buffer = await readFile(resolvedPath);
     return buffer.buffer;
   });
 
   ipcMain.handle('fs:stat', async (_event, filePath: string) => {
-    const stats = await stat(filePath);
+    const resolvedPath = validatePathBoundary(filePath);
+    const stats = await stat(resolvedPath);
     return {
       size: stats.size,
       isFile: stats.isFile(),
@@ -79,7 +96,8 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('fs:readDir', async (_event, dirPath: string) => {
-    const entries = await readdir(dirPath, { withFileTypes: true });
+    const resolvedPath = validatePathBoundary(dirPath);
+    const entries = await readdir(resolvedPath, { withFileTypes: true });
     return entries.map((entry) => ({
       name: entry.name,
       isFile: entry.isFile(),

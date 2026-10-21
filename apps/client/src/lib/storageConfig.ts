@@ -88,9 +88,18 @@ export function toggleMountStatus(isMounted: boolean): void {
 }
 
 export function createSafetyBackup(): { success: boolean; timestamp: string; sizeBytes: number } {
+  const vaultEntries: Record<string, string> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key !== SAFETY_BACKUP_KEY) {
+      const val = localStorage.getItem(key);
+      if (val !== null) vaultEntries[key] = val;
+    }
+  }
+
   const payload = {
     backupTimestamp: new Date().toISOString(),
-    vaultData: { ...localStorage },
+    vaultData: vaultEntries,
   };
 
   const str = JSON.stringify(payload);

@@ -2,32 +2,33 @@
 
 /* 
  * CourseNest Impeccable Design System Tokens
- * Aesthetic: Academic Focus & Modern Studio (Anti-AI-Slop Craft)
- * Fonts: Plus Jakarta Sans (Headings), Inter (Body), JetBrains Mono (Code/Telemetry)
+ * Aesthetic: Nuzz.space-Inspired Obsidian Moss (Deep Work & Focus Studio)
+ * Fonts: DM Sans (Primary/Headings), Plus Jakarta Sans, JetBrains Mono (Code/Telemetry)
  */
 
 :root {
   /* Fonts */
-  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'DM Sans', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Light Theme (Paper Crisp Academic Studio) */
-  --cn-bg: #F8FAF9;
+  /* Light Theme (Crisp Editorial Studio) */
+  --cn-bg: #F8F9FA;
   --cn-surface: #FFFFFF;
-  --cn-surface-subtle: #F0F4F2;
-  --cn-surface-hover: #E5ECE8;
-  --cn-surface-active: #D8E2DC;
+  --cn-surface-subtle: #F1F3F5;
+  --cn-surface-hover: #E9ECEF;
+  --cn-surface-active: #DEE2E6;
   
-  --cn-text-primary: #121C16;
-  --cn-text-secondary: #485950;
-  --cn-text-muted: #73887E;
-  --cn-border: #DCE4DF;
-  --cn-border-subtle: #E8EFEA;
+  --cn-text-primary: #121417;
+  --cn-text-secondary: #495057;
+  --cn-text-muted: #6C757D;
+  --cn-border: #E2E5E9;
+  --cn-border-subtle: #ECEEF1;
   
-  --cn-primary: #059669;
-  --cn-primary-hover: #047857;
-  --cn-primary-tint: #ECFDF5;
+  --cn-brand: #3BA849;
+  --cn-primary: #3BA849;
+  --cn-primary-hover: #32923F;
+  --cn-primary-tint: #EDF7EE;
   --cn-primary-text: #FFFFFF;
   
   --cn-accent: #D97706;
@@ -37,6 +38,10 @@
   --cn-warning: #D97706;
   --cn-danger: #DC2626;
 
+  --moss-glow: rgba(59, 168, 73, 0.2);
+  --moss-glow-soft: rgba(59, 168, 73, 0.08);
+  --ember-glow: rgba(217, 119, 6, 0.2);
+
   --cn-radius-sm: 6px;
   --cn-radius-md: 10px;
   --cn-radius-lg: 14px;
@@ -45,30 +50,35 @@
 
 [data-theme="dark"],
 .dark {
-  /* Dark Theme (Obsidian Deep Pine Learning Studio) */
-  --cn-bg: #0A0F0D;
-  --cn-surface: #111815;
-  --cn-surface-subtle: #18231F;
-  --cn-surface-hover: #1F2D28;
-  --cn-surface-active: #273832;
+  /* Dark Theme (Nuzz.space Obsidian Velvet & Moss Green) */
+  --cn-bg: #0A0A0B;
+  --cn-surface: #121316;
+  --cn-surface-subtle: #17191E;
+  --cn-surface-hover: #1E2127;
+  --cn-surface-active: #252932;
   
-  --cn-text-primary: #F2F7F4;
-  --cn-text-secondary: #9EB3A7;
-  --cn-text-muted: #64786E;
-  --cn-border: #22312A;
-  --cn-border-subtle: #17221C;
+  --cn-text-primary: #F3F4F6;
+  --cn-text-secondary: #9CA3AF;
+  --cn-text-muted: #6B7280;
+  --cn-border: #202328;
+  --cn-border-subtle: #181A1F;
   
-  --cn-primary: #10B981;
-  --cn-primary-hover: #34D399;
-  --cn-primary-tint: #064E3B;
-  --cn-primary-text: #042F24;
+  --cn-brand: #57C564;
+  --cn-primary: #57C564;
+  --cn-primary-hover: #69D475;
+  --cn-primary-tint: rgba(87, 197, 100, 0.14);
+  --cn-primary-text: #0A0A0B;
   
   --cn-accent: #F59E0B;
-  --cn-accent-tint: #451A03;
+  --cn-accent-tint: rgba(245, 158, 11, 0.14);
   
-  --cn-success: #10B981;
+  --cn-success: #57C564;
   --cn-warning: #F59E0B;
   --cn-danger: #EF4444;
+
+  --moss-glow: rgba(87, 197, 100, 0.24);
+  --moss-glow-soft: rgba(87, 197, 100, 0.08);
+  --ember-glow: rgba(245, 158, 11, 0.2);
 }
 
 body {
@@ -83,11 +93,36 @@ body {
 
 h1, h2, h3, h4, h5, h6, .font-display {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
 }
 
 code, pre, .font-mono {
   font-family: var(--font-mono);
+}
+
+/* Nuzz Signature Glow Utilities */
+.moss-glow {
+  box-shadow: 0 0 25px -4px var(--moss-glow);
+}
+
+.moss-glow-sm {
+  box-shadow: 0 0 12px -2px var(--moss-glow);
+}
+
+.ember-glow {
+  box-shadow: 0 0 25px -4px var(--ember-glow);
+}
+
+.card-tactile {
+  background-color: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: var(--cn-radius-lg);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-tactile:hover {
+  border-color: rgba(87, 197, 100, 0.35);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 12px -2px var(--moss-glow-soft);
 }
 
 /* Custom Tactical Scrollbars */

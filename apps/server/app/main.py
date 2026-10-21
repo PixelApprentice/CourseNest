@@ -1,25 +1,28 @@
 """FastAPI application entry point."""
 
-from contextlib import asynccontextmanager
+import logging
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import settings
 from app.api.router import api_router
+from app.config import settings
 from app.db.session import engine
+
+logger = logging.getLogger("coursenest.server")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
     # Startup
-    print(f"Starting CourseNest Server v0.1.0 (debug={settings.debug})")
+    logger.info("Starting CourseNest Server v0.1.0 (debug=%s)", settings.debug)
     yield
     # Shutdown
     await engine.dispose()
-    print("CourseNest Server shut down.")
+    logger.info("CourseNest Server shut down.")
 
 
 app = FastAPI(

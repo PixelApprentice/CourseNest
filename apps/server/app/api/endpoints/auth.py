@@ -1,16 +1,17 @@
 """Authentication endpoints: register, login, current user."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
-from app.db.session import get_db
-from app.db.models.user import User
 from app.api.deps import get_current_user
+from app.config import settings
+from app.core.security import hash_password, verify_password
+from app.db.models.user import User
+from app.db.session import get_db
 
 router = APIRouter()
 
@@ -58,11 +59,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
             detail="A user with this email already exists",
         )
 
-    # Hash password (passlib)
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    hashed = pwd_context.hash(body.password)
+    # Hash password with native bcrypt
+    hashed = hash_password(body.password)
 
     user = User(
         email=body.email,
@@ -77,21 +75,18 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)) ->
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     """Authenticate and return a JWT token."""
-    from passlib.context import CryptContext
     from jose import jwt
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    if not user or not pwd_context.verify(body.password, user.hashed_password):
+    if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
         )
 
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+    expire = datetime.now(UTC) + timedelta(minutes=settings.access_token_expire_minutes)
     token_data = {"sub": user.id, "exp": expire, "role": user.role}
     access_token = jwt.encode(token_data, settings.secret_key, algorithm=settings.algorithm)
 

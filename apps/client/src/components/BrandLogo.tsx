@@ -25,13 +25,13 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
   return (
     <div className={`flex items-center gap-3 select-none ${className}`}>
-      {/* Bespoke Geometric Codex-Nest Mark */}
-      <div className={`relative flex items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 via-emerald-600/10 to-transparent p-2 border border-emerald-500/30 shadow-sm shadow-emerald-950/20 ${iconSizes[size]}`}>
+      {/* Bespoke Geometric Codex-Nest Mark (Nuzz-inspired Organic Moss Accent) */}
+      <div className={`relative flex items-center justify-center rounded-xl bg-gradient-to-br from-[#57C564]/20 via-[#57C564]/10 to-transparent p-2 border border-[#57C564]/30 moss-glow-sm ${iconSizes[size]}`}>
         <svg
           viewBox="0 0 32 32"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full text-emerald-500 dark:text-emerald-400"
+          className="w-full h-full text-[#57C564]"
         >
           {/* Outer Codex Nest Foundation */}
           <path
@@ -58,14 +58,14 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           {/* Amber Core Beacon / Learning Flame */}
           <polygon
             points="16,6 19,11 16,14 13,11"
-            className="fill-amber-500 text-amber-500 drop-shadow-[0_0_6px_rgba(245,158,11,0.6)]"
+            className="fill-amber-500 text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.7)]"
           />
         </svg>
       </div>
 
       <div className="flex flex-col">
         <span className={`font-display font-extrabold tracking-tight text-[var(--cn-text-primary)] ${titleSizes[size]}`}>
-          Course<span className="text-emerald-600 dark:text-emerald-400 font-semibold">Nest</span>
+          Course<span className="text-[#57C564] font-semibold">Nest</span>
         </span>
         {showBadge && (
           <span className="text-[10px] uppercase font-mono tracking-widest text-[var(--cn-text-muted)] font-medium -mt-1 flex items-center gap-1.5">

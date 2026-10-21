@@ -16,12 +16,21 @@ export interface LogEntry {
 const STORAGE_KEY = 'coursenest_logs_v1';
 const MAX_LOGS = 500;
 
+let inMemoryLogs: LogEntry[] | null = null;
+
 function getStoredLogs(): LogEntry[] {
+  if (inMemoryLogs !== null) {
+    return inMemoryLogs;
+  }
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        inMemoryLogs = parsed;
+        return inMemoryLogs;
+      }
     }
   } catch {}
 
@@ -61,6 +70,7 @@ function getStoredLogs(): LogEntry[] {
     },
   ];
 
+  inMemoryLogs = initial;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
   } catch {}
@@ -91,6 +101,7 @@ export function addLog(
     logs.length = MAX_LOGS;
   }
 
+  inMemoryLogs = logs;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
     window.dispatchEvent(new Event('coursenest_logs_updated'));
@@ -113,6 +124,7 @@ export function getLogs(): LogEntry[] {
 }
 
 export function clearLogs(): void {
+  inMemoryLogs = [];
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
     window.dispatchEvent(new Event('coursenest_logs_updated'));

@@ -1,5 +1,7 @@
 """Shared API dependencies (authentication, authorization)."""
 
+from collections.abc import Awaitable, Callable
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -7,8 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db.session import get_db
 from app.db.models.user import User
+from app.db.session import get_db
 
 security = HTTPBearer()
 
@@ -33,8 +35,8 @@ async def get_current_user(
         user_id: str | None = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+    except JWTError as err:
+        raise credentials_exception from err
 
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
@@ -45,7 +47,7 @@ async def get_current_user(
     return user
 
 
-def require_role(required_role: str):
+def require_role(required_role: str) -> Callable[..., Awaitable[User]]:
     """Dependency factory that checks the user has a specific role."""
 
     async def role_checker(user: User = Depends(get_current_user)) -> User:

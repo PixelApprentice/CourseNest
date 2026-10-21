@@ -5,9 +5,10 @@ import json
 from pathlib import Path
 
 from sqlalchemy import select
-from app.db.session import async_session_factory, engine
-from app.db.models.course import Course, CourseVersion, Section, Lesson
+
+from app.db.models.course import Course, CourseVersion, Lesson, Section
 from app.db.models.user import User
+from app.db.session import async_session_factory, engine
 
 FIXTURES_DIR = Path(__file__).resolve().parents[4] / "fixtures" / "courses"
 
@@ -38,7 +39,7 @@ async def seed_database() -> None:
 
         # 2. Iterate over fixture files
         for fixture_file in FIXTURES_DIR.glob("*.json"):
-            with open(fixture_file, "r", encoding="utf-8") as f:
+            with open(fixture_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             c_info = data["course"]

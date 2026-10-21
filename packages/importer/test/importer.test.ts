@@ -15,6 +15,7 @@ import {
   AtomicImportManager,
   CourseImportEngine,
   SecurityValidationError,
+  validateArchivePath,
 } from '../dist/index.js';
 import { ResourceType, ImportJobStatus } from '@coursenest/domain';
 
@@ -109,6 +110,18 @@ describe('Importer Package & Security Architecture', () => {
       exists = false;
     }
     assert.equal(exists, false, 'Malicious file must not be created on disk');
+
+    // Test null-byte injection rejection
+    assert.throws(
+      () => validateArchivePath('malicious\0file.txt', sandbox),
+      (err: Error) => err instanceof SecurityValidationError && err.message.includes('Null byte detected'),
+    );
+
+    // Test Windows drive letter rejection
+    assert.throws(
+      () => validateArchivePath('C:/Windows/System32/calc.exe', sandbox),
+      (err: Error) => err instanceof SecurityValidationError && err.message.includes('Path traversal detected'),
+    );
   });
 
   it('safeguards untrusted code and sandboxes it as static text only', () => {

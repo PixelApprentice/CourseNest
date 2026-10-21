@@ -32,6 +32,7 @@ dev = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",
     "httpx>=0.28.0",
+    "aiosqlite>=0.20.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -45,12 +46,33 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "T20"]
+ignore = [
+    "B008",  # Allow Depends() in FastAPI endpoint definitions
+]
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/*" = ["E501"]
+"tests/*" = ["T201"]
+"app/db/seed.py" = ["T201"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "jose.*",
+]
+ignore_missing_imports = true
