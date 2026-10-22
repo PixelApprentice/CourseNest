@@ -1,14 +1,14 @@
 import { Link } from 'react-router-dom';
 import type { CourseData } from '../lib/courseStore';
 import { 
-  CheckCircle2, 
-  Clock, 
-  Play, 
-  Layers, 
-  Trash2,
-  HardDrive,
-  FileText
-} from 'lucide-react';
+  IconCircleCheck, 
+  IconClock, 
+  IconPlayerPlay, 
+  IconStack2, 
+  IconTrash,
+  IconDeviceFloppy,
+  IconFileText
+} from '@tabler/icons-react';
 
 interface CourseCardProps {
   course: CourseData;
@@ -33,11 +33,10 @@ export function CourseCard({
     ? `${(course.estimatedDurationMinutes / 60).toFixed(1)}h` 
     : null;
 
-  // Extract a clean course code from id or subject (e.g., "CS-101", "ML-201")
   const codeMatch = course.id ? course.id.match(/([a-zA-Z]+)(\d+)/) : null;
   const courseCode = (codeMatch && codeMatch[1] && codeMatch[2])
     ? `${codeMatch[1].toUpperCase()}-${codeMatch[2]}`
-    : 'ACAD-01';
+    : 'COURSE';
 
   return (
     <div
@@ -45,7 +44,7 @@ export function CourseCard({
         viewMode === 'list' ? 'flex-row items-center p-5 gap-6' : 'flex-col'
       }`}
     >
-      {/* Tactical Dossier Header / Preview Area */}
+      {/* Header / Preview Area */}
       <div
         className={`${
           viewMode === 'list'
@@ -53,7 +52,6 @@ export function CourseCard({
             : 'w-full h-36'
         } relative overflow-hidden bg-[var(--cn-bg)] border-b border-[var(--cn-border)] flex flex-col justify-between p-4`}
       >
-        {/* Subtle geometric pattern background */}
         <div 
           className="absolute inset-0 opacity-15 pointer-events-none"
           style={{
@@ -68,17 +66,17 @@ export function CourseCard({
             {courseCode}
           </span>
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[var(--cn-surface)]/90 backdrop-blur-sm border border-[var(--cn-border)] text-[var(--cn-success)]">
-            <CheckCircle2 size={11} className="text-[var(--cn-success)]" />
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[var(--cn-surface)]/90 backdrop-blur-xs border border-[var(--cn-border)] text-[var(--cn-success)]">
+            <IconCircleCheck size={12} className="text-[var(--cn-success)]" />
             <span>OFFLINE VAULT</span>
           </div>
         </div>
 
-        {/* Course Code Watermark / Subject Preview */}
+        {/* Course Info Preview */}
         <div className="relative z-10 flex items-end justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--cn-text-muted)] font-mono">
-              {course.subject || 'Engineering'}
+              {course.subject || 'Course'}
             </span>
             <p className="text-xs font-medium text-[var(--cn-text-secondary)]">
               {course.instructorName}
@@ -86,7 +84,7 @@ export function CourseCard({
           </div>
 
           <div className="text-[10px] font-mono text-[var(--cn-text-muted)] flex items-center gap-1">
-            <HardDrive size={11} />
+            <IconDeviceFloppy size={12} />
             <span>Local Vault</span>
           </div>
         </div>
@@ -104,19 +102,19 @@ export function CourseCard({
           </p>
         </div>
 
-        {/* Curriculum Metadata Matrix */}
+        {/* Curriculum Metadata */}
         <div className="flex items-center gap-4 text-[11px] font-mono text-[var(--cn-text-muted)] pt-1 border-t border-[var(--cn-border)]/60">
           <span className="flex items-center gap-1.5">
-            <Layers size={13} className="text-[var(--cn-primary)]" />
-            {totalSections} Modules
+            <IconStack2 size={13} className="text-[var(--cn-primary)]" />
+            {totalSections} Chapters
           </span>
           <span className="flex items-center gap-1.5">
-            <FileText size={13} className="text-[var(--cn-primary)]" />
+            <IconFileText size={13} className="text-[var(--cn-primary)]" />
             {totalLessons} Lessons
           </span>
           {durationHours && (
             <span className="flex items-center gap-1.5">
-              <Clock size={13} className="text-[var(--cn-primary)]" />
+              <IconClock size={13} className="text-[var(--cn-primary)]" />
               {durationHours}
             </span>
           )}
@@ -140,10 +138,10 @@ export function CourseCard({
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
           <Link
             to={lastLessonId ? `/course/${course.id}/lesson/${lastLessonId}` : `/course/${course.id}`}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
           >
-            <Play size={12} fill="currentColor" />
-            <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Course'}</span>
+            <IconPlayerPlay size={13} />
+            <span>{progressPercent > 0 ? 'Resume' : 'Start'}</span>
           </Link>
 
           <div className="flex items-center gap-1.5">
@@ -157,11 +155,11 @@ export function CourseCard({
             {onRemoveDownload && (
               <button
                 onClick={() => onRemoveDownload(course.id)}
-                title="Remove downloaded course files"
-                aria-label="Remove downloaded course files"
+                title="Remove course from library"
+                aria-label="Remove course from library"
                 className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-colors"
               >
-                <Trash2 size={14} />
+                <IconTrash size={14} />
               </button>
             )}
           </div>

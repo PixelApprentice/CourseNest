@@ -2,26 +2,24 @@ import { Link } from 'react-router-dom';
 import { useVaultCourses, getCourseProgressPercent, getVaultAnalytics, type CourseData } from '../../lib/courseStore';
 import { CourseCard } from '../../components/CourseCard';
 import { 
-  Play, 
-  Upload, 
-  Library, 
-  BookOpen, 
-  CheckCircle2, 
-  ShieldCheck,
-  ArrowRight,
-  HardDrive,
-  StickyNote,
-  Award,
-  Zap,
-  Sparkles,
-} from 'lucide-react';
+  IconPlayerPlay, 
+  IconUpload, 
+  IconBooks, 
+  IconBook, 
+  IconCircleCheck, 
+  IconShieldCheck,
+  IconArrowRight,
+  IconDeviceFloppy,
+  IconNote,
+  IconAward,
+  IconBolt
+} from '@tabler/icons-react';
 import { APP_NAME } from '@coursenest/config';
 
 export function HomePage() {
   const { courses } = useVaultCourses();
   const analytics = getVaultAnalytics();
 
-  // Find active course to resume (prioritize course with highest progress or first course)
   const sortedCourses = [...courses].sort((a: CourseData, b: CourseData) => {
     return getCourseProgressPercent(b) - getCourseProgressPercent(a);
   });
@@ -33,7 +31,7 @@ export function HomePage() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-10">
-      {/* Obsidian Academic Hero Banner */}
+      {/* Hero Banner */}
       <section className="relative overflow-hidden rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] p-6 md:p-8">
         <div 
           className="absolute inset-0 opacity-10 pointer-events-none"
@@ -45,7 +43,7 @@ export function HomePage() {
 
         <div className="relative z-10 max-w-2xl space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30">
-            <ShieldCheck size={14} />
+            <IconShieldCheck size={14} />
             <span>PRIVATE OFFLINE LEARNING</span>
           </div>
 
@@ -60,24 +58,17 @@ export function HomePage() {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
-              to="/welcome"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-brand)]/40 bg-[var(--cn-primary-tint)] text-[#57C564] text-xs font-semibold hover:bg-[#57C564]/20 transition-colors shadow-xs"
-            >
-              <Sparkles size={15} />
-              <span>Platform Showcase & Engines</span>
-            </Link>
-            <Link
               to="/import"
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[#0A0A0B] text-xs font-bold hover:bg-[#69D475] transition-colors shadow-sm"
             >
-              <Upload size={15} />
+              <IconUpload size={15} />
               <span>Add Course Materials</span>
             </Link>
             <Link
               to="/library"
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)] transition-colors"
             >
-              <Library size={15} />
+              <IconBooks size={15} />
               <span>My Courses ({courses.length})</span>
             </Link>
           </div>
@@ -89,7 +80,7 @@ export function HomePage() {
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
           <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
             <span className="text-[11px] font-mono uppercase tracking-wider">Courses</span>
-            <BookOpen size={15} className="text-[var(--cn-primary)]" />
+            <IconBook size={15} className="text-[var(--cn-primary)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.totalCourses}</p>
           <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">{analytics.totalLessons} lessons total</p>
@@ -98,7 +89,7 @@ export function HomePage() {
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
           <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
             <span className="text-[11px] font-mono uppercase tracking-wider">Lessons Done</span>
-            <Award size={15} className="text-[var(--cn-success)]" />
+            <IconAward size={15} className="text-[var(--cn-success)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.completedLessons}</p>
           <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Completed offline</p>
@@ -107,7 +98,7 @@ export function HomePage() {
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
           <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
             <span className="text-[11px] font-mono uppercase tracking-wider">My Notes</span>
-            <StickyNote size={15} className="text-[var(--cn-accent)]" />
+            <IconNote size={15} className="text-[var(--cn-accent)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.notesCount}</p>
           <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Saved on your device</p>
@@ -116,7 +107,7 @@ export function HomePage() {
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
           <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
             <span className="text-[11px] font-mono uppercase tracking-wider">Storage Used</span>
-            <HardDrive size={15} className="text-[var(--cn-info)]" />
+            <IconDeviceFloppy size={15} className="text-[var(--cn-primary)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.estimatedStorageMB} MB</p>
           <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">100% offline & private</p>
@@ -128,7 +119,7 @@ export function HomePage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)] flex items-center gap-2">
-              <Zap size={15} className="text-[var(--cn-primary)]" />
+              <IconBolt size={15} className="text-[var(--cn-primary)]" />
               <span>Continue Learning</span>
             </h2>
             <Link
@@ -136,7 +127,7 @@ export function HomePage() {
               className="text-xs text-[var(--cn-primary)] hover:underline flex items-center gap-1 font-mono font-medium"
             >
               <span>View Course Lessons</span>
-              <ArrowRight size={13} />
+              <IconArrowRight size={13} />
             </Link>
           </div>
 
@@ -155,7 +146,7 @@ export function HomePage() {
               </h3>
 
               <p className="text-xs text-[var(--cn-text-secondary)] line-clamp-2 leading-relaxed">
-                {resumeLesson.description || 'Continue your structured self-paced study with video lecture, lecture slides, and checkpoints.'}
+                {resumeLesson.description || 'Continue your self-paced study with video lecture, lecture slides, and checkpoints.'}
               </p>
 
               {/* Progress preview */}
@@ -177,7 +168,7 @@ export function HomePage() {
                 to={`/course/${activeCourseData.id}/lesson/${resumeLesson.id}`}
                 className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-all shadow-sm"
               >
-                <Play size={14} fill="currentColor" />
+                <IconPlayerPlay size={14} />
                 <span>Resume Lesson</span>
               </Link>
             </div>
@@ -189,7 +180,7 @@ export function HomePage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)] flex items-center gap-2">
-            <BookOpen size={15} className="text-[var(--cn-primary)]" />
+            <IconBook size={15} className="text-[var(--cn-primary)]" />
             <span>My Courses</span>
           </h2>
           <Link
@@ -202,18 +193,18 @@ export function HomePage() {
 
         {courses.length === 0 ? (
           <div className="border border-dashed border-[var(--cn-border)] rounded-2xl p-12 text-center bg-[var(--cn-surface)] space-y-4">
-            <BookOpen size={40} className="mx-auto text-[var(--cn-text-muted)]" />
+            <IconBook size={40} className="mx-auto text-[var(--cn-text-muted)]" />
             <div>
               <p className="font-bold text-sm text-[var(--cn-text-primary)]">Your vault is currently empty</p>
               <p className="text-xs text-[var(--cn-text-muted)] mt-1">
-                Add a course zip package or json file to begin learning completely offline.
+                Add a course archive or folder to begin learning completely offline.
               </p>
             </div>
             <Link
               to="/import"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-medium"
             >
-              <Upload size={14} />
+              <IconUpload size={14} />
               <span>Add First Course</span>
             </Link>
           </div>
@@ -238,35 +229,35 @@ export function HomePage() {
         )}
       </section>
 
-      {/* Obsidian Academic Guarantees */}
+      {/* Academic Guarantees */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-[var(--cn-border)]">
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
           <div className="flex items-center gap-2 font-bold text-xs text-[var(--cn-text-primary)]">
-            <CheckCircle2 size={15} className="text-[var(--cn-success)]" />
+            <IconCircleCheck size={15} className="text-[var(--cn-success)]" />
             <span>Deterministic Storage</span>
           </div>
           <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-            Content is validated with SHA-256 cryptographic hashes. Deduplication saves disk bytes.
+            Content is validated with cryptographic hashes. Deduplication saves disk space.
           </p>
         </div>
 
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
           <div className="flex items-center gap-2 font-bold text-xs text-[var(--cn-text-primary)]">
-            <CheckCircle2 size={15} className="text-[var(--cn-success)]" />
-            <span>Zero-Phone-Home Privacy</span>
+            <IconCircleCheck size={15} className="text-[var(--cn-success)]" />
+            <span>Zero Tracking & Privacy</span>
           </div>
           <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-            No tracking, no analytics beacons, and no ads. Your learning timeline belongs strictly to you.
+            No telemetry, no tracking, and no ads. Your learning data stays on your machine.
           </p>
         </div>
 
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
           <div className="flex items-center gap-2 font-bold text-xs text-[var(--cn-text-primary)]">
-            <CheckCircle2 size={15} className="text-[var(--cn-success)]" />
-            <span>Sandboxed Extraction</span>
+            <IconCircleCheck size={15} className="text-[var(--cn-success)]" />
+            <span>Safe Archive Extraction</span>
           </div>
           <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-            Every ZIP or archive is decompressed inside sandboxed boundaries with Zip Slip protection.
+            Every ZIP or archive is decompressed inside sandboxed boundaries with path traversal protection.
           </p>
         </div>
       </section>

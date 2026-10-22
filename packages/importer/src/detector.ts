@@ -24,6 +24,13 @@ const MIME_MAP: Record<string, string> = {
   '.pdf': 'application/pdf',
   '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   '.doc': 'application/msword',
+  '.epub': 'application/epub+zip',
+  '.srt': 'text/vtt',
+  '.vtt': 'text/vtt',
+  '.url': 'text/plain',
+  '.webloc': 'text/plain',
+  '.desktop': 'text/plain',
+  '.ipynb': 'application/x-ipynb+json',
   '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   '.ppt': 'application/vnd.ms-powerpoint',
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -66,6 +73,10 @@ export function detectResourceType(filename: string): ResourceType {
   if ((SUPPORTED_IMAGE_EXTENSIONS as readonly string[]).includes(ext)) return ResourceType.Image;
   if (ext === '.html') return ResourceType.HTML;
   if (ext === '.md' || ext === '.markdown') return ResourceType.Markdown;
+  if (ext === '.epub') return ResourceType.Document;
+  if (ext === '.ipynb') return ResourceType.SourceCode;
+  if (['.srt', '.vtt'].includes(ext)) return ResourceType.Document;
+  if (['.url', '.webloc', '.desktop'].includes(ext)) return ResourceType.Document;
   if ((SUPPORTED_CODE_EXTENSIONS as readonly string[]).includes(ext)) return ResourceType.SourceCode;
   if ((SUPPORTED_ARCHIVE_EXTENSIONS as readonly string[]).includes(ext)) return ResourceType.Archive;
   if (ext === '.csv') return ResourceType.Dataset;

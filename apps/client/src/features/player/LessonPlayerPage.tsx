@@ -26,27 +26,31 @@ import { getMediaBlobUrl } from '../../lib/mediaVault';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { AiReadingCompanion } from '../../components/AiReadingCompanion';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
+import { sanitizeLectureHtml } from '../../lib/formatHelpers';
 import { 
-  ArrowLeft, 
-  ChevronLeft, 
-  ChevronRight, 
-  Bookmark as BookmarkIcon, 
-  StickyNote, 
-  CheckCircle2, 
-  Download, 
-  FileText, 
-  HelpCircle, 
-  Menu, 
-  X,
-  Check,
-  RotateCcw,
-  Clock,
-  Trash2,
-  Share2,
-  HardDrive,
-  Eye,
-  Sparkles
-} from 'lucide-react';
+  IconArrowLeft, 
+  IconChevronLeft, 
+  IconChevronRight, 
+  IconBookmark, 
+  IconNote, 
+  IconCircleCheck, 
+  IconDownload, 
+  IconFileText, 
+  IconHelp, 
+  IconMenu2, 
+  IconX,
+  IconCheck, 
+  IconRotate, 
+  IconClock, 
+  IconTrash, 
+  IconDeviceFloppy, 
+  IconEye, 
+  IconExternalLink,
+  IconBrain,
+  IconFileCode,
+  IconLink
+} from '@tabler/icons-react';
 
 export function LessonPlayerPage() {
   const { courseId, lessonId } = useParams<{ courseId: string; lessonId: string }>();
@@ -58,6 +62,12 @@ export function LessonPlayerPage() {
   const allLessons: LessonData[] = courseData ? courseData.sections.flatMap((s: SectionData) => s.lessons) : [];
   const currentLessonIndex = allLessons.findIndex((l: LessonData) => l.id === lessonId);
   const activeLesson: LessonData | undefined = allLessons[currentLessonIndex >= 0 ? currentLessonIndex : 0];
+
+  // Find parent section and companion materials
+  const currentSection = courseData?.sections.find((s: SectionData) => 
+    s.lessons.some((l) => l.id === activeLesson?.id)
+  );
+  const companionSectionLessons = (currentSection?.lessons || []).filter((l) => l.id !== activeLesson?.id);
 
   // Rails & Panels state
   const [activeSidePanel, setActiveSidePanel] = useState<'none' | 'notes' | 'bookmarks' | 'curriculum' | 'ai-tutor'>('none');
@@ -116,18 +126,36 @@ export function LessonPlayerPage() {
       setCurrentTime(savedTime);
     }
 
-    // Resolve offline binary assets from IndexedDB media vault
+    // Resolve offline binary assets and subtitles from IndexedDB media vault
     for (const block of activeLesson.blocks) {
       if (block.src?.startsWith('vault-media://')) {
         const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
         if (match && match[1] && match[2]) {
-          const cId = match[1];
+          const vCourseId = match[1];
           const relPath = match[2];
-          getMediaBlobUrl(cId, relPath).then((url) => {
+          getMediaBlobUrl(vCourseId, relPath).then((url) => {
             if (url) {
               setResolvedMediaUrls((prev) => ({ ...prev, [block.id]: url }));
             }
           });
+        }
+      }
+
+      // Resolve subtitle files
+      if (block.subtitles && block.subtitles.length > 0) {
+        for (const sub of block.subtitles) {
+          if (sub.src?.startsWith('vault-media://')) {
+            const subMatch = sub.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
+            if (subMatch && subMatch[1] && subMatch[2]) {
+              const vCourseId = subMatch[1];
+              const subRelPath = subMatch[2];
+              getMediaBlobUrl(vCourseId, subRelPath).then((url) => {
+                if (url) {
+                  setResolvedMediaUrls((prev) => ({ ...prev, [sub.id]: url }));
+                }
+              });
+            }
+          }
         }
       }
     }
@@ -199,58 +227,59 @@ export function LessonPlayerPage() {
 
   // Export note as Markdown file
   const handleExportNote = () => {
-    const content = `# Notes: ${activeLesson.title}\nCourse: ${courseData.title}\nDate: ${new Date().toLocaleDateString()}\n\n${notesContent}`;
-    const blob = new Blob([content], { type: 'text/markdown' });
+    const blob = new Blob([notesContent], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `notes_${activeLesson.id}.md`;
+    a.download = `${activeLesson.title.replace(/\s+/g, '_')}_notes.md`;
     a.click();
     URL.revokeObjectURL(url);
-    addLog('INFO', 'PLAYER', `Exported notes for ${activeLesson.title} as Markdown (.md)`);
+    addLog('INFO', 'PLAYER', `Exported study notes: ${activeLesson.title}`);
   };
 
   // Add bookmark
-  const handleCreateBookmark = (e: React.FormEvent) => {
+  const handleAddBookmark = (e: React.FormEvent) => {
     e.preventDefault();
-    const title = newBookmarkTitle.trim() || `Bookmark at ${formatTime(currentTime)}`;
-    addBookmark(activeLesson.id, currentTime, title);
+    if (!newBookmarkTitle.trim()) return;
+
+    addBookmark(activeLesson.id, Math.floor(currentTime), newBookmarkTitle.trim());
+
     setNewBookmarkTitle('');
   };
 
-  // Submit quiz
+  // Quiz submission
   const handleQuizSubmit = () => {
-    if (!activeLesson.quiz?.questions) return;
-    let score = 0;
-    const maxScore = activeLesson.quiz.questions.length;
+    if (!activeLesson.quiz) return;
+    const questions = activeLesson.quiz.questions;
+    let correctCount = 0;
 
-    activeLesson.quiz.questions.forEach((q: QuizQuestion) => {
-      const correctOpt = q.options?.find((o) => o.isCorrect);
-      if (correctOpt && quizAnswers[q.id] === correctOpt.id) {
-        score += 1;
+    for (const q of questions) {
+      const correctOption = q.options?.find((o) => o.isCorrect);
+      if (quizAnswers[q.id] === correctOption?.id) {
+        correctCount++;
       }
-    });
+    }
 
-    setQuizScore(score);
+    const calculatedScore = Math.round((correctCount / questions.length) * 100);
+    const passed = calculatedScore >= activeLesson.quiz.passingScorePercent;
+
     setQuizSubmitted(true);
-    saveQuizResult(activeLesson.id, score, maxScore);
+    setQuizScore(calculatedScore);
 
-    const isPassed = (score / maxScore) * 100 >= activeLesson.quiz.passingScorePercent;
-    addLog(
-      isPassed ? 'INFO' : 'WARN',
-      'PLAYER',
-      `Checkpoint quiz submitted: ${score}/${maxScore} pts (${Math.round((score / maxScore) * 100)}%)`,
-      `Assessment: ${activeLesson.quiz.title} • Status: ${isPassed ? 'PASSED' : 'RETRY NEEDED'}`,
-    );
+    saveQuizResult(activeLesson.id, correctCount, questions.length);
 
-    // If score meets passing percentage, automatically mark lesson complete
-    if (isPassed) {
-      setIsCompleted(true);
+    if (passed) {
       setLessonProgress(courseData.id, activeLesson.id, { completed: true });
+      setIsCompleted(true);
     }
   };
 
-  // Format seconds to mm:ss
+  const handleRetakeQuiz = () => {
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setQuizScore(null);
+  };
+
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -259,6 +288,17 @@ export function LessonPlayerPage() {
   };
 
   const isExternalDisconnected = storageConfig.volumeType === 'external' && !storageConfig.isMounted;
+
+  // Sort blocks: Video first, Rich text/HTML second, Documents third, Assets/links fourth
+  const typeRank: Record<string, number> = {
+    video: 1,
+    audio: 2,
+    rich_text: 3,
+    document: 4,
+    downloadable_asset: 5,
+    code: 6,
+  };
+  const sortedBlocks = [...activeLesson.blocks].sort((a, b) => (typeRank[a.type] || 99) - (typeRank[b.type] || 99));
 
   return (
     <div className="flex flex-col h-full bg-[var(--cn-bg)]">
@@ -269,7 +309,7 @@ export function LessonPlayerPage() {
             to={`/course/${courseData.id}`}
             className="flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] transition-colors shrink-0"
           >
-            <ArrowLeft size={14} />
+            <IconArrowLeft size={14} />
             <span className="hidden sm:inline">Course Overview</span>
           </Link>
           <span className="text-[var(--cn-text-muted)] font-mono hidden sm:inline">|</span>
@@ -282,8 +322,8 @@ export function LessonPlayerPage() {
           {/* Storage status chip */}
           {isExternalDisconnected && (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border border-[var(--cn-warning)]/40">
-              <HardDrive size={11} />
-              EXT DISK UNPLUGGED
+              <IconDeviceFloppy size={12} />
+              DRIVE UNPLUGGED
             </span>
           )}
 
@@ -296,7 +336,7 @@ export function LessonPlayerPage() {
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
             }`}
           >
-            <CheckCircle2 size={13} />
+            <IconCircleCheck size={14} />
             <span>{isCompleted ? 'Completed' : 'Mark Done'}</span>
           </button>
 
@@ -310,7 +350,7 @@ export function LessonPlayerPage() {
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
             }`}
           >
-            <BookmarkIcon size={14} />
+            <IconBookmark size={14} />
             <span className="hidden md:inline">Bookmarks</span>
             {bookmarks.length > 0 && (
               <span className="px-1 rounded bg-[var(--cn-surface-subtle)] text-[10px]">
@@ -329,7 +369,7 @@ export function LessonPlayerPage() {
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
             }`}
           >
-            <StickyNote size={14} />
+            <IconNote size={14} />
             <span className="hidden md:inline">Notes</span>
           </button>
 
@@ -343,8 +383,8 @@ export function LessonPlayerPage() {
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
             }`}
           >
-            <Sparkles size={14} className="text-[var(--cn-primary)]" />
-            <span className="hidden md:inline">Ask AI</span>
+            <IconBrain size={14} className="text-[var(--cn-primary)]" />
+            <span className="hidden md:inline">Study Companion</span>
           </button>
 
           {/* Curriculum Drawer Toggle */}
@@ -357,7 +397,7 @@ export function LessonPlayerPage() {
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
             }`}
           >
-            <Menu size={16} />
+            <IconMenu2 size={16} />
           </button>
         </div>
       </header>
@@ -366,18 +406,18 @@ export function LessonPlayerPage() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Central Lesson Content Column */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 max-w-4xl mx-auto w-full">
-          {/* Ordered Content Blocks Loop */}
-          {activeLesson.blocks.map((block: ContentBlockData) => {
+          <ErrorBoundary fallbackTitle="Unable to display this lesson block">
+            {/* Ordered Content Blocks Loop */}
+          {sortedBlocks.map((block: ContentBlockData) => {
             // 1. VIDEO BLOCK
             if (block.type === 'video') {
               const videoSrc = resolvedMediaUrls[block.id] || (block.src?.startsWith('vault-media://') ? '' : block.src) || '';
 
-              // If External Storage is Disconnected, show graceful fallback card
               if (isExternalDisconnected) {
                 return (
                   <div key={block.id} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[var(--cn-warning)]/40 bg-[var(--cn-surface)] p-8 flex flex-col items-center justify-center text-center space-y-3">
                     <div className="w-12 h-12 rounded-xl bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] flex items-center justify-center">
-                      <HardDrive size={24} />
+                      <IconDeviceFloppy size={24} />
                     </div>
                     <div className="space-y-1">
                       <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">
@@ -422,15 +462,24 @@ export function LessonPlayerPage() {
                 );
               }
 
+              const blockSubs = (block.subtitles || []).map((sub) => ({
+                id: sub.id,
+                label: sub.label,
+                language: sub.language,
+                src: resolvedMediaUrls[sub.id] || sub.src,
+                isDefault: sub.isDefault,
+              }));
+
               return (
                 <div key={block.id} className="space-y-3">
                   <VlcMediaViewer
                     src={videoSrc}
                     title={activeLesson.title}
+                    subtitles={blockSubs}
                     initialTime={getSavedPlaybackTime(activeLesson.id)}
                     onTimeUpdate={(curr) => {
                       setCurrentTime(curr);
-                      if (Math.floor(curr) % 2 === 0) {
+                      if (Math.floor(curr) % 3 === 0) {
                         savePlaybackTime(activeLesson.id, curr);
                       }
                     }}
@@ -438,8 +487,8 @@ export function LessonPlayerPage() {
 
                   <div className="flex items-center justify-between text-xs font-mono text-[var(--cn-text-muted)]">
                     <span className="flex items-center gap-1.5">
-                      <HardDrive size={12} className="text-[var(--cn-brand)]" />
-                      VLC-Grade Stream • Playback position auto-saved to vault database
+                      <IconDeviceFloppy size={13} className="text-[var(--cn-brand)]" />
+                      Offline Video Stream • Playback position auto-saved
                     </span>
                     <span className="hidden sm:inline">Shortcuts: Space (play/pause), ←/→ (seek 5s), M (mute), F (fullscreen)</span>
                   </div>
@@ -447,23 +496,40 @@ export function LessonPlayerPage() {
               );
             }
 
-            // 2. RICH TEXT / LECTURE NOTES BLOCK
+            // 2. RICH TEXT / LECTURE NOTES / HTML BLOCK (DIRECTLY UNDER VIDEO)
             if (block.type === 'rich_text') {
-              const content = block.content || '';
+              const rawContent = block.content || '';
+              const isHtml = /<[a-z][\s\S]*>/i.test(rawContent);
+
               return (
                 <div key={block.id} className="p-6 md:p-8 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-4">
-                  <div className="flex items-center gap-2 text-xs font-mono text-[var(--cn-primary)] font-semibold border-b border-[var(--cn-border)] pb-2">
-                    <FileText size={14} />
-                    <span>LESSON NOTES</span>
+                  <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-3">
+                    <div className="flex items-center gap-2 text-xs font-mono text-[var(--cn-primary)] font-bold">
+                      <IconFileText size={16} />
+                      <span>{block.title || 'LECTURE NOTES & READING MATERIAL'}</span>
+                    </div>
+                    {block.filename && (
+                      <span className="text-[11px] font-mono text-[var(--cn-text-muted)]">
+                        {block.filename}
+                      </span>
+                    )}
                   </div>
-                  <div className="prose prose-sm max-w-none text-[var(--cn-text-primary)] leading-relaxed whitespace-pre-line font-sans">
-                    {content}
-                  </div>
+                  
+                  {isHtml ? (
+                    <div 
+                      className="prose prose-invert max-w-none text-[var(--cn-text-primary)] leading-relaxed font-sans text-sm overflow-x-auto space-y-2 [&_a]:text-[var(--cn-primary)] [&_a]:underline"
+                      dangerouslySetInnerHTML={{ __html: sanitizeLectureHtml(rawContent) }}
+                    />
+                  ) : (
+                    <div className="prose max-w-none text-[var(--cn-text-primary)] leading-relaxed whitespace-pre-line font-sans text-sm">
+                      {rawContent}
+                    </div>
+                  )}
                 </div>
               );
             }
 
-            // 3. DOCUMENT VIEWER / SLIDE DECK BLOCK (EMBEDDED READER)
+            // 3. DOCUMENT VIEWER / SLIDE DECK BLOCK (DIRECTLY UNDER VIDEO)
             if (block.type === 'document') {
               const filename = block.filename || 'Document.pdf';
               const size = block.fileSizeBytes || 1024000;
@@ -471,12 +537,12 @@ export function LessonPlayerPage() {
                 <div key={block.id} className="p-5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
                     <div className="w-10 h-10 rounded-lg bg-[var(--cn-info-tint)] text-[var(--cn-info)] flex items-center justify-center shrink-0">
-                      <FileText size={20} />
+                      <IconFileText size={20} />
                     </div>
                     <div>
                       <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">{filename}</h4>
                       <p className="text-xs text-[var(--cn-text-muted)] mt-0.5 font-mono">
-                        Attached course document • {(size / 1024 / 1024).toFixed(1)} MB
+                        Course Handout & Slide Deck • {(size / 1024 / 1024).toFixed(1)} MB
                       </p>
                     </div>
                   </div>
@@ -488,9 +554,9 @@ export function LessonPlayerPage() {
                         if (!fileUrl && block.src?.startsWith('vault-media://')) {
                           const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
                           if (match && match[1] && match[2]) {
-                            const cId = match[1];
+                            const vCourseId = match[1];
                             const relPath = match[2];
-                            const resolved = await getMediaBlobUrl(cId, relPath);
+                            const resolved = await getMediaBlobUrl(vCourseId, relPath);
                             if (resolved) fileUrl = resolved;
                           }
                         }
@@ -504,38 +570,58 @@ export function LessonPlayerPage() {
                       }}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
                     >
-                      <Eye size={13} />
-                      <span>Open Embedded Reader</span>
+                      <IconEye size={14} />
+                      <span>Read Document</span>
                     </button>
                   </div>
                 </div>
               );
             }
 
-            // 4. DOWNLOADABLE STARTER ARCHIVE
+            // 4. DOWNLOADABLE ASSET OR WEB LINK (DIRECTLY UNDER VIDEO)
             if (block.type === 'downloadable_asset') {
-              const filename = block.filename || 'starter.zip';
-              const size = block.fileSizeBytes || 500000;
+              const filename = block.filename || 'Reference Link';
+              const size = block.fileSizeBytes || 0;
+              const isUrl = Boolean(block.src && (block.src.startsWith('http://') || block.src.startsWith('https://')));
+
               return (
                 <div key={block.id} className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <Download size={18} className="text-[var(--cn-primary)] shrink-0" />
+                    <div className="w-9 h-9 rounded-lg bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center shrink-0">
+                      {isUrl ? <IconLink size={18} /> : <IconDownload size={18} />}
+                    </div>
                     <div>
-                      <p className="text-xs font-semibold text-[var(--cn-text-primary)]">{filename}</p>
+                      <p className="text-xs font-semibold text-[var(--cn-text-primary)]">{block.title || filename}</p>
                       <p className="text-[11px] text-[var(--cn-text-muted)] font-mono">
-                        {(size / 1024).toFixed(0)} KB • Verified Sandbox
+                        {isUrl ? (
+                          <span className="truncate max-w-sm block text-[var(--cn-primary)]">{block.src}</span>
+                        ) : (
+                          `${(size / 1024).toFixed(0)} KB • Course File Attachment`
+                        )}
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      alert(`Saved ${filename} to local Downloads folder`);
-                      addLog('INFO', 'PLAYER', `Saved asset ${filename} to user storage`);
-                    }}
-                    className="px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-medium hover:bg-[var(--cn-primary-hover)] transition-colors"
-                  >
-                    Export Starter
-                  </button>
+
+                  {isUrl ? (
+                    <a
+                      href={block.src}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-medium hover:bg-[var(--cn-primary-hover)] transition-colors"
+                    >
+                      <span>Open Link</span>
+                      <IconExternalLink size={13} />
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        alert(`Exported ${filename}`);
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-medium hover:bg-[var(--cn-primary-hover)] transition-colors"
+                    >
+                      Export File
+                    </button>
+                  )}
                 </div>
               );
             }
@@ -543,12 +629,74 @@ export function LessonPlayerPage() {
             return null;
           })}
 
-          {/* 5. INTERACTIVE CHECKPOINT QUIZ */}
+          {/* 5. COMPANION MATERIALS IN THIS SAME SECTION */}
+          {companionSectionLessons.length > 0 && (
+            <div className="p-5 md:p-6 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-4">
+              <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-3">
+                <div className="flex items-center gap-2">
+                  <IconFileText size={16} className="text-[var(--cn-primary)]" />
+                  <h4 className="font-bold text-xs uppercase tracking-wider font-mono text-[var(--cn-text-primary)]">
+                    Other Materials in this Chapter ({companionSectionLessons.length})
+                  </h4>
+                </div>
+                <span className="text-[11px] font-mono text-[var(--cn-text-muted)]">
+                  {currentSection?.title}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {companionSectionLessons.map((item: LessonData) => {
+                  const hasVideo = item.blocks.some((b) => b.type === 'video');
+                  const hasDoc = item.blocks.some((b) => b.type === 'document');
+                  const hasLink = item.blocks.some((b) => b.type === 'downloadable_asset');
+                  const isDone = getLessonProgress(courseData.id, item.id)?.completed;
+
+                  return (
+                    <Link
+                      key={item.id}
+                      to={`/course/${courseData.id}/lesson/${item.id}`}
+                      className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] hover:border-[var(--cn-primary)] hover:bg-[var(--cn-surface-hover)] transition-all flex items-center justify-between gap-3 group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="p-1.5 rounded-md bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] group-hover:text-[var(--cn-primary)] shrink-0">
+                          {hasVideo ? (
+                            <IconEye size={15} />
+                          ) : hasDoc ? (
+                            <IconFileText size={15} />
+                          ) : hasLink ? (
+                            <IconLink size={15} />
+                          ) : (
+                            <IconFileCode size={15} />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[var(--cn-text-primary)] truncate group-hover:text-[var(--cn-primary)]">
+                            {item.title}
+                          </p>
+                          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">
+                            {hasVideo ? 'Video Lecture' : hasDoc ? 'PDF Handout' : hasLink ? 'Reference Link' : 'Reading Note'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isDone ? (
+                        <IconCircleCheck size={14} className="text-[var(--cn-success)] shrink-0" />
+                      ) : (
+                        <IconChevronRight size={14} className="text-[var(--cn-text-muted)] group-hover:translate-x-0.5 transition-transform shrink-0" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 6. INTERACTIVE CHECKPOINT QUIZ */}
           {activeLesson.quiz && (
             <div className="p-6 md:p-8 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-6">
               <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-4">
                 <div className="flex items-center gap-2">
-                  <HelpCircle size={18} className="text-[var(--cn-accent)]" />
+                  <IconHelp size={18} className="text-[var(--cn-accent)]" />
                   <h3 className="font-bold text-sm text-[var(--cn-text-primary)]">{activeLesson.quiz.title}</h3>
                 </div>
                 <span className="text-xs font-mono text-[var(--cn-text-muted)]">
@@ -597,7 +745,7 @@ export function LessonPlayerPage() {
                             ? 'bg-[var(--cn-success-tint)] text-[var(--cn-success)] border border-[var(--cn-success)]/30' 
                             : 'bg-[var(--cn-danger-tint)] text-[var(--cn-danger)] border border-[var(--cn-danger)]/30'
                         }`}>
-                          <strong>{isCorrect ? '✓ Correct Assessment:' : '✗ Incorrect:'}</strong> {q.explanation}
+                          <strong>{isCorrect ? '✓ Correct:' : '✗ Incorrect:'}</strong> {q.explanation}
                         </div>
                       )}
                     </div>
@@ -605,77 +753,67 @@ export function LessonPlayerPage() {
                 })}
               </div>
 
-              <div className="pt-2 flex items-center justify-between border-t border-[var(--cn-border)]">
+              <div className="flex items-center justify-between pt-4 border-t border-[var(--cn-border)]">
                 {quizSubmitted ? (
                   <div className="flex items-center gap-4">
                     <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)]">
-                      Score: {quizScore} / {activeLesson.quiz.questions.length} pts ({Math.round(((quizScore ?? 0) / activeLesson.quiz.questions.length) * 100)}%)
+                      Your Score: {quizScore}% {quizScore! >= activeLesson.quiz.passingScorePercent ? '(Passed)' : '(Review Material)'}
                     </span>
                     <button
-                      onClick={() => {
-                        setQuizAnswers({});
-                        setQuizSubmitted(false);
-                        setQuizScore(null);
-                      }}
-                      className="flex items-center gap-1.5 text-xs font-mono text-[var(--cn-primary)] font-medium hover:underline"
+                      onClick={handleRetakeQuiz}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]"
                     >
-                      <RotateCcw size={12} />
-                      <span>Retry Assessment</span>
+                      <IconRotate size={13} />
+                      <span>Retake Quiz</span>
                     </button>
                   </div>
                 ) : (
                   <button
                     onClick={handleQuizSubmit}
-                    disabled={Object.keys(quizAnswers).length === 0}
-                    className="px-5 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] disabled:opacity-50 transition-colors shadow-xs"
+                    disabled={Object.keys(quizAnswers).length < activeLesson.quiz.questions.length}
+                    className="px-5 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] disabled:opacity-50 transition-colors shadow-xs"
                   >
-                    Submit Checkpoint Evaluation
+                    Submit Answers
                   </button>
                 )}
               </div>
             </div>
           )}
+          </ErrorBoundary>
         </div>
 
         {/* Side Rail 1: Personal Notes */}
         {activeSidePanel === 'notes' && (
           <aside className="w-88 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 z-20 shadow-xl">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--cn-border)]">
-              <div className="flex items-center gap-2 text-xs font-mono font-bold text-[var(--cn-text-primary)]">
-                <StickyNote size={14} className="text-[var(--cn-primary)]" />
-                <span>Personal Study Notes</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={handleExportNote}
-                  title="Export note as Markdown (.md)" 
-                  className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]"
-                >
-                  <Share2 size={13} />
-                </button>
-                <button onClick={() => setActiveSidePanel('none')} className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)]">
-                  <X size={15} />
-                </button>
-              </div>
+              <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)]">Lesson Notes</span>
+              <button onClick={() => setActiveSidePanel('none')} className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)]">
+                <IconX size={15} />
+              </button>
             </div>
 
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
               <button
                 onClick={handleInsertTimestamp}
-                className="flex items-center gap-1 px-2.5 py-1 rounded bg-[var(--cn-surface-subtle)] hover:bg-[var(--cn-surface)] text-[10px] font-mono text-[var(--cn-primary)] border border-[var(--cn-border)]"
-                title="Insert current video timestamp"
+                className="flex items-center gap-1 px-2.5 py-1 rounded border border-[var(--cn-border)] text-[11px] font-mono hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]"
               >
-                <Clock size={11} />
+                <IconClock size={12} />
                 <span>Stamp {formatTime(currentTime)}</span>
               </button>
-              <span className="text-[10px] font-mono text-[var(--cn-text-muted)]">Auto-saved to local vault</span>
+              <button
+                onClick={handleExportNote}
+                className="flex items-center gap-1 px-2.5 py-1 rounded border border-[var(--cn-border)] text-[11px] font-mono hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]"
+              >
+                <IconDownload size={12} />
+                <span>Export .md</span>
+              </button>
             </div>
 
             <textarea
               value={notesContent}
               onChange={(e) => handleNotesChange(e.target.value)}
-              placeholder="Record Markdown insights, equations, and key takeaways..."
-              className="flex-1 w-full p-3 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] font-mono resize-none focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)] leading-relaxed"
+              placeholder="Jot down notes, key insights, formulas, or code snippets..."
+              className="flex-1 w-full p-3 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono text-[var(--cn-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)] resize-none leading-relaxed"
             />
           </aside>
         )}
@@ -684,18 +822,14 @@ export function LessonPlayerPage() {
         {activeSidePanel === 'bookmarks' && (
           <aside className="w-88 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 z-20 shadow-xl">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--cn-border)]">
-              <div className="flex items-center gap-2 text-xs font-mono font-bold text-[var(--cn-text-primary)]">
-                <BookmarkIcon size={14} className="text-[var(--cn-accent)]" />
-                <span>Video Markers ({bookmarks.length})</span>
-              </div>
+              <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)]">Timestamp Bookmarks</span>
               <button onClick={() => setActiveSidePanel('none')} className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)]">
-                <X size={15} />
+                <IconX size={15} />
               </button>
             </div>
 
-            {/* Add Bookmark Form */}
-            <form onSubmit={handleCreateBookmark} className="space-y-2 mb-4">
-              <div className="flex gap-2">
+            <form onSubmit={handleAddBookmark} className="mb-4 space-y-2">
+              <div className="flex gap-1.5">
                 <input
                   type="text"
                   placeholder={`Marker at ${formatTime(currentTime)}...`}
@@ -738,7 +872,7 @@ export function LessonPlayerPage() {
                       onClick={() => removeBookmark(activeLesson.id, bm.id)}
                       className="opacity-0 group-hover:opacity-100 p-1 text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] transition-all"
                     >
-                      <Trash2 size={13} />
+                      <IconTrash size={13} />
                     </button>
                   </div>
                 ))
@@ -753,7 +887,7 @@ export function LessonPlayerPage() {
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--cn-border)]">
               <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)]">Curriculum Navigation</span>
               <button onClick={() => setActiveSidePanel('none')} className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)]">
-                <X size={15} />
+                <IconX size={15} />
               </button>
             </div>
 
@@ -781,7 +915,7 @@ export function LessonPlayerPage() {
                         >
                           <span className="truncate">{item.title}</span>
                           {isDone && (
-                            <Check size={13} className="text-[var(--cn-success)] shrink-0 ml-1" />
+                            <IconCheck size={13} className="text-[var(--cn-success)] shrink-0 ml-1" />
                           )}
                         </Link>
                       );
@@ -802,7 +936,7 @@ export function LessonPlayerPage() {
                 className="p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)]"
                 title="Close AI Companion"
               >
-                <X size={15} />
+                <IconX size={15} />
               </button>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -844,7 +978,7 @@ export function LessonPlayerPage() {
               to={`/course/${courseData.id}/lesson/${prevLesson.id}`}
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
             >
-              <ChevronLeft size={14} />
+              <IconChevronLeft size={14} />
               <span>Previous</span>
             </Link>
           ) : (
@@ -863,7 +997,7 @@ export function LessonPlayerPage() {
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
             >
               <span>Next Unit</span>
-              <ChevronRight size={14} />
+              <IconChevronRight size={14} />
             </Link>
           ) : (
             <Link
@@ -871,7 +1005,7 @@ export function LessonPlayerPage() {
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-success)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-success)]/90 transition-colors shadow-xs"
             >
               <span>Complete Course</span>
-              <CheckCircle2 size={14} />
+              <IconCircleCheck size={14} />
             </Link>
           )}
         </div>

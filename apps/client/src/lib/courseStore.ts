@@ -7,6 +7,15 @@ export interface QuizQuestion {
   explanation?: string;
 }
 
+export interface SubtitleTrackData {
+  id: string;
+  label: string;
+  language: string;
+  src: string;
+  filename: string;
+  isDefault?: boolean;
+}
+
 export interface ContentBlockData {
   id: string;
   type: 'video' | 'rich_text' | 'document' | 'downloadable_asset' | 'code_snippet' | 'quiz';
@@ -20,6 +29,7 @@ export interface ContentBlockData {
   mimeType?: string;
   language?: string;
   code?: string;
+  subtitles?: SubtitleTrackData[];
 }
 
 export interface LessonData {

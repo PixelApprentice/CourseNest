@@ -1,26 +1,31 @@
 import JSZip from 'jszip';
 import { addLog } from './logger';
 import { saveMediaFile } from './mediaVault';
-import { addCourseToVault, type CourseData, type SectionData, type LessonData, type ContentBlockData } from './courseStore';
+import { addCourseToVault, type CourseData, type SectionData, type LessonData, type ContentBlockData, type SubtitleTrackData } from './courseStore';
+import { srtToVtt, extractUrlFromShortcutText, parseJupyterNotebook, sanitizeLectureHtml } from './formatHelpers';
 
 export interface DiscoveredArchiveFile {
   originalPath: string;
   cleanPath: string;
   filename: string;
   sizeBytes: number;
-  fileType: 'video' | 'audio' | 'document' | 'rich_text' | 'code' | 'asset';
+  fileType: 'video' | 'audio' | 'document' | 'rich_text' | 'code' | 'subtitle' | 'link' | 'asset';
   mimeType: string;
   archiveName: string;
-  zipEntry: JSZip.JSZipObject;
+  zipEntry?: JSZip.JSZipObject;
+  rawFile?: File;
+  content?: string;
 }
 
 export interface ProposalLessonFile {
   path: string;
   filename: string;
   sizeBytes: number;
-  type: 'video' | 'audio' | 'document' | 'rich_text' | 'code' | 'asset';
+  type: 'video' | 'audio' | 'document' | 'rich_text' | 'code' | 'subtitle' | 'link' | 'asset';
   mimeType: string;
-  zipEntry: JSZip.JSZipObject;
+  zipEntry?: JSZip.JSZipObject;
+  rawFile?: File;
+  content?: string;
 }
 
 export interface ProposalLesson {
@@ -28,6 +33,7 @@ export interface ProposalLesson {
   title: string;
   position: number;
   files: ProposalLessonFile[];
+  subtitleFiles: ProposalLessonFile[];
   isApproved: boolean;
 }
 
@@ -49,7 +55,6 @@ export interface ParsedArchiveResult {
   manifestFound: boolean;
 }
 
-// System clutter files to skip
 const IGNORE_PATTERNS = [
   /__MACOSX/i,
   /\.DS_Store$/i,
@@ -64,36 +69,41 @@ function isIgnored(path: string): boolean {
 }
 
 function detectFileType(ext: string): {
-  type: 'video' | 'audio' | 'document' | 'rich_text' | 'code' | 'asset';
+  type: 'video' | 'audio' | 'document' | 'rich_text' | 'code' | 'subtitle' | 'link' | 'asset';
   mimeType: string;
 } {
   const e = ext.toLowerCase();
 
   // Video
-  if (e === '.mp4') return { type: 'video', mimeType: 'video/mp4' };
-  if (e === '.webm') return { type: 'video', mimeType: 'video/webm' };
-  if (e === '.mkv') return { type: 'video', mimeType: 'video/x-matroska' };
-  if (e === '.mov') return { type: 'video', mimeType: 'video/quicktime' };
-  if (e === '.m4v') return { type: 'video', mimeType: 'video/x-m4v' };
-  if (e === '.avi') return { type: 'video', mimeType: 'video/x-msvideo' };
+  if (['.mp4', '.m4v', '.webm', '.mkv', '.mov', '.avi', '.ts', '.3gp'].includes(e)) {
+    return { type: 'video', mimeType: e === '.webm' ? 'video/webm' : e === '.mkv' ? 'video/x-matroska' : 'video/mp4' };
+  }
 
   // Audio
-  if (e === '.mp3') return { type: 'audio', mimeType: 'audio/mpeg' };
-  if (e === '.wav') return { type: 'audio', mimeType: 'audio/wav' };
-  if (e === '.m4a') return { type: 'audio', mimeType: 'audio/mp4' };
-  if (e === '.ogg') return { type: 'audio', mimeType: 'audio/ogg' };
-  if (e === '.flac') return { type: 'audio', mimeType: 'audio/flac' };
+  if (['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.wma'].includes(e)) {
+    return { type: 'audio', mimeType: e === '.wav' ? 'audio/wav' : e === '.flac' ? 'audio/flac' : 'audio/mpeg' };
+  }
+
+  // Subtitles
+  if (['.srt', '.vtt', '.sub', '.sbv'].includes(e)) return { type: 'subtitle', mimeType: 'text/vtt' };
+
+  // Links & Shortcuts
+  if (['.url', '.webloc', '.desktop'].includes(e)) return { type: 'link', mimeType: 'text/plain' };
 
   // Document
   if (e === '.pdf') return { type: 'document', mimeType: 'application/pdf' };
   if (e === '.epub') return { type: 'document', mimeType: 'application/epub+zip' };
 
-  // Notes & Text
-  if (e === '.md' || e === '.markdown') return { type: 'rich_text', mimeType: 'text/markdown' };
-  if (e === '.txt') return { type: 'rich_text', mimeType: 'text/plain' };
+  // Jupyter Notebook (converted to structured study sections)
+  if (e === '.ipynb') return { type: 'rich_text', mimeType: 'application/x-ipynb+json' };
+
+  // Notes & Text / HTML
+  if (['.md', '.markdown'].includes(e)) return { type: 'rich_text', mimeType: 'text/markdown' };
+  if (['.txt', '.rtf'].includes(e)) return { type: 'rich_text', mimeType: 'text/plain' };
+  if (['.html', '.htm'].includes(e)) return { type: 'rich_text', mimeType: 'text/html' };
 
   // Code
-  if (['.py', '.js', '.jsx', '.ts', '.tsx', '.c', '.cpp', '.h', '.hpp', '.rs', '.go', '.java', '.html', '.css', '.json', '.sql', '.sh'].includes(e)) {
+  if (['.py', '.js', '.jsx', '.ts', '.tsx', '.c', '.cpp', '.h', '.hpp', '.rs', '.go', '.java', '.css', '.json', '.sql', '.sh'].includes(e)) {
     return { type: 'code', mimeType: 'text/plain' };
   }
 
@@ -101,42 +111,37 @@ function detectFileType(ext: string): {
 }
 
 function cleanTitle(raw: string): string {
-  // Strip extension
   let name = raw.replace(/\.[^/.]+$/, '');
-  // Replace underscores and multiple dashes with spaces
   name = name.replace(/[_-]+/g, ' ');
-  // Strip leading numbers: "01 Chapter" -> "Chapter", "01. Introduction" -> "Introduction"
   name = name.replace(/^(\d+)[\s.]+/i, '');
   return name.trim() || raw;
 }
 
-function parsePositionAndTitle(raw: string, defaultPos: number): { position: number; title: string } {
+function parsePositionAndTitle(raw: string, defaultPos: number): { position: number; title: string; hasExplicitNumber: boolean } {
   const match = raw.match(/^(?:(?:Week|Chapter|Section|Module|Part|Lecture|Unit|Ch)\s*)?(\d+)[\s._-]+(.*)$/i);
   if (match && match[1] && match[2]) {
     const pos = parseInt(match[1], 10);
     const title = cleanTitle(match[2].trim());
-    return { position: isNaN(pos) ? defaultPos : pos, title: title || raw };
+    return { position: isNaN(pos) ? defaultPos : pos, title: title || raw, hasExplicitNumber: !isNaN(pos) };
   }
-  return { position: defaultPos, title: cleanTitle(raw) };
+  return { position: defaultPos, title: cleanTitle(raw), hasExplicitNumber: false };
 }
 
 /**
- * Parse one or multiple ZIP files asynchronously and extract the real course structure.
+ * Parse one or multiple ZIP files
  */
 export async function parseCourseArchives(files: File[]): Promise<ParsedArchiveResult> {
   const discoveredFiles: DiscoveredArchiveFile[] = [];
-  let manifestEntry: { entry: JSZip.JSZipObject; archiveName: string } | null = null;
 
   for (const file of files) {
     addLog('INFO', 'IMPORTER', `Reading course archive: ${file.name}`, `Size: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
     const zip = await JSZip.loadAsync(file);
+    const archiveBaseName = file.name.replace(/\.[^/.]+$/, '');
 
     zip.forEach((relPath, entry) => {
-      // 1. Skip directories and ignored files
       if (entry.dir || relPath.endsWith('/')) return;
       if (isIgnored(relPath)) return;
 
-      // 2. Zip Slip path traversal guard
       if (relPath.includes('../') || relPath.includes('..\\') || relPath.startsWith('/') || relPath.startsWith('\\')) {
         addLog('WARN', 'SECURITY', `Blocked unsafe path in archive: ${relPath}`);
         return;
@@ -146,11 +151,6 @@ export async function parseCourseArchives(files: File[]): Promise<ParsedArchiveR
       const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
       const { type, mimeType } = detectFileType(ext);
 
-      // Check for manifest
-      if (filename.toLowerCase() === 'manifest.json' || filename.toLowerCase() === 'course.json') {
-        manifestEntry = { entry, archiveName: file.name };
-      }
-
       discoveredFiles.push({
         originalPath: relPath,
         cleanPath: relPath,
@@ -158,163 +158,115 @@ export async function parseCourseArchives(files: File[]): Promise<ParsedArchiveR
         sizeBytes: (entry as any)._data?.uncompressedSize || 0,
         fileType: type,
         mimeType,
-        archiveName: file.name,
+        archiveName: archiveBaseName,
         zipEntry: entry,
       });
     });
   }
 
-  if (discoveredFiles.length === 0) {
-    throw new Error('No valid course materials found inside the uploaded archive.');
+  return processDiscoveredFiles(discoveredFiles, files[0]?.name || 'Imported Course');
+}
+
+/**
+ * Parse an extracted course folder uploaded via webkitdirectory
+ */
+export async function parseCourseFolder(files: File[]): Promise<ParsedArchiveResult> {
+  const discoveredFiles: DiscoveredArchiveFile[] = [];
+
+  for (const file of files) {
+    const relPath = file.webkitRelativePath || file.name;
+    if (isIgnored(relPath)) continue;
+
+    const filename = relPath.split('/').pop() || file.name;
+    const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
+    const { type, mimeType } = detectFileType(ext);
+
+    // If it's a URL shortcut, parse text to find the destination link
+    let content: string | undefined = undefined;
+    if (type === 'link' || type === 'rich_text') {
+      try {
+        content = await file.text();
+      } catch {}
+    }
+
+    // Determine top folder name as archive name
+    const topFolder = relPath.includes('/') ? relPath.split('/')[0]! : 'Course Folder';
+
+    discoveredFiles.push({
+      originalPath: relPath,
+      cleanPath: relPath,
+      filename,
+      sizeBytes: file.size,
+      fileType: type,
+      mimeType,
+      archiveName: topFolder,
+      rawFile: file,
+      content,
+    });
   }
 
-  // 3. Detect and strip common root folder if present across all files
-  const pathParts = discoveredFiles.map((f) => f.originalPath.split('/').filter(Boolean));
+  const courseName = files[0]?.webkitRelativePath?.split('/')[0] || 'Imported Course';
+  return processDiscoveredFiles(discoveredFiles, courseName);
+}
+
+/**
+ * Core Hierarchy Organizer:
+ * Automatically groups chapters, sections, companion subtitles, and lesson attachments.
+ */
+function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: string): ParsedArchiveResult {
+  if (files.length === 0) {
+    throw new Error('No valid course materials found in the uploaded archive or folder.');
+  }
+
+  // Detect and strip common root folder across all files if present
+  const pathParts = files.map((f) => f.cleanPath.split('/').filter(Boolean));
   let commonRoot = '';
   if (pathParts.length > 0 && pathParts[0] && pathParts[0].length > 1) {
     const candidateRoot = pathParts[0][0];
     const allShareRoot = pathParts.every((parts) => parts.length > 1 && parts[0] === candidateRoot);
     if (allShareRoot && candidateRoot) {
       commonRoot = candidateRoot;
-      for (const f of discoveredFiles) {
+      for (const f of files) {
         f.cleanPath = f.cleanPath.replace(new RegExp(`^${commonRoot}/`), '');
       }
     }
   }
 
-  // 4. Default title derivation from common root or first archive filename
-  let suggestedTitle = '';
-  if (commonRoot) {
-    suggestedTitle = cleanTitle(commonRoot);
-  } else if (files[0]) {
-    suggestedTitle = cleanTitle(files[0].name.replace(/\.[^/.]+$/, ''));
-  }
+  let suggestedTitle = commonRoot ? cleanTitle(commonRoot) : cleanTitle(fallbackTitle);
 
-  // 5. Check if manifest exists and parse it
-  if (manifestEntry !== null) {
-    const activeManifest = manifestEntry as { entry: JSZip.JSZipObject; archiveName: string };
-    try {
-      const jsonText = await activeManifest.entry.async('text');
-      const parsed = JSON.parse(jsonText);
-      const m = parsed.course ?? parsed;
-
-      const manifestSections: ProposalSection[] = (m.sections ?? []).map((sec: any, sIdx: number) => ({
-        id: `sec-${sIdx + 1}`,
-        title: sec.title || `Section ${sIdx + 1}`,
-        position: sec.position ?? sIdx + 1,
-        sourceConfidence: 'manifest',
-        lessons: (sec.lessons ?? []).map((les: any, lIdx: number) => ({
-          id: `les-${sIdx + 1}-${lIdx + 1}`,
-          title: les.title || `Lesson ${lIdx + 1}`,
-          position: les.position ?? lIdx + 1,
-          isApproved: true,
-          files: discoveredFiles
-            .filter((df) => df.cleanPath.toLowerCase().includes(les.title.toLowerCase().slice(0, 10)))
-            .map((df) => ({
-              path: df.cleanPath,
-              filename: df.filename,
-              sizeBytes: df.sizeBytes,
-              type: df.fileType,
-              mimeType: df.mimeType,
-              zipEntry: df.zipEntry,
-            })),
-        })),
-      }));
-
-      addLog('INFO', 'IMPORTER', `Found and parsed course manifest: ${activeManifest.archiveName}`);
-
-      return {
-        suggestedTitle: m.title || suggestedTitle,
-        suggestedSubject: m.subject || 'General Studies',
-        suggestedInstructor: m.instructorName || m.instructor || 'Instructor',
-        suggestedDescription: m.description || 'Course imported from verified manifest package.',
-        discoveredFiles,
-        sections: manifestSections.length > 0 ? manifestSections : buildHeuristicSections(discoveredFiles),
-        manifestFound: true,
-      };
-    } catch (err: any) {
-      addLog('WARN', 'IMPORTER', `Failed to parse manifest JSON in archive: ${err.message}`);
-    }
-  }
-
-  // 6. Heuristic Chapter & Section Hierarchy Analyzer
-  const sections = buildHeuristicSections(discoveredFiles);
-
-  addLog(
-    'INFO',
-    'IMPORTER',
-    `Organized ${discoveredFiles.length} files into ${sections.length} course section(s)/chapter(s)`,
-    sections.map((s) => `${s.title} (${s.lessons.length} lessons)`).join(', '),
-  );
-
-  return {
-    suggestedTitle: suggestedTitle || 'Imported Course',
-    suggestedSubject: 'General',
-    suggestedInstructor: 'Course Instructor',
-    suggestedDescription: `Course imported with ${discoveredFiles.length} lecture files and study materials.`,
-    discoveredFiles,
-    sections,
-    manifestFound: false,
-  };
-}
-
-/**
- * Intelligent Hierarchy Builder:
- * Handles multiple chapters, sub-chapters, nested modules, and companion files.
- */
-function buildHeuristicSections(files: DiscoveredArchiveFile[]): ProposalSection[] {
-  // Sort files naturally by clean path
-  const sortedFiles = [...files].sort((a, b) =>
-    a.cleanPath.localeCompare(b.cleanPath, undefined, { numeric: true, sensitivity: 'base' })
-  );
-
-  // Group files by Section (either chapter folder or top folder)
+  // Group by Section:
+  // If files inside archive have no subfolders (e.g. 01. Introduction.zip with flat files),
+  // then the archiveName itself IS the chapter/section!
   const sectionMap = new Map<string, { title: string; position: number; files: DiscoveredArchiveFile[] }>();
 
-  for (let idx = 0; idx < sortedFiles.length; idx++) {
-    const file = sortedFiles[idx]!;
+  for (const file of files) {
     const parts = file.cleanPath.split('/').filter(Boolean);
 
-    let rawSectionName = 'General Course Materials';
+    let sectionName = file.archiveName;
     let sectionPos = 1;
 
-    if (parts.length >= 3) {
-      // e.g. "Module 1/Chapter 1/Lesson.mp4" -> Section: "Module 1 - Chapter 1"
-      const moduleName = parts[parts.length - 3]!;
-      const chapterName = parts[parts.length - 2]!;
-      const parsedMod = parsePositionAndTitle(moduleName, 1);
-      const parsedCh = parsePositionAndTitle(chapterName, 1);
-      rawSectionName = `${parsedMod.title}: ${parsedCh.title}`;
-      sectionPos = parsedMod.position * 10 + parsedCh.position;
-    } else if (parts.length === 2) {
-      // e.g. "Chapter 1 - Basics/01 - Welcome.mp4" -> Section: "Chapter 1 - Basics"
-      const folder = parts[0]!;
-      const parsed = parsePositionAndTitle(folder, 1);
-      rawSectionName = parsed.title;
+    if (parts.length >= 2) {
+      // Subfolder inside archive e.g. "Chapter 1 - Intro/01.mp4"
+      const folderName = parts[parts.length - 2]!;
+      const parsed = parsePositionAndTitle(folderName, 1);
+      sectionName = parsed.title;
       sectionPos = parsed.position;
     } else {
-      // Single file at root: e.g. "Chapter 1 - Intro.mp4"
-      const fn = parts[0]!;
-      const chMatch = fn.match(/^(?:(?:Chapter|Ch|Section|Week|Module)\s*)?(\d+)[\s._-]+/i);
-      if (chMatch && chMatch[1]) {
-        const num = parseInt(chMatch[1], 10);
-        rawSectionName = `Chapter ${num}`;
-        sectionPos = num;
-      } else {
-        rawSectionName = 'Course Lessons';
-        sectionPos = 1;
-      }
+      // Flat inside archive: use archiveName as Section Name
+      const parsed = parsePositionAndTitle(file.archiveName, 1);
+      sectionName = parsed.title || file.archiveName;
+      sectionPos = parsed.position;
     }
 
-    if (!sectionMap.has(rawSectionName)) {
-      sectionMap.set(rawSectionName, {
-        title: rawSectionName,
+    if (!sectionMap.has(sectionName)) {
+      sectionMap.set(sectionName, {
+        title: sectionName,
         position: sectionPos,
         files: [],
       });
     }
 
-    sectionMap.get(rawSectionName)!.files.push(file);
+    sectionMap.get(sectionName)!.files.push(file);
   }
 
   // Build Sections and their Lessons
@@ -322,37 +274,91 @@ function buildHeuristicSections(files: DiscoveredArchiveFile[]): ProposalSection
   let secIdx = 1;
 
   for (const [, secData] of sectionMap.entries()) {
-    // Group companion files into lessons
-    // e.g. "01 - Welcome.mp4" and "01 - Welcome.pdf" -> same lesson "Welcome"
-    const lessonMap = new Map<string, { title: string; position: number; files: ProposalLessonFile[] }>();
+    // Separate subtitle files (.srt, .vtt) so they attach to companion videos
+    const subtitles = secData.files.filter((f) => f.fileType === 'subtitle');
+    const mediaAndDocs = secData.files.filter((f) => f.fileType !== 'subtitle');
+
+    const lessonMap = new Map<string, { title: string; position: number; files: ProposalLessonFile[]; subtitleFiles: ProposalLessonFile[] }>();
     let lesIdx = 1;
 
-    for (const f of secData.files) {
-      const parts = f.cleanPath.split('/');
-      const filename = parts[parts.length - 1]!;
-      const baseName = filename.replace(/\.[^/.]+$/, '');
-      const parsedLes = parsePositionAndTitle(baseName, lesIdx);
+    // Sort files naturally by filename
+    mediaAndDocs.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
 
-      // Lesson grouping key (normalize title)
+    for (const f of mediaAndDocs) {
+      const baseName = f.filename.replace(/\.[^/.]+$/, '');
+      const parsedLes = parsePositionAndTitle(baseName, lesIdx);
       const groupKey = parsedLes.title.toLowerCase();
 
-      if (!lessonMap.has(groupKey)) {
-        lessonMap.set(groupKey, {
+      // Check if an existing lesson in this section shares the exact same explicit position number
+      let targetKey = groupKey;
+      if (parsedLes.hasExplicitNumber) {
+        for (const [k, v] of lessonMap.entries()) {
+          if (v.position === parsedLes.position) {
+            const hasMedia = v.files.some((item) => item.type === 'video' || item.type === 'audio');
+            const isCompanion = ['rich_text', 'document', 'link', 'code', 'asset'].includes(f.fileType);
+            if ((hasMedia && isCompanion) || k === groupKey || k.includes(groupKey) || groupKey.includes(k)) {
+              targetKey = k;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!lessonMap.has(targetKey)) {
+        lessonMap.set(targetKey, {
           title: parsedLes.title || `Lesson ${lesIdx}`,
           position: parsedLes.position || lesIdx,
           files: [],
+          subtitleFiles: [],
         });
         lesIdx++;
       }
 
-      lessonMap.get(groupKey)!.files.push({
+      lessonMap.get(targetKey)!.files.push({
         path: f.cleanPath,
         filename: f.filename,
         sizeBytes: f.sizeBytes,
         type: f.fileType,
         mimeType: f.mimeType,
         zipEntry: f.zipEntry,
+        rawFile: f.rawFile,
+        content: f.content,
       });
+    }
+
+    // Attach matching subtitles to lessons
+    for (const sub of subtitles) {
+      const subBase = sub.filename.replace(/\.[^/.]+$/, '').toLowerCase();
+      // Find matching lesson
+      let matched = false;
+      for (const [key, lesData] of lessonMap.entries()) {
+        if (subBase.includes(key) || key.includes(subBase)) {
+          lesData.subtitleFiles.push({
+            path: sub.cleanPath,
+            filename: sub.filename,
+            sizeBytes: sub.sizeBytes,
+            type: 'subtitle',
+            mimeType: sub.mimeType,
+            zipEntry: sub.zipEntry,
+            rawFile: sub.rawFile,
+          });
+          matched = true;
+          break;
+        }
+      }
+      // If subtitle didn't match any lesson, attach to first lesson
+      if (!matched && lessonMap.size > 0) {
+        const first = lessonMap.values().next().value;
+        first?.subtitleFiles.push({
+          path: sub.cleanPath,
+          filename: sub.filename,
+          sizeBytes: sub.sizeBytes,
+          type: 'subtitle',
+          mimeType: sub.mimeType,
+          zipEntry: sub.zipEntry,
+          rawFile: sub.rawFile,
+        });
+      }
     }
 
     const lessons: ProposalLesson[] = [];
@@ -363,12 +369,12 @@ function buildHeuristicSections(files: DiscoveredArchiveFile[]): ProposalSection
         title: lesData.title,
         position: lesData.position || lPos,
         files: lesData.files,
+        subtitleFiles: lesData.subtitleFiles,
         isApproved: true,
       });
       lPos++;
     }
 
-    // Sort lessons by position
     lessons.sort((a, b) => a.position - b.position);
 
     resultSections.push({
@@ -382,17 +388,24 @@ function buildHeuristicSections(files: DiscoveredArchiveFile[]): ProposalSection
     secIdx++;
   }
 
-  // Sort sections by position
   resultSections.sort((a, b) => a.position - b.position);
 
-  return resultSections;
+  return {
+    suggestedTitle: suggestedTitle || 'Imported Course',
+    suggestedSubject: 'General Studies',
+    suggestedInstructor: 'Course Instructor',
+    suggestedDescription: `Course with ${resultSections.length} chapter(s) and ${files.length} study files.`,
+    discoveredFiles: files,
+    sections: resultSections,
+    manifestFound: false,
+  };
 }
 
 /**
  * Commit the imported course:
- * - Stores all binary files (videos, pdfs, audio) in the IndexedDB Media Vault.
- * - Extracts text/markdown notes directly into rich_text blocks.
- * - Adds course record to the Vault.
+ * - Stores all videos, audio, PDFs, and slide decks in IndexedDB media vault.
+ * - Extracts HTML, markdown, and text notes into rich_text blocks.
+ * - Saves course into vault.
  */
 export async function commitImportedCourse(params: {
   courseId: string;
@@ -414,14 +427,13 @@ export async function commitImportedCourse(params: {
     onProgress,
   } = params;
 
-  addLog('INFO', 'IMPORTER', `Committing course: ${courseTitle}`, `Target storage: ${params.targetStorage}`);
+  addLog('INFO', 'IMPORTER', `Committing course: ${courseTitle}`, `Chapters: ${sections.length}`);
 
-  // Count total files to process
   let totalFiles = 0;
   for (const sec of sections) {
     for (const les of sec.lessons) {
       if (les.isApproved) {
-        totalFiles += les.files.length;
+        totalFiles += les.files.length + (les.subtitleFiles?.length || 0);
       }
     }
   }
@@ -451,8 +463,16 @@ export async function commitImportedCourse(params: {
         const normalizedPath = fileItem.path.replace(/\\/g, '/');
 
         if (fileItem.type === 'video' || fileItem.type === 'audio') {
-          // Read binary blob and store into IndexedDB media vault
-          const blob = await fileItem.zipEntry.async('blob');
+          // Get blob from zipEntry or rawFile
+          let blob: Blob;
+          if (fileItem.zipEntry) {
+            blob = await fileItem.zipEntry.async('blob');
+          } else if (fileItem.rawFile) {
+            blob = fileItem.rawFile;
+          } else {
+            continue;
+          }
+
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
 
           blocks.push({
@@ -461,14 +481,20 @@ export async function commitImportedCourse(params: {
             position: blockPos,
             title: les.title,
             src: `vault-media://${courseId}/${normalizedPath}`,
-            durationSeconds: 300,
             filename: fileItem.filename,
-            fileSizeBytes: fileItem.sizeBytes,
+            fileSizeBytes: fileItem.sizeBytes || blob.size,
             mimeType: fileItem.mimeType,
           });
         } else if (fileItem.type === 'document') {
-          // PDF / slide deck
-          const blob = await fileItem.zipEntry.async('blob');
+          let blob: Blob;
+          if (fileItem.zipEntry) {
+            blob = await fileItem.zipEntry.async('blob');
+          } else if (fileItem.rawFile) {
+            blob = fileItem.rawFile;
+          } else {
+            continue;
+          }
+
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
 
           blocks.push({
@@ -478,51 +504,103 @@ export async function commitImportedCourse(params: {
             title: fileItem.filename,
             src: `vault-media://${courseId}/${normalizedPath}`,
             filename: fileItem.filename,
-            fileSizeBytes: fileItem.sizeBytes,
+            fileSizeBytes: fileItem.sizeBytes || blob.size,
             mimeType: fileItem.mimeType,
           });
         } else if (fileItem.type === 'rich_text') {
-          // Markdown or plain text notes
-          const content = await fileItem.zipEntry.async('text');
+          let text = fileItem.content;
+          if (!text && fileItem.zipEntry) {
+            text = await fileItem.zipEntry.async('text');
+          } else if (!text && fileItem.rawFile) {
+            text = await fileItem.rawFile.text();
+          }
+
+          // Format Jupyter Notebooks into study markdown & code cells
+          if (fileItem.filename.toLowerCase().endsWith('.ipynb')) {
+            text = parseJupyterNotebook(text || '', fileItem.filename);
+          } else if (['.html', '.htm'].some((ext) => fileItem.filename.toLowerCase().endsWith(ext))) {
+            // Sanitize HTML and prevent dark-mode color clashes
+            text = sanitizeLectureHtml(text || '');
+          }
+
           blocks.push({
             id: `blk-${Date.now()}-${sIdx}-${lIdx}-${blockPos++}`,
             type: 'rich_text',
             position: blockPos,
             title: fileItem.filename,
-            content,
+            content: text || '',
             filename: fileItem.filename,
             fileSizeBytes: fileItem.sizeBytes,
           });
-        } else {
-          // Code snippet or asset
-          const text = await fileItem.zipEntry.async('text').catch(() => null);
-          if (text !== null && text.length < 50000) {
-            blocks.push({
-              id: `blk-${Date.now()}-${sIdx}-${lIdx}-${blockPos++}`,
-              type: 'code_snippet',
-              position: blockPos,
-              title: fileItem.filename,
-              code: text,
-              language: fileItem.filename.split('.').pop() || 'text',
-              filename: fileItem.filename,
-            });
-          } else {
-            const blob = await fileItem.zipEntry.async('blob');
-            await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
-            blocks.push({
-              id: `blk-${Date.now()}-${sIdx}-${lIdx}-${blockPos++}`,
-              type: 'downloadable_asset',
-              position: blockPos,
-              title: fileItem.filename,
-              src: `vault-media://${courseId}/${normalizedPath}`,
-              filename: fileItem.filename,
-              fileSizeBytes: fileItem.sizeBytes,
-            });
+        } else if (fileItem.type === 'link') {
+          // Link shortcut: extract URL across .url, .webloc, .desktop, and raw text
+          let text = fileItem.content;
+          if (!text && fileItem.zipEntry) {
+            text = await fileItem.zipEntry.async('text');
+          } else if (!text && fileItem.rawFile) {
+            text = await fileItem.rawFile.text();
           }
+          const linkUrl = extractUrlFromShortcutText(text || '');
+
+          blocks.push({
+            id: `blk-${Date.now()}-${sIdx}-${lIdx}-${blockPos++}`,
+            type: 'downloadable_asset',
+            position: blockPos,
+            title: fileItem.filename.replace(/\.(url|webloc|desktop)$/i, ''),
+            src: linkUrl,
+            filename: fileItem.filename,
+          });
         }
       }
 
-      // If no blocks were created (empty lesson), add a placeholder notes block
+      // Process subtitles for this lesson
+      if (les.subtitleFiles && les.subtitleFiles.length > 0) {
+        const subtitleTracks: SubtitleTrackData[] = [];
+
+        for (let subIdx = 0; subIdx < les.subtitleFiles.length; subIdx++) {
+          const subItem = les.subtitleFiles[subIdx]!;
+          processedFiles++;
+          if (onProgress) {
+            const percent = Math.min(95, Math.round((processedFiles / Math.max(1, totalFiles)) * 100));
+            onProgress(percent, `Converting subtitles: ${subItem.filename}`);
+          }
+
+          try {
+            let srtOrVttText = '';
+            if (subItem.zipEntry) {
+              srtOrVttText = await subItem.zipEntry.async('text');
+            } else if (subItem.rawFile) {
+              srtOrVttText = await subItem.rawFile.text();
+            }
+
+            if (srtOrVttText) {
+              // Convert SRT to standard WebVTT
+              const vttText = srtToVtt(srtOrVttText);
+              const vttBlob = new Blob([vttText], { type: 'text/vtt' });
+              const subPath = `subtitles/${les.id}_sub_${subIdx}.vtt`;
+              await saveMediaFile(courseId, subPath, vttBlob, 'text/vtt');
+
+              subtitleTracks.push({
+                id: `sub-${sIdx}-${lIdx}-${subIdx}`,
+                label: subItem.filename.replace(/\.[^/.]+$/, '').replace(/^[0-9\s._-]+/, '') || `English ${subIdx + 1}`,
+                language: 'en',
+                src: `vault-media://${courseId}/${subPath}`,
+                filename: subItem.filename,
+                isDefault: subIdx === 0,
+              });
+            }
+          } catch (err: any) {
+            addLog('WARN', 'IMPORTER', `Failed to process subtitle ${subItem.filename}: ${err.message}`);
+          }
+        }
+
+        // Attach resolved subtitles to first video block
+        const videoBlock = blocks.find((b) => b.type === 'video');
+        if (videoBlock && subtitleTracks.length > 0) {
+          videoBlock.subtitles = subtitleTracks;
+        }
+      }
+
       if (blocks.length === 0) {
         blocks.push({
           id: `blk-${Date.now()}-${sIdx}-${lIdx}-1`,
@@ -538,7 +616,7 @@ export async function commitImportedCourse(params: {
         sectionId: sec.id,
         title: les.title,
         position: les.position,
-        estimatedDurationMinutes: Math.max(15, blocks.length * 10),
+        estimatedDurationMinutes: Math.max(10, blocks.length * 8),
         completionPolicy: 'manual_or_time',
         isRequired: true,
         blocks,
@@ -561,12 +639,12 @@ export async function commitImportedCourse(params: {
     language: 'en',
     instructorName,
     subject: courseSubject,
-    tags: [courseSubject, 'Offline', params.targetStorage === 'external' ? 'ExternalStorage' : 'InternalStorage'],
+    tags: [courseSubject, 'Offline'],
     estimatedDurationMinutes: finalSections.reduce((acc, s) => acc + s.estimatedDurationMinutes, 0),
     learningObjectives: [
-      `Complete comprehension of ${courseTitle}`,
-      'Independent study without internet connectivity',
-      'Hands-on review of course materials and notes',
+      `Mastery of ${courseTitle}`,
+      'Independent offline review and practice',
+      'Lecture notes, slides, and exercises completed',
     ],
     version: '1.0.0',
     contentFingerprint: `sha256-${Date.now().toString(16)}`,
@@ -577,11 +655,8 @@ export async function commitImportedCourse(params: {
 
   addCourseToVault(courseData);
 
-  if (onProgress) {
-    onProgress(100, 'Complete!');
-  }
-
-  addLog('INFO', 'IMPORTER', `Course saved to offline vault successfully: ${courseTitle}`, `${finalSections.length} modules, ${totalFiles} files extracted`);
+  if (onProgress) onProgress(100, 'Complete!');
+  addLog('INFO', 'IMPORTER', `Course saved to offline vault: ${courseTitle}`, `${finalSections.length} sections, ${totalFiles} files`);
 
   return courseData;
 }

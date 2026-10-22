@@ -1,14 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Info, AlertTriangle, AlertCircle, CheckCircle2, Check, Trash2 } from 'lucide-react';
+import { 
+  IconBell, 
+  IconInfoCircle, 
+  IconAlertTriangle, 
+  IconAlertCircle, 
+  IconCircleCheck, 
+  IconCheck, 
+  IconTrash 
+} from '@tabler/icons-react';
 import { useNotifications, type AppNotification, type NotificationPriority } from '../lib/notificationStore';
 import clsx from 'clsx';
 
 const PRIORITY_ICON: Record<NotificationPriority, any> = {
-  urgent: AlertCircle,
-  high: AlertTriangle,
-  normal: Bell,
-  low: Info,
+  urgent: IconAlertCircle,
+  high: IconAlertTriangle,
+  normal: IconBell,
+  low: IconInfoCircle,
 };
 
 const PRIORITY_ICON_COLOR: Record<NotificationPriority, string> = {
@@ -44,7 +52,6 @@ export function NotificationDropdown() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -68,7 +75,7 @@ export function NotificationDropdown() {
         title="Notifications"
         aria-label="View notifications"
       >
-        <Bell size={16} />
+        <IconBell size={16} />
         {unreadCount > 0 && (
           <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--cn-primary)] text-[9px] font-bold text-white shadow-xs">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -99,7 +106,7 @@ export function NotificationDropdown() {
                   className="text-[11px] font-mono text-[var(--cn-text-muted)] hover:text-[var(--cn-primary)] transition-colors flex items-center gap-1"
                   title="Mark all as read"
                 >
-                  <Check size={12} />
+                  <IconCheck size={12} />
                   <span>Mark all</span>
                 </button>
               )}
@@ -109,7 +116,7 @@ export function NotificationDropdown() {
                   className="p-1 rounded text-[var(--cn-text-muted)] hover:text-red-500 hover:bg-[var(--cn-surface-subtle)] transition-colors"
                   title="Clear all"
                 >
-                  <Trash2 size={12} />
+                  <IconTrash size={12} />
                 </button>
               )}
             </div>
@@ -119,12 +126,12 @@ export function NotificationDropdown() {
           <div className="max-h-96 overflow-y-auto divide-y divide-[var(--cn-border)]/50">
             {notifications.length === 0 ? (
               <div className="p-8 text-center space-y-2">
-                <CheckCircle2 size={24} className="mx-auto text-[var(--cn-text-muted)] opacity-60" />
+                <IconCircleCheck size={24} className="mx-auto text-[var(--cn-text-muted)] opacity-60" />
                 <p className="text-xs font-mono text-[var(--cn-text-muted)]">No notifications at this time</p>
               </div>
             ) : (
               notifications.map((n: AppNotification) => {
-                const Icon = PRIORITY_ICON[n.priority] || Bell;
+                const Icon = PRIORITY_ICON[n.priority] || IconBell;
                 const iconColor = PRIORITY_ICON_COLOR[n.priority] || 'text-[var(--cn-text-muted)]';
                 const bgTint = PRIORITY_BG[n.priority];
 
@@ -184,7 +191,7 @@ export function NotificationDropdown() {
                         className="opacity-0 group-hover:opacity-100 p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-primary)] hover:bg-[var(--cn-surface)] transition-all shrink-0"
                         title="Mark as read"
                       >
-                        <Check size={13} />
+                        <IconCheck size={13} />
                       </button>
                     )}
                   </div>

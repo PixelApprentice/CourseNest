@@ -1,22 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
-  Play, 
-  Pause, 
-  Volume2, 
-  VolumeX, 
-  Maximize, 
-  ExternalLink,
-  Check,
-  Tv,
-  Sliders,
-  Gauge,
-  Radio
-} from 'lucide-react';
+  IconPlayerPlay, 
+  IconPlayerPause, 
+  IconVolume, 
+  IconVolumeOff, 
+  IconMaximize, 
+  IconExternalLink, 
+  IconCheck, 
+  IconDeviceTv, 
+  IconAdjustmentsHorizontal, 
+  IconGauge, 
+  IconBroadcast,
+  IconBadgeCc,
+  IconHeadphones
+} from '@tabler/icons-react';
 import { addLog } from '../lib/logger';
+
+export interface SubtitleTrack {
+  id?: string;
+  label: string;
+  language?: string;
+  src: string;
+  isDefault?: boolean;
+}
 
 interface VlcMediaViewerProps {
   src: string;
   title?: string;
+  subtitles?: SubtitleTrack[];
+  isAudio?: boolean;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   initialTime?: number;
   className?: string;
@@ -25,6 +37,8 @@ interface VlcMediaViewerProps {
 export function VlcMediaViewer({
   src,
   title = 'Course Video Stream',
+  subtitles = [],
+  isAudio = false,
   onTimeUpdate,
   initialTime = 0,
   className = '',
@@ -37,6 +51,7 @@ export function VlcMediaViewer({
   const gainNodeRef = useRef<GainNode | null>(null);
   const speechFilterRef = useRef<BiquadFilterNode | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const initialTimeAppliedRef = useRef<string | null>(null);
 
   // Core Playback State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -54,10 +69,37 @@ export function VlcMediaViewer({
   const [showVlcPanel, setShowVlcPanel] = useState(false);
   const [copiedVlcUrl, setCopiedVlcUrl] = useState(false);
   const [showStatusToast, setShowStatusToast] = useState<string | null>(null);
+  const [isCaptionsVisible, setIsCaptionsVisible] = useState(true);
 
-  // Initialize Web Audio API on first user interaction for VLC Super-Gain
+  // Toggle Subtitles / Closed Captions
+  const toggleCaptions = () => {
+    const next = !isCaptionsVisible;
+    setIsCaptionsVisible(next);
+    if (videoRef.current) {
+      const tracks = videoRef.current.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        const t = tracks[i];
+        if (t) t.mode = next ? 'showing' : 'hidden';
+      }
+    }
+    showToast(next ? 'Subtitles / Closed Captions ON' : 'Subtitles OFF');
+  };
+
+  // Reset tracking on source change
+  useEffect(() => {
+    initialTimeAppliedRef.current = null;
+    setIsPlaying(false);
+    setCurrentTime(0);
+  }, [src]);
+
+  // Lazy Web Audio API initialization ONLY when super-gain or speech filter is requested
   const ensureAudioGraph = () => {
-    if (!videoRef.current || audioContextRef.current) return;
+    if (!videoRef.current || audioContextRef.current) {
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+      }
+      return;
+    }
 
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -69,13 +111,13 @@ export function VlcMediaViewer({
 
       // Gain Node (supports up to 2.0x / 200%)
       const gainNode = ctx.createGain();
-      gainNode.gain.value = volumePercent / 100;
+      gainNode.gain.value = isMuted ? 0 : volumePercent / 100;
       gainNodeRef.current = gainNode;
 
-      // Speech Clarity Filter (Biquad high-pass / peaking filter for lecture vocals)
+      // Speech Clarity Filter (Biquad peaking filter for lecture vocals)
       const filter = ctx.createBiquadFilter();
       filter.type = 'peaking';
-      filter.frequency.value = 2500; // Presence range for speech intelligibility
+      filter.frequency.value = 2500;
       filter.Q.value = 1.0;
       filter.gain.value = isSpeechBoostEnabled ? 6.0 : 0.0;
       speechFilterRef.current = filter;
@@ -83,22 +125,27 @@ export function VlcMediaViewer({
       source.connect(filter);
       filter.connect(gainNode);
       gainNode.connect(ctx.destination);
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
     } catch (err: any) {
-      console.warn('Web Audio gain initialization skipped (e.g. cross-origin media):', err.message);
+      console.warn('Web Audio gain initialization skipped:', err.message);
     }
   };
 
-  // Update Gain when volumePercent changes
+  // Synchronize volume
   useEffect(() => {
     if (gainNodeRef.current && audioContextRef.current) {
       if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
+        audioContextRef.current.resume().catch(() => {});
       }
-      // Linear gain: 100% -> 1.0, 200% -> 2.0
       gainNodeRef.current.gain.value = isMuted ? 0 : volumePercent / 100;
-    } else if (videoRef.current) {
-      // Fallback for native HTML5 volume when Web Audio is not active
+    }
+
+    if (videoRef.current) {
       videoRef.current.volume = isMuted ? 0 : Math.min(1.0, volumePercent / 100);
+      videoRef.current.muted = isMuted;
     }
   }, [volumePercent, isMuted]);
 
@@ -109,40 +156,39 @@ export function VlcMediaViewer({
     }
   }, [isSpeechBoostEnabled]);
 
-  // Set initial time
-  useEffect(() => {
-    if (videoRef.current && initialTime > 0) {
-      videoRef.current.currentTime = initialTime;
-    }
-  }, [initialTime]);
-
   const showToast = (message: string) => {
     setShowStatusToast(message);
     setTimeout(() => setShowStatusToast(null), 2500);
   };
 
-  // Toggle Play / Pause
+  // Toggle Play / Pause using native hardware element
   const togglePlay = () => {
     if (!videoRef.current) return;
-    ensureAudioGraph();
 
-    if (isPlaying) {
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
+
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch((err) => {
+        console.warn('Playback play request prevented:', err);
+      });
+    } else {
       videoRef.current.pause();
       setIsPlaying(false);
-    } else {
-      videoRef.current.play();
-      setIsPlaying(true);
     }
   };
 
   // VLC Frame Stepper
   const stepFrame = (direction: 1 | -1) => {
     if (!videoRef.current) return;
-    if (isPlaying) {
+    if (!videoRef.current.paused) {
       videoRef.current.pause();
       setIsPlaying(false);
     }
-    const frameDuration = 1 / 30; // standard 30fps stepping
+    const frameDuration = 1 / 30; // 30fps stepping
     const newTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + direction * frameDuration));
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
@@ -202,11 +248,26 @@ export function VlcMediaViewer({
     onTimeUpdate?.(curr, duration);
   };
 
+  // Apply initial seek time ONLY ONCE per video src
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return;
-    setDuration(videoRef.current.duration);
-    if (initialTime > 0 && initialTime < videoRef.current.duration) {
-      videoRef.current.currentTime = initialTime;
+    const dur = videoRef.current.duration;
+    setDuration(dur);
+
+    if (initialTime > 0 && initialTimeAppliedRef.current !== src && dur > 0) {
+      const targetTime = Math.min(initialTime, Math.max(0, dur - 1));
+      videoRef.current.currentTime = targetTime;
+      setCurrentTime(targetTime);
+      initialTimeAppliedRef.current = src;
+    }
+
+    // Initialize track modes
+    if (subtitles.length > 0 && videoRef.current) {
+      const tracks = videoRef.current.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        const t = tracks[i];
+        if (t) t.mode = isCaptionsVisible ? 'showing' : 'hidden';
+      }
     }
   };
 
@@ -219,7 +280,7 @@ export function VlcMediaViewer({
       } else {
         await videoRef.current.requestPictureInPicture();
       }
-    } catch (err: any) {
+    } catch {
       showToast('Picture-in-Picture not supported on this stream');
     }
   };
@@ -228,23 +289,20 @@ export function VlcMediaViewer({
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
     if (document.fullscreenElement) {
-      document.exitFullscreen();
+      document.exitFullscreen().catch(() => {});
     } else {
-      containerRef.current.requestFullscreen();
+      containerRef.current.requestFullscreen().catch(() => {});
     }
   };
 
-  // Open in External VLC Media Player (vlc:// protocol & path helper)
+  // Open in External VLC Media Player (vlc:// protocol)
   const handleOpenInVlc = () => {
     const vlcProtocolUrl = `vlc://${encodeURI(src)}`;
     navigator.clipboard.writeText(src);
     setCopiedVlcUrl(true);
     setTimeout(() => setCopiedVlcUrl(false), 3000);
 
-    // Log diagnostic event
-    addLog('INFO', 'PLAYER', 'Invoking Open-Source VLC Stream Bridge', `Source: ${src}`);
-
-    // Attempt launch via protocol handler
+    addLog('INFO', 'PLAYER', 'Invoking VLC Stream Bridge', `Source: ${src}`);
     window.location.href = vlcProtocolUrl;
     showToast('Source copied to clipboard. Launching VLC Media Player...');
   };
@@ -258,6 +316,111 @@ export function VlcMediaViewer({
 
   const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
 
+  if (isAudio) {
+    return (
+      <div 
+        ref={containerRef}
+        className={`w-full bg-gradient-to-br from-[#181920] to-[#0f1015] border border-[var(--cn-border)] rounded-2xl p-6 md:p-8 shadow-xl space-y-6 select-none ${className}`}
+      >
+        <video
+          key={src}
+          ref={videoRef}
+          src={src}
+          playsInline
+          className="hidden"
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+        />
+
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/30 text-[var(--cn-primary)] flex items-center justify-center shrink-0">
+            <IconHeadphones size={28} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EA580C]/20 text-[#FB923C] border border-[#EA580C]/30">
+                AUDIO LECTURE
+              </span>
+              <span className="text-[10px] font-mono text-[var(--cn-text-muted)]">
+                Offline Vault Audio
+              </span>
+            </div>
+            <h3 className="font-bold text-base text-white truncate mt-1">{title}</h3>
+          </div>
+        </div>
+
+        {/* Audio Scrubber */}
+        <div className="space-y-1">
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            value={currentTime}
+            onChange={(e) => {
+              const newTime = parseFloat(e.target.value);
+              if (videoRef.current) videoRef.current.currentTime = newTime;
+              setCurrentTime(newTime);
+            }}
+            className="w-full h-1.5 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-all"
+          />
+          <div className="flex items-center justify-between text-xs font-mono text-white/70">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-white/10">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={togglePlay}
+              className="p-2.5 rounded-xl bg-[var(--cn-brand)] text-black font-bold hover:brightness-110 transition-all shadow-md active:scale-95"
+              title={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isPlaying ? <IconPlayerPause size={18} /> : <IconPlayerPlay size={18} />}
+            </button>
+
+            <button
+              onClick={() => seekRelative(-5)}
+              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs text-white font-mono"
+            >
+              -5s
+            </button>
+            <button
+              onClick={() => seekRelative(5)}
+              className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs text-white font-mono"
+            >
+              +5s
+            </button>
+
+            <button
+              onClick={() => setIsMuted(!isMuted)}
+              className="p-1.5 text-white/80 hover:text-white"
+            >
+              {isMuted ? <IconVolumeOff size={18} /> : <IconVolume size={18} />}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={playbackSpeed}
+              onChange={(e) => changeSpeed(parseFloat(e.target.value))}
+              className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-xs font-mono text-white cursor-pointer"
+            >
+              {speedOptions.map((s) => (
+                <option key={s} value={s} className="bg-[#121316] text-white">
+                  {s}x
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       ref={containerRef}
@@ -265,8 +428,12 @@ export function VlcMediaViewer({
     >
       {/* Video Element with Dynamic Aspect Ratio */}
       <video
+        key={src}
         ref={videoRef}
         src={src}
+        playsInline
+        crossOrigin="anonymous"
+        preload="metadata"
         className={`w-full h-full cursor-pointer transition-all ${
           aspectRatio === 'cover'
             ? 'object-cover'
@@ -281,7 +448,18 @@ export function VlcMediaViewer({
         onLoadedMetadata={handleLoadedMetadata}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-      />
+      >
+        {subtitles.map((sub, idx) => (
+          <track
+            key={sub.id || idx}
+            label={sub.label}
+            kind="subtitles"
+            srcLang={sub.language || 'en'}
+            src={sub.src}
+            default={isCaptionsVisible && (sub.isDefault ?? idx === 0)}
+          />
+        ))}
+      </video>
 
       {/* Floating Status Toast */}
       {showStatusToast && (
@@ -290,12 +468,12 @@ export function VlcMediaViewer({
         </div>
       )}
 
-      {/* VLC Engine Badge Header Overlay */}
+      {/* Header Overlay */}
       <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity z-20">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#EA580C]/25 text-[#FB923C] border border-[#EA580C]/40 text-[11px] font-mono font-bold">
-            <Radio size={12} className="text-[#FB923C]" />
-            <span>VLC AUDIO/VIDEO CORE</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#EA580C]/25 text-[#FB923C] border border-[#EA580C]/40 text-[11px] font-mono font-bold">
+            <IconBroadcast size={13} className="text-[#FB923C]" />
+            <span>VIDEO ENGINE</span>
           </div>
           <span className="text-white text-xs font-semibold truncate max-w-sm hidden sm:inline">
             {title}
@@ -306,11 +484,11 @@ export function VlcMediaViewer({
           {/* External VLC Player Launcher */}
           <button
             onClick={handleOpenInVlc}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white text-[11px] font-mono border border-white/20 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-white text-[11px] font-mono border border-white/20 transition-colors"
             title="Open in native VLC Media Player desktop application"
           >
-            {copiedVlcUrl ? <Check size={12} className="text-[var(--cn-brand)]" /> : <ExternalLink size={12} />}
-            <span>{copiedVlcUrl ? 'Path Copied!' : 'Open in VLC'}</span>
+            {copiedVlcUrl ? <IconCheck size={13} className="text-[var(--cn-brand)]" /> : <IconExternalLink size={13} />}
+            <span>{copiedVlcUrl ? 'Copied' : 'Open in VLC'}</span>
           </button>
 
           {/* VLC Advanced Panel Toggle */}
@@ -323,7 +501,7 @@ export function VlcMediaViewer({
             }`}
             title="VLC Advanced Audio/Video Adjustments"
           >
-            <Sliders size={14} />
+            <IconAdjustmentsHorizontal size={15} />
           </button>
         </div>
       </div>
@@ -333,8 +511,8 @@ export function VlcMediaViewer({
         <div className="absolute top-14 right-4 w-72 rounded-xl bg-black/95 backdrop-blur-xl border border-[var(--cn-border)] p-4 shadow-2xl z-30 space-y-3.5 text-xs font-mono text-white">
           <div className="flex items-center justify-between pb-2 border-b border-white/10">
             <span className="font-bold flex items-center gap-1.5 text-[var(--cn-brand)]">
-              <Sliders size={13} />
-              VLC Playback Parameters
+              <IconAdjustmentsHorizontal size={14} />
+              Audio & Video Settings
             </span>
             <button 
               onClick={() => setShowVlcPanel(false)}
@@ -358,8 +536,9 @@ export function VlcMediaViewer({
               max={200}
               value={volumePercent}
               onChange={(e) => {
-                ensureAudioGraph();
-                setVolumePercent(parseInt(e.target.value));
+                const val = parseInt(e.target.value);
+                if (val > 100) ensureAudioGraph();
+                setVolumePercent(val);
               }}
               className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)]"
             />
@@ -373,124 +552,126 @@ export function VlcMediaViewer({
               onClick={() => {
                 ensureAudioGraph();
                 setIsSpeechBoostEnabled(!isSpeechBoostEnabled);
-                showToast(isSpeechBoostEnabled ? 'Vocal Clarity Disabled' : 'Vocal Clarity Enabled (+6dB @ 2.5kHz)');
+                showToast(!isSpeechBoostEnabled ? 'Vocal Clarity Enabled (+6dB @ 2.5kHz)' : 'Vocal Clarity Disabled');
               }}
               className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
                 isSpeechBoostEnabled
                   ? 'bg-[var(--cn-brand)] text-black border-[var(--cn-brand)]'
-                  : 'bg-white/10 text-white/70 border-white/20 hover:text-white'
+                  : 'bg-white/10 text-white/80 border-white/20 hover:bg-white/20'
               }`}
             >
-              {isSpeechBoostEnabled ? 'ACTIVE' : 'OFF'}
+              {isSpeechBoostEnabled ? 'ON (+6dB)' : 'OFF'}
             </button>
           </div>
 
-          {/* A-B Loop Controls */}
-          <div className="space-y-1.5 pt-1">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-white/80">A-B Looper</span>
-              {loopA !== null && (
-                <span className="text-[10px] text-[var(--cn-brand)] font-bold">
-                  {formatTime(loopA)} → {loopB !== null ? formatTime(loopB) : '...'}
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                onClick={handleSetLoopA}
-                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold text-white border border-white/15"
-              >
-                Set [A]
-              </button>
-              <button
-                onClick={handleSetLoopB}
-                className="px-2 py-1 rounded bg-white/10 hover:bg-white/20 text-[10px] font-bold text-white border border-white/15"
-              >
-                Set [B]
-              </button>
-              <button
-                onClick={clearLoop}
-                className="px-2 py-1 rounded bg-red-950/40 hover:bg-red-900/40 text-[10px] font-bold text-red-300 border border-red-500/30"
-              >
-                Clear
-              </button>
+          {/* Aspect Ratio Switcher */}
+          <div className="space-y-1.5 pt-1 border-t border-white/10">
+            <span className="text-[11px] text-white/80">Aspect Ratio Fit</span>
+            <div className="grid grid-cols-4 gap-1 text-[10px]">
+              {(['contain', 'cover', 'fill', '4:3'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    setAspectRatio(mode);
+                    showToast(`Aspect Ratio: ${mode.toUpperCase()}`);
+                  }}
+                  className={`py-1 rounded border transition-colors capitalize ${
+                    aspectRatio === mode
+                      ? 'bg-[var(--cn-brand)] text-black border-[var(--cn-brand)] font-bold'
+                      : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  {mode}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Aspect Ratio */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-[11px] text-white/80">Aspect Ratio Override</span>
-            <div className="grid grid-cols-4 gap-1 text-[10px]">
-              {(['contain', 'cover', 'fill', '4:3'] as const).map((ratio) => (
-                <button
-                  key={ratio}
-                  onClick={() => {
-                    setAspectRatio(ratio);
-                    showToast(`Aspect Ratio: ${ratio.toUpperCase()}`);
-                  }}
-                  className={`py-1 rounded text-center font-bold border transition-colors ${
-                    aspectRatio === ratio
-                      ? 'bg-[var(--cn-brand)] text-black border-[var(--cn-brand)]'
-                      : 'bg-white/10 text-white/70 border-white/15 hover:text-white'
-                  }`}
-                >
-                  {ratio.toUpperCase()}
+          {/* A-B Loop Section */}
+          <div className="space-y-1.5 pt-1 border-t border-white/10">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-white/80">A-B Segment Loop</span>
+              {(loopA !== null || loopB !== null) && (
+                <button onClick={clearLoop} className="text-[10px] text-[var(--cn-brand)] hover:underline">
+                  Reset
                 </button>
-              ))}
+              )}
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={handleSetLoopA}
+                className={`flex-1 py-1 rounded text-[10px] font-bold border transition-colors ${
+                  loopA !== null
+                    ? 'bg-white/20 text-[var(--cn-brand)] border-[var(--cn-brand)]/40'
+                    : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
+                }`}
+              >
+                Set [A] {loopA !== null ? `(${formatTime(loopA)})` : ''}
+              </button>
+              <button
+                onClick={handleSetLoopB}
+                className={`flex-1 py-1 rounded text-[10px] font-bold border transition-colors ${
+                  loopB !== null
+                    ? 'bg-[var(--cn-brand)] text-black border-[var(--cn-brand)]'
+                    : 'bg-white/10 text-white/80 border-white/10 hover:bg-white/20'
+                }`}
+              >
+                Set [B] {loopB !== null ? `(${formatTime(loopB)})` : ''}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Main Bottom Control Bar */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex flex-col gap-2.5 opacity-90 group-hover:opacity-100 transition-opacity z-20">
-        {/* Scrub Bar with Loop Markers */}
-        <div className="relative w-full flex items-center">
+      {/* Control Bar Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col gap-2 transition-opacity z-20">
+        {/* Scrubber Progress Bar */}
+        <div className="relative w-full group/scrubber cursor-pointer py-1">
           <input
             type="range"
             min={0}
             max={duration || 100}
             value={currentTime}
             onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              if (videoRef.current) videoRef.current.currentTime = val;
-              setCurrentTime(val);
+              const newTime = parseFloat(e.target.value);
+              if (videoRef.current) {
+                videoRef.current.currentTime = newTime;
+              }
+              setCurrentTime(newTime);
             }}
-            className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)]"
+            className="w-full h-1 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-all"
           />
 
-          {/* Loop A indicator */}
-          {loopA !== null && duration > 0 && (
-            <div 
-              className="absolute top-0 bottom-0 w-1 bg-[#57C564] pointer-events-none rounded-full"
+          {/* A-B Loop Indicators on Scrubber */}
+          {duration > 0 && loopA !== null && (
+            <div
+              className="absolute top-1 w-1 h-2 bg-[#F59E0B] rounded-xs pointer-events-none"
               style={{ left: `${(loopA / duration) * 100}%` }}
-              title={`Loop A: ${formatTime(loopA)}`}
+              title={`Loop Point A: ${formatTime(loopA)}`}
             />
           )}
-
-          {/* Loop B indicator */}
-          {loopB !== null && duration > 0 && (
-            <div 
-              className="absolute top-0 bottom-0 w-1 bg-[#F59E0B] pointer-events-none rounded-full"
+          {duration > 0 && loopB !== null && (
+            <div
+              className="absolute top-1 w-1 h-2 bg-[var(--cn-brand)] rounded-xs pointer-events-none"
               style={{ left: `${(loopB / duration) * 100}%` }}
-              title={`Loop B: ${formatTime(loopB)}`}
+              title={`Loop Point B: ${formatTime(loopB)}`}
             />
           )}
         </div>
 
-        {/* Buttons and Telemetry */}
-        <div className="flex items-center justify-between text-white text-xs font-mono">
+        {/* Action Controls Toolbar */}
+        <div className="flex items-center justify-between text-white font-mono text-xs">
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Play/Pause */}
             <button
               onClick={togglePlay}
-              className="p-1 hover:text-[var(--cn-brand)] transition-colors"
-              aria-label={isPlaying ? 'Pause' : 'Play'}
+              className="p-1.5 rounded-lg bg-[var(--cn-brand)] text-black hover:brightness-110 transition-all font-bold"
+              title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             >
-              {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+              {isPlaying ? <IconPlayerPause size={17} /> : <IconPlayerPlay size={17} />}
             </button>
 
-            {/* Frame Steppers */}
+            {/* Frame-by-Frame Steppers */}
             <button
               onClick={() => stepFrame(-1)}
               className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white transition-colors"
@@ -526,12 +707,11 @@ export function VlcMediaViewer({
             <div className="flex items-center gap-1.5 pl-1">
               <button
                 onClick={() => {
-                  ensureAudioGraph();
                   setIsMuted(!isMuted);
                 }}
                 className="p-1 hover:text-[var(--cn-brand)] transition-colors"
               >
-                {isMuted || volumePercent === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}
+                {isMuted || volumePercent === 0 ? <IconVolumeOff size={17} /> : <IconVolume size={17} />}
               </button>
               <span className={`text-[10px] ${volumePercent > 100 ? 'text-[#F59E0B] font-bold' : 'text-white/70'}`}>
                 {isMuted ? '0%' : `${volumePercent}%`}
@@ -545,9 +725,25 @@ export function VlcMediaViewer({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Subtitles / CC Toggle */}
+            {subtitles && subtitles.length > 0 && (
+              <button
+                onClick={toggleCaptions}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
+                  isCaptionsVisible
+                    ? 'bg-[var(--cn-brand)] text-black font-bold'
+                    : 'bg-white/10 text-white/80 hover:bg-white/20'
+                }`}
+                title={isCaptionsVisible ? 'Turn Off Closed Captions' : 'Turn On Closed Captions'}
+              >
+                <IconBadgeCc size={16} />
+                <span className="text-[10px] hidden sm:inline">{subtitles.length > 1 ? `${subtitles.length} CC` : 'CC'}</span>
+              </button>
+            )}
+
             {/* Speed Selector */}
             <div className="flex items-center gap-1">
-              <Gauge size={13} className="text-white/60 hidden sm:inline" />
+              <IconGauge size={14} className="text-white/60 hidden sm:inline" />
               <select
                 value={playbackSpeed}
                 onChange={(e) => changeSpeed(parseFloat(e.target.value))}
@@ -567,7 +763,7 @@ export function VlcMediaViewer({
               className="p-1 text-white/80 hover:text-white transition-colors"
               title="Picture-in-Picture"
             >
-              <Tv size={16} />
+              <IconDeviceTv size={16} />
             </button>
 
             {/* Fullscreen */}
@@ -576,7 +772,7 @@ export function VlcMediaViewer({
               className="p-1 text-white/80 hover:text-white transition-colors"
               title="Toggle Fullscreen"
             >
-              <Maximize size={16} />
+              <IconMaximize size={16} />
             </button>
           </div>
         </div>

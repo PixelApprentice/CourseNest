@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom';
 import { useVaultCourses, getCourseProgressPercent, removeCourseFromVault, type CourseData } from '../../lib/courseStore';
 import { CourseCard } from '../../components/CourseCard';
 import { 
-  Search, 
-  Grid3X3, 
-  List, 
-  Upload, 
-  AlertTriangle, 
-  BookOpen, 
-  HardDrive 
-} from 'lucide-react';
+  IconSearch, 
+  IconLayoutGrid, 
+  IconList, 
+  IconUpload, 
+  IconAlertTriangle, 
+  IconBook, 
+  IconDeviceFloppy 
+} from '@tabler/icons-react';
 
 type FilterType = 'all' | 'in_progress' | 'completed';
 type SortType = 'recent' | 'title' | 'duration' | 'progress';
@@ -73,7 +73,7 @@ export function LibraryPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-[var(--cn-primary)] font-semibold mb-1">
-            <HardDrive size={13} />
+            <IconDeviceFloppy size={14} />
             <span>LOCAL REPOSITORY</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
@@ -88,8 +88,8 @@ export function LibraryPage() {
           to="/import"
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors self-start md:self-auto shadow-sm"
         >
-          <Upload size={14} />
-          <span>Add New Course</span>
+          <IconUpload size={15} />
+          <span>Add Course Materials</span>
         </Link>
       </div>
 
@@ -97,10 +97,10 @@ export function LibraryPage() {
       <div className="bg-[var(--cn-surface)] p-4 rounded-xl border border-[var(--cn-border)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Search Input */}
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--cn-text-muted)]" />
+          <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--cn-text-muted)]" />
           <input
             type="text"
-            placeholder="Search by subject, code, topic, or instructor..."
+            placeholder="Search by title, subject, or instructor..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] placeholder-[var(--cn-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)] transition-all font-mono"
@@ -148,7 +148,7 @@ export function LibraryPage() {
                   : 'text-[var(--cn-text-muted)] hover:bg-[var(--cn-surface)]'
               }`}
             >
-              <Grid3X3 size={15} />
+              <IconLayoutGrid size={15} />
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -159,7 +159,7 @@ export function LibraryPage() {
                   : 'text-[var(--cn-text-muted)] hover:bg-[var(--cn-surface)]'
               }`}
             >
-              <List size={15} />
+              <IconList size={15} />
             </button>
           </div>
         </div>
@@ -168,7 +168,7 @@ export function LibraryPage() {
       {/* Courses List / Grid */}
       {filteredCourses.length === 0 ? (
         <div className="border border-dashed border-[var(--cn-border)] rounded-2xl p-12 text-center bg-[var(--cn-surface)] space-y-4">
-          <BookOpen size={44} className="mx-auto text-[var(--cn-text-muted)]" />
+          <IconBook size={40} className="mx-auto text-[var(--cn-text-muted)]" />
           <div className="space-y-1">
             <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
               {searchQuery ? 'No matching courses found' : 'You have no courses yet'}
@@ -194,7 +194,7 @@ export function LibraryPage() {
               to="/import"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold"
             >
-              <Upload size={14} />
+              <IconUpload size={14} />
               <span>Add Course Materials</span>
             </Link>
           )}
@@ -233,7 +233,7 @@ export function LibraryPage() {
           <div className="bg-[var(--cn-surface)] border border-[var(--cn-border)] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-[var(--cn-warning)]">
               <div className="w-10 h-10 rounded-full bg-[var(--cn-warning-tint)] flex items-center justify-center shrink-0">
-                <AlertTriangle size={20} />
+                <IconAlertTriangle size={20} />
               </div>
               <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
                 Remove Course from Vault?
@@ -241,7 +241,7 @@ export function LibraryPage() {
             </div>
 
             <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
-              This will unregister this course and purge its cached curriculum from your local vault storage.
+              This will remove this course and its media files from your local vault storage.
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--cn-border)]">

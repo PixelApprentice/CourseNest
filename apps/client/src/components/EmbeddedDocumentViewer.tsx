@@ -1,20 +1,21 @@
 import { useState, useMemo } from 'react';
 import { 
-  FileText, 
-  ZoomIn, 
-  ZoomOut, 
-  RotateCcw, 
-  Download, 
-  Maximize, 
-  Minimize, 
-  X, 
-  Search, 
-  ChevronLeft, 
-  ChevronRight, 
-  Columns, 
-  List,
-  Sparkles
-} from 'lucide-react';
+  IconFileText, 
+  IconZoomIn, 
+  IconZoomOut, 
+  IconRotate, 
+  IconDownload, 
+  IconMaximize, 
+  IconMinimize, 
+  IconX, 
+  IconSearch, 
+  IconChevronLeft, 
+  IconChevronRight, 
+  IconColumns, 
+  IconList,
+  IconBrain,
+  IconBooks
+} from '@tabler/icons-react';
 
 interface EmbeddedDocumentViewerProps {
   filename: string;
@@ -177,11 +178,11 @@ export function EmbeddedDocumentViewer({
               }`}
               title="Table of Contents Outline"
             >
-              <List size={16} />
+              <IconList size={16} />
             </button>
 
             <div className="w-7 h-7 rounded-lg bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center shrink-0">
-              <FileText size={16} />
+              <IconFileText size={16} />
             </div>
 
             <div className="truncate hidden sm:block">
@@ -202,7 +203,7 @@ export function EmbeddedDocumentViewer({
               className="p-1 rounded text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] disabled:opacity-30 disabled:hover:text-[var(--cn-text-secondary)]"
               title="Previous Page"
             >
-              <ChevronLeft size={16} />
+              <IconChevronLeft size={16} />
             </button>
 
             <div className="flex items-center gap-1 text-[11px] font-semibold text-[var(--cn-text-primary)] px-1">
@@ -217,7 +218,7 @@ export function EmbeddedDocumentViewer({
               className="p-1 rounded text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] disabled:opacity-30 disabled:hover:text-[var(--cn-text-secondary)]"
               title="Next Page"
             >
-              <ChevronRight size={16} />
+              <IconChevronRight size={16} />
             </button>
           </div>
 
@@ -233,7 +234,7 @@ export function EmbeddedDocumentViewer({
               }`}
               title="Toggle Two-Page Book Spread View"
             >
-              <Columns size={14} />
+              <IconColumns size={14} />
               <span className="text-[10px]">{viewSpread === 'spread' ? '2-Up' : '1-Up'}</span>
             </button>
 
@@ -244,7 +245,7 @@ export function EmbeddedDocumentViewer({
                 className="p-0.5 hover:text-[var(--cn-primary)] text-[var(--cn-text-secondary)]"
                 title="Zoom Out"
               >
-                <ZoomOut size={14} />
+                <IconZoomOut size={14} />
               </button>
               <span className="text-[10px] font-semibold text-[var(--cn-text-primary)] w-10 text-center">
                 {zoomLevel}%
@@ -254,14 +255,14 @@ export function EmbeddedDocumentViewer({
                 className="p-0.5 hover:text-[var(--cn-primary)] text-[var(--cn-text-secondary)]"
                 title="Zoom In"
               >
-                <ZoomIn size={14} />
+                <IconZoomIn size={14} />
               </button>
               <button
                 onClick={resetZoom}
                 className="p-0.5 hover:text-[var(--cn-primary)] text-[var(--cn-text-muted)] pl-1"
                 title="Reset Zoom to 100%"
               >
-                <RotateCcw size={12} />
+                <IconRotate size={12} />
               </button>
             </div>
 
@@ -275,7 +276,7 @@ export function EmbeddedDocumentViewer({
               }`}
               title="Search in Document"
             >
-              <Search size={15} />
+              <IconSearch size={15} />
             </button>
 
             {/* AI Assistant Quick Inquire */}
@@ -283,9 +284,9 @@ export function EmbeddedDocumentViewer({
               <button
                 onClick={() => onAskAi(activePage.content)}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--cn-primary)]/40 bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary)] hover:text-white transition-all shadow-xs"
-                title="Ask AI Reading Companion about this page"
+                title="Ask Reading Companion about this page"
               >
-                <Sparkles size={13} />
+                <IconBrain size={13} />
                 <span className="hidden sm:inline">Ask AI</span>
               </button>
             )}
@@ -296,7 +297,7 @@ export function EmbeddedDocumentViewer({
               className="p-1.5 rounded-lg border border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
               title="Save Document to Local Disk"
             >
-              <Download size={15} />
+              <IconDownload size={15} />
             </button>
 
             {/* Fullscreen */}
@@ -306,7 +307,7 @@ export function EmbeddedDocumentViewer({
                 className="p-1.5 rounded-lg border border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors hidden sm:block"
                 title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen Presentation Mode'}
               >
-                {isFullscreen ? <Minimize size={15} /> : <Maximize size={15} />}
+                {isFullscreen ? <IconMinimize size={15} /> : <IconMaximize size={15} />}
               </button>
             )}
 
@@ -317,7 +318,7 @@ export function EmbeddedDocumentViewer({
                 className="p-1.5 rounded-lg bg-[var(--cn-surface-subtle)] hover:bg-[var(--cn-danger-tint)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-danger)] transition-colors border border-[var(--cn-border)]"
                 title="Close Document Reader (Esc)"
               >
-                <X size={16} />
+                <IconX size={16} />
               </button>
             )}
           </div>
@@ -359,12 +360,30 @@ export function EmbeddedDocumentViewer({
 
           {/* Center Document Canvas */}
           <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[var(--cn-bg)] flex justify-center items-start h-full">
-            {fileUrl ? (
+            {fileUrl && (filename.toLowerCase().endsWith('.pdf') || !filename.includes('.')) ? (
               <iframe
                 src={fileUrl}
                 title={filename}
                 className="w-full h-full min-h-[650px] rounded-xl border border-[var(--cn-border)] bg-white"
               />
+            ) : fileUrl && filename.toLowerCase().endsWith('.epub') ? (
+              <div className="w-full max-w-xl p-8 rounded-2xl bg-[var(--cn-surface)] border border-[var(--cn-border)] text-center space-y-4 my-auto">
+                <div className="w-14 h-14 rounded-2xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] mx-auto flex items-center justify-center">
+                  <IconBooks size={28} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-[var(--cn-text-primary)]">{filename}</h4>
+                  <p className="text-xs text-[var(--cn-text-muted)] font-mono mt-1">
+                    EPUB eBook Handout • Stored safely offline in media vault
+                  </p>
+                </div>
+                <button
+                  onClick={handleDownload}
+                  className="px-5 py-2.5 rounded-xl bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-all shadow-sm"
+                >
+                  Export EPUB File
+                </button>
+              </div>
             ) : (
               <div 
                 className={`flex gap-6 justify-center w-full transition-all duration-150`}
@@ -442,7 +461,7 @@ export function EmbeddedDocumentViewer({
 
               <div className="p-3 border-b border-[var(--cn-border)]">
                 <div className="relative">
-                  <Search size={14} className="absolute left-2.5 top-2.5 text-[var(--cn-text-muted)]" />
+                  <IconSearch size={14} className="absolute left-2.5 top-2.5 text-[var(--cn-text-muted)]" />
                   <input
                     type="text"
                     value={searchQuery}

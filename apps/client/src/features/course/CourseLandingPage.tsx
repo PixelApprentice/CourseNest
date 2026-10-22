@@ -12,22 +12,22 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { ProgressBar } from '../../components/ProgressBar';
 import { CurriculumRoadmapDiagram } from '../../components/CurriculumRoadmapDiagram';
 import { 
-  ArrowLeft, 
-  Play, 
-  Clock, 
-  CheckCircle2, 
-  FileText, 
-  Video, 
-  HelpCircle, 
-  ChevronDown, 
-  ChevronRight, 
-  ShieldCheck, 
-  Check, 
-  Layers, 
-  HardDrive,
-  GitFork,
-  List
-} from 'lucide-react';
+  IconArrowLeft, 
+  IconPlayerPlay, 
+  IconClock, 
+  IconCircleCheck, 
+  IconFileText, 
+  IconVideo, 
+  IconHelp, 
+  IconChevronDown, 
+  IconChevronRight, 
+  IconShieldCheck, 
+  IconCheck, 
+  IconStack2, 
+  IconDeviceFloppy,
+  IconGitFork,
+  IconList
+} from '@tabler/icons-react';
 
 export function CourseLandingPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -76,7 +76,7 @@ export function CourseLandingPage() {
           to="/library"
           className="inline-flex items-center gap-2 text-xs font-mono font-medium text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] transition-colors"
         >
-          <ArrowLeft size={14} />
+          <IconArrowLeft size={14} />
           <span>Back to My Courses</span>
         </Link>
       </div>
@@ -91,7 +91,7 @@ export function CourseLandingPage() {
               <span className="text-[var(--cn-text-secondary)]">Instructor: {course.instructorName}</span>
               <span className="text-[var(--cn-text-muted)]">•</span>
               <span className="inline-flex items-center gap-1 text-[var(--cn-success)] font-medium">
-                <ShieldCheck size={13} />
+                <IconShieldCheck size={14} />
                 <span>Saved Offline & Ready</span>
               </span>
             </div>
@@ -106,15 +106,15 @@ export function CourseLandingPage() {
 
             <div className="flex flex-wrap items-center gap-6 text-xs font-mono text-[var(--cn-text-secondary)] pt-2 border-t border-[var(--cn-border)]/60">
               <div className="flex items-center gap-1.5">
-                <Clock size={13} className="text-[var(--cn-primary)]" />
+                <IconClock size={14} className="text-[var(--cn-primary)]" />
                 <span>{course.estimatedDurationMinutes ? `${(course.estimatedDurationMinutes / 60).toFixed(1)}h total study` : 'Self-paced'}</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Layers size={13} className="text-[var(--cn-primary)]" />
-                <span>{course.sections.length} Modules • {totalLessons} Lessons</span>
+                <IconStack2 size={14} className="text-[var(--cn-primary)]" />
+                <span>{course.sections.length} Chapters • {totalLessons} Lessons</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <HardDrive size={13} className="text-[var(--cn-success)]" />
+                <IconDeviceFloppy size={14} className="text-[var(--cn-success)]" />
                 <span>100% Offline Capable</span>
               </div>
             </div>
@@ -135,13 +135,13 @@ export function CourseLandingPage() {
                 to={`/course/${course.id}/lesson/${resumeLesson.id}`}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
               >
-                <Play size={14} fill="currentColor" />
+                <IconPlayerPlay size={14} />
                 <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Course'}</span>
               </Link>
             )}
 
             <div className="p-3 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[11px] font-mono text-[var(--cn-text-muted)] flex items-center gap-2">
-              <CheckCircle2 size={13} className="text-[var(--cn-success)]" />
+              <IconCircleCheck size={14} className="text-[var(--cn-success)]" />
               <span>Stored on your device for offline study</span>
             </div>
           </div>
@@ -157,7 +157,7 @@ export function CourseLandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {course.learningObjectives.map((obj: string, i: number) => (
               <div key={i} className="flex items-start gap-2.5 text-xs text-[var(--cn-text-secondary)]">
-                <CheckCircle2 size={14} className="text-[var(--cn-success)] shrink-0 mt-0.5" />
+                <IconCircleCheck size={14} className="text-[var(--cn-success)] shrink-0 mt-0.5" />
                 <span>{obj}</span>
               </div>
             ))}
@@ -170,7 +170,7 @@ export function CourseLandingPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)]">
-              Course Lessons ({course.sections.length} Modules • {totalLessons} Lessons)
+              Course Lessons ({course.sections.length} Chapters • {totalLessons} Lessons)
             </h2>
           </div>
 
@@ -184,7 +184,7 @@ export function CourseLandingPage() {
                   : 'text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)]'
               }`}
             >
-              <GitFork size={13} />
+              <IconGitFork size={13} />
               <span>Progress Diagram</span>
             </button>
             <button
@@ -195,8 +195,8 @@ export function CourseLandingPage() {
                   : 'text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)]'
               }`}
             >
-              <List size={13} />
-              <span>Module List</span>
+              <IconList size={13} />
+              <span>Chapter List</span>
             </button>
           </div>
         </div>
@@ -221,7 +221,7 @@ export function CourseLandingPage() {
                     className="w-full px-5 py-4 flex items-center justify-between bg-[var(--cn-surface-subtle)]/40 hover:bg-[var(--cn-surface-subtle)] transition-colors text-left"
                   >
                     <div className="flex items-center gap-3">
-                      {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                      {isCollapsed ? <IconChevronRight size={16} /> : <IconChevronDown size={16} />}
                       <div>
                         <h3 className="font-bold text-sm text-[var(--cn-text-primary)]">
                           {section.title}
@@ -265,7 +265,7 @@ export function CourseLandingPage() {
                                     : 'border-[var(--cn-border)] text-[var(--cn-text-muted)] group-hover:border-[var(--cn-text-secondary)]'
                                 }`}
                               >
-                                {isDone ? <Check size={12} strokeWidth={3} /> : <span className="w-1.5 h-1.5 rounded-full bg-current" />}
+                                {isDone ? <IconCheck size={12} strokeWidth={3} /> : <span className="w-1.5 h-1.5 rounded-full bg-current" />}
                               </div>
 
                               <div className="min-w-0">
@@ -282,16 +282,16 @@ export function CourseLandingPage() {
 
                             <div className="flex items-center gap-3 shrink-0 text-xs font-mono text-[var(--cn-text-muted)]">
                               <div className="flex items-center gap-1.5">
-                                {hasVideo && <span title="Contains video lecture"><Video size={13} className="text-[var(--cn-primary)]" /></span>}
-                                {hasDocs && <span title="Contains document or reading"><FileText size={13} className="text-sky-400" /></span>}
-                                {hasQuiz && <span title="Contains quiz assessment"><HelpCircle size={13} className="text-[var(--cn-accent)]" /></span>}
+                                {hasVideo && <span title="Contains video lecture"><IconVideo size={13} className="text-[var(--cn-primary)]" /></span>}
+                                {hasDocs && <span title="Contains document or reading"><IconFileText size={13} className="text-sky-400" /></span>}
+                                {hasQuiz && <span title="Contains quiz assessment"><IconHelp size={13} className="text-[var(--cn-accent)]" /></span>}
                               </div>
 
                               {lesson.estimatedDurationMinutes && (
                                 <span>{lesson.estimatedDurationMinutes}m</span>
                               )}
 
-                              <ChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+                              <IconChevronRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                             </div>
                           </Link>
                         );

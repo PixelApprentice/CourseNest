@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Sparkles, 
-  Send, 
-  Copy, 
-  Check, 
-  BookmarkPlus, 
-  WifiOff, 
-  Key, 
-  Settings, 
-  Cpu
-} from 'lucide-react';
+  IconBrain, 
+  IconSend, 
+  IconCopy, 
+  IconCheck, 
+  IconBookmarkPlus, 
+  IconWifiOff, 
+  IconKey, 
+  IconSettings, 
+  IconCpu 
+} from '@tabler/icons-react';
 import { useAiConfig, askAiAssistant, type AiQueryPayload } from '../lib/aiConfig';
 import { saveUserNote, getUserNotes } from '../lib/courseStore';
 import { addLog } from '../lib/logger';
@@ -47,8 +47,8 @@ export function AiReadingCompanion({
     {
       id: 'welcome',
       sender: 'assistant',
-      text: `Hello! I am your AI Reading & Study Companion. 
-I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, answer questions on difficult passages, or generate quick self-assessment questions.`,
+      text: `Hello! I am your Study Companion. 
+I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer questions on complex concepts, or generate quick practice questions.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -80,7 +80,7 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
       courseTitle,
       lessonTitle,
       lessonNotes: lessonId ? getUserNotes(lessonId) : undefined,
-      materialExcerpt: activeDocumentText?.slice(0, 4000), // send up to 4k chars of context
+      materialExcerpt: activeDocumentText?.slice(0, 4000),
     };
 
     const res = await askAiAssistant(payload);
@@ -121,8 +121,8 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
     if (!lessonId) return;
     const existing = getUserNotes(lessonId);
     const newNote = existing 
-      ? `${existing}\n\n--- [AI Study Note] ---\n${text}`
-      : `--- [AI Study Note] ---\n${text}`;
+      ? `${existing}\n\n--- [Study Note] ---\n${text}`
+      : `--- [Study Note] ---\n${text}`;
     saveUserNote(lessonId, newNote);
     if (onAppendNote) onAppendNote(newNote);
     setSavedNoteId(id);
@@ -141,15 +141,15 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
       {/* Header */}
       <div className="p-4 border-b border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/50 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-[var(--cn-primary)]" />
+          <IconBrain size={16} className="text-[var(--cn-primary)]" />
           <h3 className="text-xs font-bold font-mono tracking-wider uppercase text-[var(--cn-text-primary)]">
-            AI Reading Companion
+            Study Companion
           </h3>
         </div>
 
         <div className="flex items-center gap-2">
           {hasKey && isOnline ? (
-            <StatusBadge tone="success" size="sm" label={config.provider === 'gemini' ? 'Gemini Pro' : config.provider} showDot={true} />
+            <StatusBadge tone="success" size="sm" label={config.provider === 'gemini' ? 'Gemini' : config.provider} showDot={true} />
           ) : !isOnline ? (
             <StatusBadge tone="warning" size="sm" label="Offline" showDot={true} />
           ) : (
@@ -159,28 +159,28 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
           <Link
             to="/settings"
             className="p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface)] transition-colors"
-            title="Configure AI API in Settings"
+            title="Configure in Settings"
           >
-            <Settings size={14} />
+            <IconSettings size={15} />
           </Link>
         </div>
       </div>
 
-      {/* Hardware / Low-End Laptop Guarantee Banner */}
+      {/* Zero Local GPU/RAM Footprint Banner */}
       <div className="px-4 py-2 bg-[var(--cn-bg)] border-b border-[var(--cn-border)] flex items-center gap-2 text-[10px] font-mono text-[var(--cn-text-muted)]">
-        <Cpu size={12} className="text-[var(--cn-primary)] shrink-0" />
-        <span className="line-clamp-1">Zero local RAM/GPU footprint (lightweight cloud API companion)</span>
+        <IconCpu size={13} className="text-[var(--cn-primary)] shrink-0" />
+        <span className="line-clamp-1">Lightweight API assistance (runs smoothly on budget hardware)</span>
       </div>
 
-      {/* Key Missing Warning if needed */}
+      {/* Key Missing Alert */}
       {!hasKey && (
         <div className="m-3 p-3.5 rounded-xl border border-[var(--cn-accent)]/30 bg-[var(--cn-accent-tint)] space-y-2 text-xs">
           <div className="flex items-center gap-2 font-semibold text-[var(--cn-accent)]">
-            <Key size={14} />
-            <span>BYO-API Key Recommended</span>
+            <IconKey size={14} />
+            <span>Optional API Key</span>
           </div>
           <p className="text-[11px] text-[var(--cn-text-secondary)] leading-relaxed">
-            CourseNest never forces heavy local models (like Ollama) that would overheat or slow down your laptop. You can optionally connect your free Google Gemini API key or campus OmniRoute URL.
+            CourseNest runs 100% offline for reading, video playback, and notes. If you want AI assistance, you can connect a free Gemini API key in Settings.
           </p>
           <Link
             to="/settings"
@@ -191,15 +191,15 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
         </div>
       )}
 
-      {/* Offline Warning if disconnected */}
+      {/* Offline Mode Alert */}
       {!isOnline && (
         <div className="m-3 p-3 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] space-y-1.5 text-xs">
           <div className="flex items-center gap-2 font-semibold text-[var(--cn-text-muted)]">
-            <WifiOff size={14} />
-            <span>Offline-First Mode Active</span>
+            <IconWifiOff size={14} />
+            <span>Offline Mode Active</span>
           </div>
           <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-            All your video playback, reading, quizzes, and notes remain 100% accessible offline. AI queries will resume whenever an internet connection is detected.
+            All video playback, documents, quizzes, and notes remain 100% accessible offline.
           </p>
         </div>
       )}
@@ -237,7 +237,7 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
                     className="hover:text-[var(--cn-text-primary)] flex items-center gap-0.5 transition-colors"
                     title="Copy response"
                   >
-                    {copiedId === m.id ? <Check size={11} className="text-[var(--cn-success)]" /> : <Copy size={11} />}
+                    {copiedId === m.id ? <IconCheck size={11} className="text-[var(--cn-success)]" /> : <IconCopy size={11} />}
                     <span>{copiedId === m.id ? 'Copied' : 'Copy'}</span>
                   </button>
 
@@ -247,8 +247,8 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
                       className="hover:text-[var(--cn-primary)] flex items-center gap-0.5 transition-colors"
                       title="Save answer into Lesson Notes"
                     >
-                      {savedNoteId === m.id ? <Check size={11} className="text-[var(--cn-success)]" /> : <BookmarkPlus size={11} />}
-                      <span>{savedNoteId === m.id ? 'Saved to Notes' : 'Save to Notes'}</span>
+                      {savedNoteId === m.id ? <IconCheck size={11} className="text-[var(--cn-success)]" /> : <IconBookmarkPlus size={11} />}
+                      <span>{savedNoteId === m.id ? 'Saved' : 'Save to Notes'}</span>
                     </button>
                   )}
                 </>
@@ -263,7 +263,7 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--cn-primary)] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--cn-primary)]"></span>
             </span>
-            <span>Synthesizing material analysis...</span>
+            <span>Analyzing material...</span>
           </div>
         )}
       </div>
@@ -314,7 +314,7 @@ I can analyze the reading materials for **${lessonTitle || 'this lesson'}**, ans
             className="p-2 rounded-lg bg-[var(--cn-primary)] text-white hover:bg-[var(--cn-primary-hover)] disabled:opacity-40 transition-colors shrink-0"
             title="Send query"
           >
-            <Send size={15} />
+            <IconSend size={15} />
           </button>
         </form>
       </div>

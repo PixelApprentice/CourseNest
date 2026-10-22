@@ -4,14 +4,14 @@ import { Sidebar } from './Sidebar';
 import { BrandLogo } from '../components/BrandLogo';
 import { NotificationDropdown } from '../components/NotificationDropdown';
 import { 
-  Search, 
-  Moon, 
-  Sun, 
-  Home, 
-  Library, 
-  Upload, 
-  Settings
-} from 'lucide-react';
+  IconSearch, 
+  IconMoon, 
+  IconSun, 
+  IconLayoutDashboard, 
+  IconBooks, 
+  IconUpload, 
+  IconSettings
+} from '@tabler/icons-react';
 import { APP_NAME } from '@coursenest/config';
 
 interface AppLayoutProps {
@@ -30,7 +30,6 @@ export function AppLayout({ children }: AppLayoutProps) {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial theme check
     const savedTheme = localStorage.getItem('cn-theme');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
@@ -51,7 +50,6 @@ export function AppLayout({ children }: AppLayoutProps) {
     localStorage.setItem('cn-theme', nextTheme ? 'dark' : 'light');
   };
 
-  // Determine page title & breadcrumb
   const getPageContext = () => {
     const path = location.pathname;
     if (path === '/') return { section: 'Home', title: 'Learning Overview' };
@@ -59,7 +57,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (path.startsWith('/library')) return { section: 'Courses', title: 'My Library' };
     if (path.startsWith('/import')) return { section: 'Materials', title: 'Add Courses' };
     if (path.startsWith('/course/')) return { section: 'Courses', title: 'Course Details' };
-    if (path.startsWith('/settings')) return { section: 'Preferences', title: 'Settings' };
+    if (path.startsWith('/settings')) return { section: 'Preferences', title: 'Settings & Logs' };
     if (path.startsWith('/logs')) return { section: 'Diagnostics', title: 'System Logs' };
     return { section: 'CourseNest', title: APP_NAME };
   };
@@ -114,7 +112,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               title="Search courses"
               aria-label="Search courses"
             >
-              <Search size={16} />
+              <IconSearch size={16} />
             </Link>
 
             {/* Notification Center */}
@@ -127,7 +125,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-label="Toggle color theme"
             >
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
             </button>
           </div>
         </header>
@@ -145,7 +143,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               location.pathname === '/' ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >
-            <Home size={18} />
+            <IconLayoutDashboard size={18} />
             Overview
           </Link>
           <Link
@@ -154,7 +152,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               location.pathname.startsWith('/library') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >
-            <Library size={18} />
+            <IconBooks size={18} />
             Vault
           </Link>
           <Link
@@ -163,7 +161,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               location.pathname.startsWith('/import') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >
-            <Upload size={18} />
+            <IconUpload size={18} />
             Add Courses
           </Link>
           <Link
@@ -172,7 +170,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               location.pathname.startsWith('/settings') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
             }`}
           >
-            <Settings size={18} />
+            <IconSettings size={18} />
             Settings
           </Link>
         </nav>

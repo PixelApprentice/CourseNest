@@ -4,43 +4,51 @@ import { useStorageConfig } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { 
   parseCourseArchives, 
+  parseCourseFolder,
   commitImportedCourse, 
   type ProposalSection,
   type DiscoveredArchiveFile 
 } from '../../lib/zipImporter';
 import { transformManifest } from '../../lib/courseStore';
 import { 
-  Upload, 
-  FileArchive, 
-  CheckCircle2, 
-  Loader2, 
-  ArrowRight, 
-  ShieldCheck, 
-  Check, 
-  Plus, 
-  Trash2, 
-  HardDrive, 
-  FileVideo, 
-  FileText, 
-  FileCode, 
-  PackageCheck
-} from 'lucide-react';
+  IconArchive, 
+  IconFolder,
+  IconCircleCheck, 
+  IconLoader2, 
+  IconArrowRight, 
+  IconShieldCheck, 
+  IconCheck, 
+  IconPlus, 
+  IconTrash, 
+  IconDeviceFloppy, 
+  IconVideo, 
+  IconFileText, 
+  IconCode, 
+  IconChecklist
+} from '@tabler/icons-react';
 
 type WizardStep = 'select' | 'inventory' | 'review' | 'importing' | 'complete';
 
 interface ArchiveMeta {
   id: string;
   name: string;
+  type: 'zip' | 'folder' | 'manifest';
   sizeBytes: number;
   filesCount: number;
 }
 
 export function ImportPage() {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const zipInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
   const { config: storageConfig } = useStorageConfig();
 
   const [step, setStep] = useState<WizardStep>('select');
+  
+  // Accumulated raw uploaded files
+  const [accumulatedZipFiles, setAccumulatedZipFiles] = useState<File[]>([]);
+  const [accumulatedFolderFiles, setAccumulatedFolderFiles] = useState<File[]>([]);
+  
   const [archivesList, setArchivesList] = useState<ArchiveMeta[]>([]);
   const [discoveredFiles, setDiscoveredFiles] = useState<DiscoveredArchiveFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -50,7 +58,7 @@ export function ImportPage() {
   // Storage Target Selection
   const [targetStorage, setTargetStorage] = useState<'internal' | 'external'>('internal');
 
-  // Course metadata state - starts completely empty, dynamically populated from uploaded ZIP
+  // Course metadata state
   const [courseTitle, setCourseTitle] = useState('');
   const [courseSubject, setCourseSubject] = useState('General');
   const [instructorName, setInstructorName] = useState('');
@@ -58,91 +66,162 @@ export function ImportPage() {
   const [rawJsonInput, setRawJsonInput] = useState('');
   const [importMode, setImportMode] = useState<'file' | 'json'>('file');
 
-  // Curriculum proposal state - starts completely empty
+  // Curriculum proposal state
   const [proposedSections, setProposedSections] = useState<ProposalSection[]>([]);
   const [savedCourseId, setSavedCourseId] = useState<string | null>(null);
 
-  // Process uploaded files (real ZIP files or JSON manifests)
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
-
-    const files: File[] = Array.from(fileList);
+  // Aggregate and parse all uploaded ZIPs and Folder files
+  const reprocessFiles = async (zips: File[], folders: File[]) => {
     setIsProcessing(true);
-    setStatusMessage('Reading course files and analyzing archive structure...');
+    setStatusMessage('Analyzing course files and chapter hierarchy...');
 
     try {
-      const zipFiles = files.filter((f) => f.name.endsWith('.zip') || f.name.endsWith('.tar.gz') || f.name.endsWith('.tgz'));
-      const jsonFiles = files.filter((f) => f.name.endsWith('.json'));
+      const allDiscovered: DiscoveredArchiveFile[] = [];
+      const metas: ArchiveMeta[] = [];
+      let combinedSections: ProposalSection[] = [];
+      let detectedTitle = courseTitle;
 
-      if (zipFiles.length > 0) {
-        // Parse real zip archives using JSZip
-        const result = await parseCourseArchives(zipFiles);
+      // 1. Process ZIP archives
+      if (zips.length > 0) {
+        const zipResult = await parseCourseArchives(zips);
+        allDiscovered.push(...zipResult.discoveredFiles);
+        combinedSections.push(...zipResult.sections);
+        if (!detectedTitle) detectedTitle = zipResult.suggestedTitle;
 
-        setCourseTitle(result.suggestedTitle);
-        setCourseSubject(result.suggestedSubject);
-        setInstructorName(result.suggestedInstructor);
-        setCourseDescription(result.suggestedDescription);
-        setProposedSections(result.sections);
-        setDiscoveredFiles(result.discoveredFiles);
+        for (let i = 0; i < zips.length; i++) {
+          const zf = zips[i]!;
+          metas.push({
+            id: `zip-${zf.name}-${zf.size}`,
+            name: zf.name,
+            type: 'zip',
+            sizeBytes: zf.size,
+            filesCount: zipResult.discoveredFiles.filter((df) => df.archiveName === zf.name.replace(/\.[^/.]+$/, '')).length,
+          });
+        }
+      }
 
-        const metas: ArchiveMeta[] = zipFiles.map((zf, idx) => ({
-          id: `arch-${Date.now()}-${idx}`,
-          name: zf.name,
-          sizeBytes: zf.size,
-          filesCount: result.discoveredFiles.filter((df) => df.archiveName === zf.name).length,
+      // 2. Process Folder files (webkitdirectory)
+      if (folders.length > 0) {
+        const folderResult = await parseCourseFolder(folders);
+        allDiscovered.push(...folderResult.discoveredFiles);
+        
+        // Merge sections
+        const offset = combinedSections.length;
+        const adjustedFolderSections = folderResult.sections.map((s, idx) => ({
+          ...s,
+          position: s.position + offset,
+          id: `sec-folder-${idx + offset + 1}`,
         }));
-        setArchivesList(metas);
+        combinedSections.push(...adjustedFolderSections);
+        
+        if (!detectedTitle) detectedTitle = folderResult.suggestedTitle;
 
+        // Group folder metas by top-level directory
+        const topDirs = new Set<string>();
+        for (const f of folders) {
+          const parts = (f.webkitRelativePath || f.name).split('/');
+          topDirs.add(parts[0] || 'Course Folder');
+        }
+
+        for (const dir of topDirs) {
+          const dirFiles = folders.filter((f) => (f.webkitRelativePath || f.name).startsWith(dir));
+          const dirSize = dirFiles.reduce((acc, f) => acc + f.size, 0);
+          metas.push({
+            id: `folder-${dir}`,
+            name: dir,
+            type: 'folder',
+            sizeBytes: dirSize,
+            filesCount: dirFiles.length,
+          });
+        }
+      }
+
+      // Renumber sections consistently
+      combinedSections.sort((a, b) => a.position - b.position);
+      combinedSections = combinedSections.map((s, idx) => ({
+        ...s,
+        position: idx + 1,
+      }));
+
+      setDiscoveredFiles(allDiscovered);
+      setProposedSections(combinedSections);
+      setArchivesList(metas);
+
+      if (detectedTitle && !courseTitle) {
+        setCourseTitle(detectedTitle);
+      }
+      if (metas.length > 0) {
         setStep('inventory');
-      } else if (jsonFiles.length > 0) {
-        // Read JSON manifest file
-        const jsonFile = jsonFiles[0]!;
-        const text = await jsonFile.text();
-        const parsed = JSON.parse(text);
-        const transformed = transformManifest(parsed);
-
-        setCourseTitle(transformed.title);
-        setCourseSubject(transformed.subject);
-        setInstructorName(transformed.instructorName);
-        setCourseDescription(transformed.description);
-
-        setProposedSections(
-          transformed.sections.map((s) => ({
-            id: s.id,
-            title: s.title,
-            position: s.position,
-            sourceConfidence: 'manifest',
-            lessons: s.lessons.map((l) => ({
-              id: l.id,
-              title: l.title,
-              position: l.position,
-              files: [],
-              isApproved: true,
-            })),
-          }))
-        );
-
-        setArchivesList([
-          {
-            id: 'manifest-file',
-            name: jsonFile.name,
-            sizeBytes: jsonFile.size,
-            filesCount: transformed.sections.reduce((acc, s) => acc + s.lessons.length, 0),
-          },
-        ]);
-
-        addLog('INFO', 'IMPORTER', `Loaded course manifest: ${jsonFile.name}`);
-        setStep('review');
       }
     } catch (err: any) {
-      console.error('Import failed:', err);
+      console.error('Archive processing error:', err);
       alert(`Error reading course files: ${err.message || 'Unknown error'}`);
-      addLog('ERROR', 'IMPORTER', 'Failed to inspect uploaded files', err.message);
+      addLog('ERROR', 'IMPORTER', 'Failed to inspect files', err.message);
     } finally {
       setIsProcessing(false);
       setStatusMessage('');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (zipInputRef.current) zipInputRef.current.value = '';
+      if (folderInputRef.current) folderInputRef.current.value = '';
+    }
+  };
+
+  // Add ZIP files handler (appends to existing)
+  const handleZipUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const newFiles = Array.from(fileList);
+    const existingNames = new Set(accumulatedZipFiles.map((f) => f.name));
+    const toAdd = newFiles.filter((f) => !existingNames.has(f.name));
+
+    if (toAdd.length === 0) {
+      alert('Selected file(s) are already added.');
+      return;
+    }
+
+    const updatedZips = [...accumulatedZipFiles, ...toAdd];
+    setAccumulatedZipFiles(updatedZips);
+    await reprocessFiles(updatedZips, accumulatedFolderFiles);
+  };
+
+  // Add Extracted Folder handler (appends to existing)
+  const handleFolderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const newFiles = Array.from(fileList);
+    const updatedFolders = [...accumulatedFolderFiles, ...newFiles];
+    setAccumulatedFolderFiles(updatedFolders);
+    await reprocessFiles(accumulatedZipFiles, updatedFolders);
+  };
+
+  // Remove an archive/folder from the list
+  const handleRemoveArchive = async (meta: ArchiveMeta) => {
+    if (meta.type === 'zip') {
+      const updated = accumulatedZipFiles.filter((f) => f.name !== meta.name);
+      setAccumulatedZipFiles(updated);
+      if (updated.length === 0 && accumulatedFolderFiles.length === 0) {
+        setArchivesList([]);
+        setDiscoveredFiles([]);
+        setProposedSections([]);
+        setStep('select');
+      } else {
+        await reprocessFiles(updated, accumulatedFolderFiles);
+      }
+    } else if (meta.type === 'folder') {
+      const updated = accumulatedFolderFiles.filter((f) => {
+        const parts = (f.webkitRelativePath || f.name).split('/');
+        return parts[0] !== meta.name;
+      });
+      setAccumulatedFolderFiles(updated);
+      if (accumulatedZipFiles.length === 0 && updated.length === 0) {
+        setArchivesList([]);
+        setDiscoveredFiles([]);
+        setProposedSections([]);
+        setStep('select');
+      } else {
+        await reprocessFiles(accumulatedZipFiles, updated);
+      }
     }
   };
 
@@ -221,6 +300,7 @@ export function ImportPage() {
               title: title.trim(),
               position: sec.lessons.length + 1,
               files: [],
+              subtitleFiles: [],
               isApproved: true,
             },
           ],
@@ -261,8 +341,8 @@ export function ImportPage() {
         courseId: newCourseId,
         courseTitle: courseTitle.trim(),
         courseSubject: courseSubject.trim() || 'General',
-        instructorName: instructorName.trim() || 'Instructor',
-        courseDescription: courseDescription.trim() || `Course with ${proposedSections.length} sections.`,
+        instructorName: instructorName.trim() || 'Course Instructor',
+        courseDescription: courseDescription.trim() || `Course with ${proposedSections.length} chapter(s).`,
         targetStorage,
         sections: proposedSections,
         onProgress: (percent, msg) => {
@@ -295,7 +375,7 @@ export function ImportPage() {
       <div className="border border-[var(--cn-border)] rounded-xl bg-[var(--cn-surface)] p-4">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
           {[
-            { id: 'select', label: '1. Select Archive' },
+            { id: 'select', label: '1. Select Files' },
             { id: 'inventory', label: '2. Archive Scan' },
             { id: 'review', label: '3. Review Structure' },
             { id: 'complete', label: '4. Ready' },
@@ -317,7 +397,7 @@ export function ImportPage() {
                         : 'bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)] border border-[var(--cn-border)]'
                   }`}
                 >
-                  {isDone ? <Check size={13} /> : idx + 1}
+                  {isDone ? <IconCheck size={13} /> : idx + 1}
                 </div>
                 <span
                   className={`text-xs font-mono hidden sm:inline ${
@@ -333,32 +413,40 @@ export function ImportPage() {
         </div>
       </div>
 
+      {/* Hidden File Inputs */}
+      <input
+        ref={zipInputRef}
+        type="file"
+        multiple
+        accept=".zip,.tar.gz,.tgz"
+        onChange={handleZipUpload}
+        className="hidden"
+      />
+      <input
+        ref={folderInputRef}
+        type="file"
+        multiple
+        {...({ webkitdirectory: '', directory: '' } as any)}
+        onChange={handleFolderUpload}
+        className="hidden"
+      />
+
       {/* STEP 1: SELECT SOURCE */}
       {step === 'select' && (
         <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-8 text-center space-y-6">
           <div className="max-w-xl mx-auto space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30">
-              <ShieldCheck size={13} />
+              <IconShieldCheck size={14} />
               <span>OFFLINE COURSE IMPORTER</span>
             </div>
             <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--cn-text-primary)]">
-              Add Your Course ZIP Files
+              Add Your Course Files
             </h2>
             <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] leading-relaxed">
-              Upload your course archive (e.g. ZIP files containing chapters, videos, slide decks, or lecture notes).
-              CourseNest inspects your folder structure, organizes your chapters and lessons, and stores them offline.
+              Import course archives (ZIP files) or an unzipped course directory from your computer.
+              CourseNest inspects your files, detects chapters and companion notes, and stores them safely for offline study.
             </p>
           </div>
-
-          {/* Hidden File Input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            accept=".zip,.tar.gz,.tgz,.json"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
 
           {/* Mode Switcher */}
           <div className="flex justify-center gap-2 text-xs font-mono">
@@ -370,7 +458,7 @@ export function ImportPage() {
                   : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
               }`}
             >
-              Course Archive (.zip, .tar.gz)
+              Course Files & Folders
             </button>
             <button
               onClick={() => setImportMode('json')}
@@ -386,35 +474,56 @@ export function ImportPage() {
 
           {isProcessing ? (
             <div className="py-16 text-center space-y-4">
-              <Loader2 size={36} className="animate-spin text-[var(--cn-primary)] mx-auto" />
+              <IconLoader2 size={36} className="animate-spin text-[var(--cn-primary)] mx-auto" />
               <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
-                Inspecting Course Archive...
+                Inspecting Course Materials...
               </h3>
               <p className="text-xs text-[var(--cn-text-muted)] font-mono">
                 {statusMessage || 'Reading directory structure and detecting chapters...'}
               </p>
             </div>
           ) : importMode === 'file' ? (
-            /* Multi-file Dropzone */
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-12 bg-[var(--cn-bg)] transition-colors cursor-pointer space-y-4"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center mx-auto shadow-sm">
-                <Upload size={26} />
+            /* Upload Action Cards */
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+              {/* Option 1: ZIP Archive(s) */}
+              <div
+                onClick={() => zipInputRef.current?.click()}
+                className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-8 bg-[var(--cn-bg)] transition-all cursor-pointer space-y-3 text-center group"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
+                  <IconArchive size={24} />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-bold text-sm text-[var(--cn-text-primary)]">
+                    Add ZIP Archive(s)
+                  </p>
+                  <p className="text-xs text-[var(--cn-text-muted)] font-mono leading-relaxed">
+                    Select one or multiple .zip files (e.g. 01. Intro.zip, 02. Basics.zip). You can add more later.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <p className="font-bold text-sm text-[var(--cn-text-primary)]">
-                  Click to choose your course ZIP file(s) or drag them here
-                </p>
-                <p className="text-xs text-[var(--cn-text-muted)] font-mono">
-                  Supports .zip, multi-part zip archives, and course folders
-                </p>
+
+              {/* Option 2: Extracted Folder */}
+              <div
+                onClick={() => folderInputRef.current?.click()}
+                className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-8 bg-[var(--cn-bg)] transition-all cursor-pointer space-y-3 text-center group"
+              >
+                <div className="w-12 h-12 rounded-xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
+                  <IconFolder size={24} />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-bold text-sm text-[var(--cn-text-primary)]">
+                    Add Course Folder
+                  </p>
+                  <p className="text-xs text-[var(--cn-text-muted)] font-mono leading-relaxed">
+                    Select an unzipped folder containing lectures, videos, and reading materials.
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
             /* Paste JSON Manifest */
-            <div className="space-y-3 text-left">
+            <div className="space-y-3 text-left max-w-2xl mx-auto">
               <label className="text-xs font-mono font-semibold text-[var(--cn-text-secondary)]">
                 Course JSON Structure
               </label>
@@ -445,6 +554,7 @@ export function ImportPage() {
                           title: l.title,
                           position: l.position,
                           files: [],
+                          subtitleFiles: [],
                           isApproved: true,
                         })),
                       }))
@@ -466,7 +576,7 @@ export function ImportPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-2">
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/30 text-xs space-y-1">
               <span className="font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5 font-mono">
-                <ShieldCheck size={14} className="text-[var(--cn-success)]" />
+                <IconShieldCheck size={14} className="text-[var(--cn-success)]" />
                 Automatic Chapter Detection
               </span>
               <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
@@ -475,7 +585,7 @@ export function ImportPage() {
             </div>
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/30 text-xs space-y-1">
               <span className="font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5 font-mono">
-                <ShieldCheck size={14} className="text-[var(--cn-success)]" />
+                <IconShieldCheck size={14} className="text-[var(--cn-success)]" />
                 Safe Offline Extraction
               </span>
               <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
@@ -484,8 +594,8 @@ export function ImportPage() {
             </div>
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/30 text-xs space-y-1">
               <span className="font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5 font-mono">
-                <ShieldCheck size={14} className="text-[var(--cn-success)]" />
-                Removable Media Support
+                <IconShieldCheck size={14} className="text-[var(--cn-success)]" />
+                External Media Support
               </span>
               <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
                 Can store media files directly on an external USB flash drive or SD card.
@@ -498,18 +608,34 @@ export function ImportPage() {
       {/* STEP 2: INVENTORY SCAN */}
       {step === 'inventory' && (
         <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-[var(--cn-border)] pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[var(--cn-border)] pb-4 gap-3">
             <div>
               <h3 className="font-bold text-lg text-[var(--cn-text-primary)]">
-                Archive Scan: {archivesList.length} File(s) Detected
+                Selected Course Materials: {archivesList.length} Item(s)
               </h3>
               <p className="text-xs text-[var(--cn-text-muted)] font-mono mt-0.5">
                 {(totalBytes / 1024 / 1024).toFixed(1)} MB total • {discoveredFiles.length} course files found
               </p>
             </div>
-            <span className="px-3 py-1 rounded-full text-xs font-mono font-semibold bg-[var(--cn-success-tint)] text-[var(--cn-success)] border border-[var(--cn-success)]/30">
-              Files Verified & Ready
-            </span>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => zipInputRef.current?.click()}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
+                title="Add another ZIP archive to this course"
+              >
+                <IconPlus size={13} />
+                <span>Add More ZIPs</span>
+              </button>
+              <button
+                onClick={() => folderInputRef.current?.click()}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
+                title="Add an extracted course folder"
+              >
+                <IconPlus size={13} />
+                <span>Add Folder</span>
+              </button>
+            </div>
           </div>
 
           {/* Archive cards list */}
@@ -520,7 +646,9 @@ export function ImportPage() {
                 className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] flex items-center justify-between gap-4 text-xs font-mono"
               >
                 <div className="flex items-center gap-3">
-                  <FileArchive size={18} className="text-[var(--cn-primary)]" />
+                  <div className="w-8 h-8 rounded-lg bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center shrink-0">
+                    {arch.type === 'folder' ? <IconFolder size={16} /> : <IconArchive size={16} />}
+                  </div>
                   <div>
                     <p className="font-semibold text-[var(--cn-text-primary)]">{arch.name}</p>
                     <p className="text-[11px] text-[var(--cn-text-muted)]">
@@ -528,10 +656,20 @@ export function ImportPage() {
                     </p>
                   </div>
                 </div>
-                <span className="text-[var(--cn-success)] flex items-center gap-1 font-semibold">
-                  <Check size={13} />
-                  Ready
-                </span>
+
+                <div className="flex items-center gap-3">
+                  <span className="text-[var(--cn-success)] flex items-center gap-1 font-semibold text-[11px]">
+                    <IconCheck size={13} />
+                    Verified
+                  </span>
+                  <button
+                    onClick={() => handleRemoveArchive(arch)}
+                    className="p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] transition-colors"
+                    title="Remove this archive"
+                  >
+                    <IconTrash size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -539,7 +677,7 @@ export function ImportPage() {
           {/* Storage Destination Selector */}
           <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/40 space-y-2">
             <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)] flex items-center gap-1.5">
-              <HardDrive size={14} className="text-[var(--cn-primary)]" />
+              <IconDeviceFloppy size={15} className="text-[var(--cn-primary)]" />
               Storage Destination
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
@@ -591,19 +729,22 @@ export function ImportPage() {
             <button
               onClick={() => {
                 setStep('select');
+                setAccumulatedZipFiles([]);
+                setAccumulatedFolderFiles([]);
                 setArchivesList([]);
                 setDiscoveredFiles([]);
               }}
               className="px-4 py-2 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]"
             >
-              Choose Different Files
+              Start Over
             </button>
+
             <button
               onClick={() => setStep('review')}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
             >
               <span>Review Course Structure</span>
-              <ArrowRight size={14} />
+              <IconArrowRight size={14} />
             </button>
           </div>
         </div>
@@ -621,13 +762,23 @@ export function ImportPage() {
                 Check and adjust how your chapters, sections, and lessons are arranged before saving.
               </p>
             </div>
-            <button
-              onClick={handleAddSection}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30 text-xs font-mono font-semibold hover:bg-[var(--cn-primary)] hover:text-white transition-colors self-start"
-            >
-              <Plus size={14} />
-              <span>Add New Section</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => zipInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
+                title="Add another ZIP archive"
+              >
+                <IconPlus size={13} />
+                <span>Add More ZIPs</span>
+              </button>
+              <button
+                onClick={handleAddSection}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30 text-xs font-mono font-semibold hover:bg-[var(--cn-primary)] hover:text-white transition-colors"
+              >
+                <IconPlus size={13} />
+                <span>New Section</span>
+              </button>
+            </div>
           </div>
 
           {/* Course Metadata Inputs */}
@@ -660,7 +811,7 @@ export function ImportPage() {
               <input
                 type="text"
                 value={instructorName}
-                placeholder="e.g. Dr. Jane Smith"
+                placeholder="e.g. Course Instructor"
                 onChange={(e) => setInstructorName(e.target.value)}
                 className="w-full px-3.5 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)]"
               />
@@ -717,7 +868,7 @@ export function ImportPage() {
                         className="flex items-center gap-1 text-[11px] font-mono text-[var(--cn-primary)] hover:underline"
                         title="Add a lesson to this section"
                       >
-                        <Plus size={12} />
+                        <IconPlus size={13} />
                         <span>Add Lesson</span>
                       </button>
                       <span className="text-[var(--cn-border)]">|</span>
@@ -726,7 +877,7 @@ export function ImportPage() {
                         className="p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] transition-colors"
                         title="Delete Section"
                       >
-                        <Trash2 size={13} />
+                        <IconTrash size={14} />
                       </button>
                     </div>
                   </div>
@@ -765,13 +916,13 @@ export function ImportPage() {
                                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--cn-bg)] border border-[var(--cn-border)]"
                                   >
                                     {f.type === 'video' ? (
-                                      <FileVideo size={10} className="text-orange-400" />
+                                      <IconVideo size={11} className="text-orange-400" />
                                     ) : f.type === 'document' ? (
-                                      <FileText size={10} className="text-sky-400" />
+                                      <IconFileText size={11} className="text-sky-400" />
                                     ) : f.type === 'code' ? (
-                                      <FileCode size={10} className="text-emerald-400" />
+                                      <IconCode size={11} className="text-emerald-400" />
                                     ) : (
-                                      <FileText size={10} className="text-purple-400" />
+                                      <IconFileText size={11} className="text-purple-400" />
                                     )}
                                     <span>{f.filename}</span>
                                     {f.sizeBytes > 0 && <span>({(f.sizeBytes / 1024 / 1024).toFixed(1)}MB)</span>}
@@ -798,7 +949,7 @@ export function ImportPage() {
                               className="p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] transition-colors"
                               title="Delete Lesson"
                             >
-                              <Trash2 size={13} />
+                              <IconTrash size={14} />
                             </button>
                           </div>
                         </div>
@@ -823,7 +974,7 @@ export function ImportPage() {
               disabled={proposedSections.length === 0 || totalApprovedLessons === 0}
               className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] disabled:opacity-50 transition-colors shadow-sm"
             >
-              <PackageCheck size={15} />
+              <IconChecklist size={16} />
               <span>Save Course to Offline Vault</span>
             </button>
           </div>
@@ -833,7 +984,7 @@ export function ImportPage() {
       {/* STEP 4: IMPORTING IN PROGRESS */}
       {step === 'importing' && (
         <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-12 text-center space-y-5">
-          <Loader2 size={40} className="animate-spin text-[var(--cn-primary)] mx-auto" />
+          <IconLoader2 size={40} className="animate-spin text-[var(--cn-primary)] mx-auto" />
           <div className="space-y-1">
             <h3 className="font-bold text-lg text-[var(--cn-text-primary)]">
               Saving Course into Offline Storage...
@@ -861,7 +1012,7 @@ export function ImportPage() {
       {step === 'complete' && (
         <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-8 text-center space-y-6">
           <div className="w-14 h-14 rounded-2xl bg-[var(--cn-success-tint)] text-[var(--cn-success)] flex items-center justify-center mx-auto border border-[var(--cn-success)]/40 shadow-sm">
-            <CheckCircle2 size={28} />
+            <IconCircleCheck size={28} />
           </div>
 
           <div className="space-y-1">
@@ -908,6 +1059,8 @@ export function ImportPage() {
             <button
               onClick={() => {
                 setStep('select');
+                setAccumulatedZipFiles([]);
+                setAccumulatedFolderFiles([]);
                 setArchivesList([]);
                 setDiscoveredFiles([]);
                 setProposedSections([]);

@@ -1,21 +1,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  ShieldCheck, 
-  Upload, 
-  Library, 
-  Play, 
-  FileText, 
-  HardDrive, 
-  Radio, 
-  ArrowRight, 
-  Sparkles, 
-  Sliders, 
-  Github, 
-  ExternalLink,
-  Lock,
-  Repeat
-} from 'lucide-react';
+  IconShieldCheck, 
+  IconUpload, 
+  IconBooks, 
+  IconPlayerPlay, 
+  IconFileText, 
+  IconDeviceFloppy, 
+  IconBroadcast, 
+  IconArrowRight, 
+  IconAdjustmentsHorizontal, 
+  IconBrandGithub, 
+  IconExternalLink, 
+  IconLock, 
+  IconRepeat 
+} from '@tabler/icons-react';
 import { BrandLogo } from '../../components/BrandLogo';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
@@ -23,7 +22,7 @@ import { useVaultCourses, type CourseData } from '../../lib/courseStore';
 
 export function LandingPage() {
   const { courses } = useVaultCourses();
-  const [activeDemoTab, setActiveDemoTab] = useState<'vlc' | 'pdf' | 'vault' | 'importer'>('vlc');
+  const [activeDemoTab, setActiveDemoTab] = useState<'vlc' | 'pdf' | 'vault'>('vlc');
   const [simulatedDriveConnected, setSimulatedDriveConnected] = useState(true);
 
   return (
@@ -41,13 +40,13 @@ export function LandingPage() {
         <div className="max-w-6xl mx-auto space-y-8 relative z-10 text-center flex flex-col items-center">
           {/* Top Pill Badges */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono font-semibold bg-[#57C564]/10 text-[#57C564] border border-[#57C564]/30 moss-glow-sm">
-            <Radio size={14} className="text-[#57C564]" />
+            <IconBroadcast size={14} className="text-[#57C564]" />
             <span>OPEN-SOURCE • PRIVATE OFFLINE LEARNING</span>
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight max-w-4xl font-display leading-[1.12]">
-            Autonomous, offline-first study with{' '}
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight max-w-4xl font-display leading-[1.12] text-white">
+            Autonomous, offline study with{' '}
             <span className="text-[#57C564] drop-shadow-[0_0_25px_rgba(87,197,100,0.35)]">
               VLC & PDF.js
             </span>{' '}
@@ -55,11 +54,11 @@ export function LandingPage() {
           </h1>
 
           {/* Subheadline */}
-          <p className="text-base sm:text-lg md:text-xl text-[var(--cn-text-secondary)] max-w-3xl leading-relaxed font-sans">
-            Transform any computer into a private offline study space. Add multi-part course archives,
+          <p className="text-base sm:text-lg md:text-xl text-slate-200 max-w-3xl leading-relaxed font-sans">
+            Transform any computer into a private offline study space. Import course archives,
             amplify low-volume lecture audio up to <span className="text-white font-semibold">200% with VLC Web Audio</span>,
             and inspect slide decks with an embedded <span className="text-white font-semibold">Mozilla PDF.js reader</span>.
-            No cloud tracking. 100% private.
+            Zero cloud tracking. 100% private.
           </p>
 
           {/* Primary Action Buttons */}
@@ -68,16 +67,16 @@ export function LandingPage() {
               to="/library"
               className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#57C564] text-[#0A0A0B] text-sm font-bold hover:bg-[#69D475] transition-all shadow-lg moss-glow hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Library size={18} />
+              <IconBooks size={18} />
               <span>Explore Courses</span>
-              <ArrowRight size={16} />
+              <IconArrowRight size={16} />
             </Link>
 
             <Link
               to="/import"
               className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-semibold text-[var(--cn-text-primary)] hover:border-[#57C564]/40 hover:bg-[var(--cn-surface-hover)] transition-all card-tactile"
             >
-              <Upload size={18} className="text-[#57C564]" />
+              <IconUpload size={18} className="text-[#57C564]" />
               <span>Add Course Materials</span>
             </Link>
 
@@ -85,9 +84,9 @@ export function LandingPage() {
               href="https://github.com"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 px-5 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-mono text-[var(--cn-text-secondary)] hover:text-white hover:border-white/30 transition-all"
+              className="flex items-center gap-2 px-5 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-mono text-slate-300 hover:text-white hover:border-white/30 transition-all"
             >
-              <Github size={16} />
+              <IconBrandGithub size={16} />
               <span>GitHub</span>
             </a>
           </div>
@@ -95,33 +94,33 @@ export function LandingPage() {
           {/* Key Metric Chips */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 max-w-3xl w-full text-left font-mono">
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] card-tactile">
-              <span className="text-[10px] text-[var(--cn-text-muted)] uppercase block">Video Core</span>
-              <span className="text-xs font-bold text-white flex items-center gap-1 mt-0.5">
-                <Radio size={13} className="text-[#EA580C]" />
+              <span className="text-[11px] text-slate-400 uppercase block font-semibold">Video Core</span>
+              <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-1">
+                <IconBroadcast size={14} className="text-[#EA580C]" />
                 VLC 200% Gain
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] card-tactile">
-              <span className="text-[10px] text-[var(--cn-text-muted)] uppercase block">Doc Reader</span>
-              <span className="text-xs font-bold text-white flex items-center gap-1 mt-0.5">
-                <FileText size={13} className="text-[#3B82F6]" />
+              <span className="text-[11px] text-slate-400 uppercase block font-semibold">Doc Reader</span>
+              <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-1">
+                <IconFileText size={14} className="text-[#3B82F6]" />
                 Mozilla PDF.js
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] card-tactile">
-              <span className="text-[10px] text-[var(--cn-text-muted)] uppercase block">Offline Storage</span>
-              <span className="text-xs font-bold text-white flex items-center gap-1 mt-0.5">
-                <HardDrive size={13} className="text-[#57C564]" />
-                SQLite Decoupled
+              <span className="text-[11px] text-slate-400 uppercase block font-semibold">Offline Storage</span>
+              <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-1">
+                <IconDeviceFloppy size={14} className="text-[#57C564]" />
+                Decoupled Vault
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] card-tactile">
-              <span className="text-[10px] text-[var(--cn-text-muted)] uppercase block">Open License</span>
-              <span className="text-xs font-bold text-white flex items-center gap-1 mt-0.5">
-                <ShieldCheck size={13} className="text-[#F59E0B]" />
+              <span className="text-[11px] text-slate-400 uppercase block font-semibold">License</span>
+              <span className="text-xs font-bold text-white flex items-center gap-1.5 mt-1">
+                <IconShieldCheck size={14} className="text-[#F59E0B]" />
                 MIT Free Forever
               </span>
             </div>
@@ -130,18 +129,17 @@ export function LandingPage() {
       </section>
 
       {/* ── 2. INTERACTIVE OPEN-SOURCE ENGINE PLAYGROUND ────────────────── */}
-      <section className="py-16 md:py-24 px-6 md:px-12 border-b border-[var(--cn-border)] bg-[var(--cn-surface)]/50">
+      <section className="py-16 md:py-24 px-6 md:px-12 border-b border-[var(--cn-border)] bg-[var(--cn-surface)]">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-[#57C564]">
-                <Sparkles size={14} />
-                <span>INTERACTIVE ENGINE SANDBOX</span>
+                <span>CORE ENGINE CAPABILITIES</span>
               </div>
               <h2 className="text-2xl md:text-3xl font-bold font-display tracking-tight text-white">
-                Test Drive the Integrated Media & Document Engines
+                Integrated Media & Document Engines
               </h2>
-              <p className="text-sm text-[var(--cn-text-secondary)] max-w-xl">
+              <p className="text-sm text-slate-300 max-w-xl">
                 Switch between the open-source engines below to experience the VLC audio boost,
                 PDF page-spread viewer, and decoupled storage resilience.
               </p>
@@ -154,10 +152,10 @@ export function LandingPage() {
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all ${
                   activeDemoTab === 'vlc'
                     ? 'bg-[#57C564] text-[#0A0A0B] font-bold shadow-sm'
-                    : 'text-[var(--cn-text-secondary)] hover:text-white'
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <Radio size={14} />
+                <IconBroadcast size={14} />
                 <span>VLC Video Core</span>
               </button>
 
@@ -166,10 +164,10 @@ export function LandingPage() {
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all ${
                   activeDemoTab === 'pdf'
                     ? 'bg-[#57C564] text-[#0A0A0B] font-bold shadow-sm'
-                    : 'text-[var(--cn-text-secondary)] hover:text-white'
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <FileText size={14} />
+                <IconFileText size={14} />
                 <span>Mozilla PDF.js Reader</span>
               </button>
 
@@ -178,10 +176,10 @@ export function LandingPage() {
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all ${
                   activeDemoTab === 'vault'
                     ? 'bg-[#57C564] text-[#0A0A0B] font-bold shadow-sm'
-                    : 'text-[var(--cn-text-secondary)] hover:text-white'
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
-                <HardDrive size={14} />
+                <IconDeviceFloppy size={14} />
                 <span>Storage Resilience</span>
               </button>
             </div>
@@ -194,10 +192,10 @@ export function LandingPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-[#57C564] font-bold flex items-center gap-1.5">
-                    <Radio size={14} />
+                    <IconBroadcast size={14} />
                     Live VLC Media Suite Engine (Sample Stream)
                   </span>
-                  <span className="text-[var(--cn-text-muted)]">
+                  <span className="text-slate-400">
                     Features: 200% Audio Gain Booster • Frame Stepper • A-B Looper • Speech Filter
                   </span>
                 </div>
@@ -212,30 +210,30 @@ export function LandingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                   <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5 font-mono">
-                      <Sliders size={13} className="text-[#57C564]" />
+                      <IconAdjustmentsHorizontal size={14} className="text-[#57C564]" />
                       200% Super-Gain Booster
                     </h4>
-                    <p className="text-[11px] text-[var(--cn-text-secondary)] leading-relaxed">
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
                       Laptops often struggle with quiet recorded lecture audio. Our Web Audio graph boosts volume up to 2.0x safely.
                     </p>
                   </div>
 
                   <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5 font-mono">
-                      <Repeat size={13} className="text-[#F59E0B]" />
+                      <IconRepeat size={14} className="text-[#F59E0B]" />
                       A-B Interval Looper
                     </h4>
-                    <p className="text-[11px] text-[var(--cn-text-secondary)] leading-relaxed">
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
                       Mark Point A and Point B on the seekbar to loop difficult algorithmic proofs and code explanations seamlessly.
                     </p>
                   </div>
 
                   <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1.5">
                     <h4 className="text-xs font-bold text-white flex items-center gap-1.5 font-mono">
-                      <ExternalLink size={13} className="text-[#3B82F6]" />
+                      <IconExternalLink size={14} className="text-[#3B82F6]" />
                       Native VLC Desktop Bridge
                     </h4>
-                    <p className="text-[11px] text-[var(--cn-text-secondary)] leading-relaxed">
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
                       Prefer standalone desktop playback? Click "Open in VLC" to stream media directly into the official VLC Media Player.
                     </p>
                   </div>
@@ -248,10 +246,10 @@ export function LandingPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-[#57C564] font-bold flex items-center gap-1.5">
-                    <FileText size={14} />
+                    <IconFileText size={14} />
                     Embedded Mozilla PDF.js Document Studio
                   </span>
-                  <span className="text-[var(--cn-text-muted)]">
+                  <span className="text-slate-400">
                     Features: Two-Page Spread • In-Document Search • Page Jump • Fullscreen Presentation
                   </span>
                 </div>
@@ -270,12 +268,12 @@ export function LandingPage() {
                 <div className="p-6 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <HardDrive size={20} className="text-[#57C564]" />
+                      <IconDeviceFloppy size={20} className="text-[#57C564]" />
                       <div>
                         <h3 className="font-bold text-sm text-white">
                           Removable Media Disconnection Simulator
                         </h3>
-                        <p className="text-xs text-[var(--cn-text-muted)] font-mono">
+                        <p className="text-xs text-slate-400 font-mono">
                           Simulate unplugging an external USB or SD drive with heavy video files.
                         </p>
                       </div>
@@ -296,7 +294,7 @@ export function LandingPage() {
                   {/* Simulator State Card */}
                   <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] space-y-3">
                     <div className="flex items-center justify-between text-xs font-mono">
-                      <span className="text-[var(--cn-text-muted)]">External Media Mount: /media/usb-courses</span>
+                      <span className="text-slate-300">External Media Mount: /media/usb-courses</span>
                       <span className={`px-2 py-0.5 rounded font-bold ${simulatedDriveConnected ? 'bg-[#57C564]/20 text-[#57C564]' : 'bg-red-500/20 text-red-400'}`}>
                         {simulatedDriveConnected ? '● DRIVE CONNECTED' : '○ DRIVE UNPLUGGED'}
                       </span>
@@ -304,7 +302,7 @@ export function LandingPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono pt-2">
                       <div className="p-3 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
-                        <span className="text-[10px] text-[var(--cn-text-muted)] uppercase block">Video Stream</span>
+                        <span className="text-[10px] text-slate-400 uppercase block font-semibold">Video Stream</span>
                         <p className={simulatedDriveConnected ? 'text-[#57C564]' : 'text-[#F59E0B]'}>
                           {simulatedDriveConnected ? '✓ 1080p MP4 Ready' : '⚠ Fallback card shown — no crash'}
                         </p>
@@ -332,49 +330,49 @@ export function LandingPage() {
             <h2 className="text-2xl md:text-3xl font-bold font-display tracking-tight text-white">
               Why Private & Offline Learning Matters
             </h2>
-            <p className="text-sm text-[var(--cn-text-secondary)]">
-              Built for universities, researchers, travelers, and field engineers who cannot rely on cloud connectivity.
+            <p className="text-sm text-slate-300">
+              Built for universities, researchers, travelers, and students who value focus and data privacy.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="p-6 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-3 card-tactile">
               <div className="w-10 h-10 rounded-xl bg-[#57C564]/10 text-[#57C564] flex items-center justify-center">
-                <HardDrive size={20} />
+                <IconDeviceFloppy size={20} />
               </div>
               <h3 className="font-bold text-base text-white">Decoupled Vault</h3>
-              <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
+              <p className="text-xs text-slate-300 leading-relaxed">
                 Internal learning state (progress, notes, bookmarks) is strictly decoupled from heavy media drives, ensuring zero data loss if an external SSD unplugs.
               </p>
             </div>
 
             <div className="p-6 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-3 card-tactile">
               <div className="w-10 h-10 rounded-xl bg-[#EA580C]/10 text-[#EA580C] flex items-center justify-center">
-                <Radio size={20} />
+                <IconBroadcast size={20} />
               </div>
               <h3 className="font-bold text-base text-white">VLC Media Suite</h3>
-              <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
+              <p className="text-xs text-slate-300 leading-relaxed">
                 Web Audio API super-gain up to 200%, frame-by-frame stepping for code review, vocal clarity equalizer filters, and direct desktop VLC protocol bridges.
               </p>
             </div>
 
             <div className="p-6 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-3 card-tactile">
               <div className="w-10 h-10 rounded-xl bg-[#3B82F6]/10 text-[#3B82F6] flex items-center justify-center">
-                <FileText size={20} />
+                <IconFileText size={20} />
               </div>
               <h3 className="font-bold text-base text-white">Mozilla PDF.js Core</h3>
-              <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
+              <p className="text-xs text-slate-300 leading-relaxed">
                 Full-featured document reading with two-page book spreads, in-document keyword search, thumbnail filmstrips, and distraction-free fullscreen.
               </p>
             </div>
 
             <div className="p-6 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-3 card-tactile">
               <div className="w-10 h-10 rounded-xl bg-[#F59E0B]/10 text-[#F59E0B] flex items-center justify-center">
-                <Lock size={20} />
+                <IconLock size={20} />
               </div>
-              <h3 className="font-bold text-base text-white">Zip Slip Hardening</h3>
-              <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
-                Multi-archive decompression engine rigorously blocks directory traversal attacks, null-byte injections, and executes all untrusted scripts as static text.
+              <h3 className="font-bold text-base text-white">Zip Hardening</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Multi-archive decompression engine rigorously blocks directory traversal attacks, null-byte injections, and executes all untrusted scripts safely.
               </p>
             </div>
           </div>
@@ -382,15 +380,15 @@ export function LandingPage() {
       </section>
 
       {/* ── 4. OFFLINE COURSE VAULT CATALOG PREVIEW ──────────────────── */}
-      <section className="py-16 md:py-24 px-6 md:px-12 border-b border-[var(--cn-border)] bg-[var(--cn-surface)]/30">
+      <section className="py-16 md:py-24 px-6 md:px-12 border-b border-[var(--cn-border)] bg-[var(--cn-surface)]">
         <div className="max-w-6xl mx-auto space-y-8">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h2 className="text-2xl font-bold font-display text-white">
-                Included Offline Course Catalog
+                Stored Course Vault
               </h2>
-              <p className="text-xs text-[var(--cn-text-secondary)] font-mono">
-                Verified zero-mock local manifests loaded and ready for immediate offline study.
+              <p className="text-xs text-slate-300 font-mono">
+                Verified local courses ready for immediate offline study.
               </p>
             </div>
 
@@ -399,7 +397,7 @@ export function LandingPage() {
               className="text-xs font-mono font-bold text-[#57C564] hover:underline flex items-center gap-1"
             >
               <span>View All ({courses.length})</span>
-              <ArrowRight size={14} />
+              <IconArrowRight size={14} />
             </Link>
           </div>
 
@@ -416,7 +414,7 @@ export function LandingPage() {
                       <span className="px-2 py-0.5 rounded bg-[var(--cn-primary-tint)] text-[#57C564] border border-[#57C564]/30 font-bold">
                         {course.subject || 'Computer Science'}
                       </span>
-                      <span className="text-[var(--cn-text-muted)]">
+                      <span className="text-slate-400">
                         v{course.version} • {course.estimatedDurationMinutes}m
                       </span>
                     </div>
@@ -425,13 +423,13 @@ export function LandingPage() {
                       {course.title}
                     </h3>
 
-                    <p className="text-xs text-[var(--cn-text-secondary)] line-clamp-2 leading-relaxed">
+                    <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
                       {course.description}
                     </p>
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {course.tags.slice(0, 4).map((tag, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded text-[10px] font-mono bg-[var(--cn-bg)] text-[var(--cn-text-muted)] border border-[var(--cn-border)]">
+                        <span key={i} className="px-2 py-0.5 rounded text-[10px] font-mono bg-[var(--cn-bg)] text-slate-400 border border-[var(--cn-border)]">
                           #{tag}
                         </span>
                       ))}
@@ -439,7 +437,7 @@ export function LandingPage() {
                   </div>
 
                   <div className="pt-4 border-t border-[var(--cn-border)] flex items-center justify-between">
-                    <span className="text-xs font-mono text-[var(--cn-text-muted)]">
+                    <span className="text-xs font-mono text-slate-400">
                       {course.sections.length} Sections • {totalLessons} Lessons
                     </span>
 
@@ -447,7 +445,7 @@ export function LandingPage() {
                       to={`/course/${course.id}`}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#57C564] text-[#0A0A0B] text-xs font-bold hover:bg-[#69D475] transition-colors"
                     >
-                      <Play size={13} />
+                      <IconPlayerPlay size={13} />
                       <span>Start Learning</span>
                     </Link>
                   </div>
@@ -465,14 +463,14 @@ export function LandingPage() {
             <h2 className="text-2xl font-bold font-display text-white">
               One-Command Setup & Architecture
             </h2>
-            <p className="text-xs text-[var(--cn-text-secondary)] font-mono">
+            <p className="text-xs text-slate-300 font-mono">
               Pure TypeScript monorepo with optional FastAPI Python 3.14 sync backend.
             </p>
           </div>
 
           <div className="rounded-xl border border-[var(--cn-border)] bg-[#0B0D0F] p-5 shadow-2xl font-mono text-xs text-white space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-white/10 text-[var(--cn-text-muted)] text-[11px]">
-              <span>BASH TERMINAL</span>
+            <div className="flex items-center justify-between pb-2 border-b border-white/10 text-slate-400 text-[11px]">
+              <span>TERMINAL</span>
               <span>MIT LICENSE</span>
             </div>
 
@@ -481,7 +479,7 @@ export function LandingPage() {
 git clone https://github.com/coursenest/coursenest.git
 cd coursenest
 
-# 2. Install workspace dependencies (pnpm v10)
+# 2. Install workspace dependencies
 pnpm install
 
 # 3. Launch CourseNest
@@ -500,16 +498,16 @@ uvicorn app.main:app --port 8000`}
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <BrandLogo size="sm" />
-            <span className="text-xs font-mono text-[var(--cn-text-muted)]">
+            <span className="text-xs font-mono text-slate-400">
               Open-Source Offline Learning Platform
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-xs font-mono text-[var(--cn-text-secondary)]">
+          <div className="flex items-center gap-4 text-xs font-mono text-slate-300">
             <Link to="/library" className="hover:text-white transition-colors">My Courses</Link>
             <Link to="/import" className="hover:text-white transition-colors">Add Materials</Link>
             <Link to="/settings" className="hover:text-white transition-colors">Settings</Link>
-            <Link to="/logs" className="hover:text-white transition-colors">System Logs</Link>
+            <Link to="/settings?tab=logs" className="hover:text-white transition-colors">System Logs</Link>
           </div>
         </div>
       </footer>

@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  CheckCircle2, 
-  Play, 
-  Clock, 
-  Video, 
-  FileText, 
-  HelpCircle, 
-  ChevronRight, 
-  ChevronDown
-} from 'lucide-react';
+  IconCircleCheck, 
+  IconPlayerPlay, 
+  IconClock, 
+  IconVideo, 
+  IconFileText, 
+  IconHelp, 
+  IconChevronRight, 
+  IconChevronDown
+} from '@tabler/icons-react';
 import { 
   type CourseData, 
   type SectionData, 
@@ -34,98 +34,105 @@ export function CurriculumRoadmapDiagram({
 }: CurriculumRoadmapDiagramProps) {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
 
-  const allLessons = course.sections.flatMap((s) => s.lessons);
-  const totalLessons = allLessons.length;
-  const completedLessons = allLessons.filter((l) => getLessonProgress(course.id, l.id)?.completed).length;
-  const overallPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-
-  const toggleSection = (secId: string) => {
-    setCollapsedSections((prev) => ({ ...prev, [secId]: !prev[secId] }));
+  const toggleSection = (sectionId: string) => {
+    setCollapsedSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }));
   };
 
-  const getContentTypeIcon = (type: string) => {
+  const getContentTypeIcon = (type: 'video' | 'quiz' | 'article') => {
     switch (type) {
       case 'video':
-        return <Video size={13} className="text-[var(--cn-primary)]" />;
-      case 'article':
-      case 'pdf':
-      case 'document':
-        return <FileText size={13} className="text-sky-400" />;
+        return <IconVideo size={13} className="text-[var(--cn-primary)]" />;
       case 'quiz':
-        return <HelpCircle size={13} className="text-[var(--cn-accent)]" />;
-      default:
-        return <FileText size={13} className="text-[var(--cn-text-muted)]" />;
+        return <IconHelp size={13} className="text-[var(--cn-accent)]" />;
+      case 'article':
+        return <IconFileText size={13} className="text-sky-400" />;
     }
   };
 
+  // Overall course completion metrics
+  const allLessons = course.sections.flatMap((s) => s.lessons);
+  const totalCount = allLessons.length;
+  const completedCount = allLessons.filter((l) => getLessonProgress(course.id, l.id)?.completed).length;
+  const overallPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
   return (
     <div className={clsx('space-y-6', className)}>
-      {/* Roadmap Mastery Analytics Banner */}
-      <div className="rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)]">
-                Interactive Learning Roadmap
-              </span>
-              {overallPercent === 100 ? (
-                <StatusBadge tone="success" label="Curriculum Mastered" showDot={true} />
-              ) : overallPercent > 0 ? (
-                <StatusBadge tone="info" label="In Progress" pulsing={true} />
-              ) : (
-                <StatusBadge tone="neutral" label="Not Started" showDot={false} />
-              )}
-            </div>
-            <h3 className="text-lg font-bold text-[var(--cn-text-primary)]">
-              {course.title} Progress Path
-            </h3>
+      {/* Header Metric Bar */}
+      <div className="p-5 rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[var(--cn-primary)]">
+              Curriculum Roadmap
+            </span>
+            <span className="text-xs text-[var(--cn-text-muted)] font-mono">
+              • {course.sections.length} Chapters • {totalCount} Units
+            </span>
           </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="px-3 py-2 rounded-lg bg-[var(--cn-bg)] border border-[var(--cn-border)] text-center min-w-24">
-              <p className="text-[10px] font-mono text-[var(--cn-text-muted)] uppercase">Milestones</p>
-              <p className="text-sm font-mono font-bold text-[var(--cn-text-primary)]">
-                {completedLessons} / {totalLessons}
-              </p>
-            </div>
-            <div className="px-3 py-2 rounded-lg bg-[var(--cn-bg)] border border-[var(--cn-border)] text-center min-w-24">
-              <p className="text-[10px] font-mono text-[var(--cn-text-muted)] uppercase">Mastery</p>
-              <p className="text-sm font-mono font-bold text-[var(--cn-primary)]">
-                {overallPercent}%
-              </p>
-            </div>
-          </div>
+          <p className="text-xs text-[var(--cn-text-secondary)]">
+            Sequential progression path through course modules and verification checkpoints.
+          </p>
         </div>
 
-        <ProgressBar value={overallPercent} size="md" tone="primary" />
+        <div className="flex items-center gap-4 shrink-0 font-mono">
+          <div className="text-right">
+            <div className="text-sm font-bold text-[var(--cn-text-primary)]">
+              {completedCount} of {totalCount} Completed
+            </div>
+            <div className="text-[11px] text-[var(--cn-text-muted)]">
+              {overallPercent}% Syllabus Progress
+            </div>
+          </div>
+          <div className="w-24">
+            <ProgressBar value={overallPercent} size="md" tone={overallPercent === 100 ? 'success' : 'primary'} />
+          </div>
+        </div>
       </div>
 
-      {/* Connected Modular Workflow Pipeline */}
-      <div className="space-y-6 relative">
+      {/* Chapters & Module Accordion Hierarchy */}
+      <div className="space-y-4">
         {course.sections.map((section: SectionData, sIdx: number) => {
           const isCollapsed = collapsedSections[section.id];
-          const sectionLessons = section.lessons;
+          const sectionLessons = section.lessons || [];
           const sectionCompleted = sectionLessons.filter((l) => getLessonProgress(course.id, l.id)?.completed).length;
           const sectionTotal = sectionLessons.length;
           const isSectionComplete = sectionTotal > 0 && sectionCompleted === sectionTotal;
+          const hasActiveLesson = sectionLessons.some((l) => l.id === activeLessonId);
 
           return (
             <div
               key={section.id}
-              className="rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] overflow-hidden transition-all"
+              className={clsx(
+                'rounded-2xl border transition-all overflow-hidden',
+                hasActiveLesson
+                  ? 'border-[var(--cn-primary)]/50 bg-[var(--cn-surface)] shadow-md ring-1 ring-[var(--cn-primary)]/20'
+                  : 'border-[var(--cn-border)] bg-[var(--cn-surface)]',
+              )}
             >
-              {/* Module Node Header */}
+              {/* Chapter Header Bar */}
               <button
                 onClick={() => toggleSection(section.id)}
-                className="w-full px-5 py-4 flex items-center justify-between bg-[var(--cn-surface-subtle)]/60 hover:bg-[var(--cn-surface-subtle)] transition-colors text-left"
+                className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-left bg-[var(--cn-surface-subtle)]/50 hover:bg-[var(--cn-surface-subtle)] transition-colors border-b border-[var(--cn-border)] select-none"
               >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--cn-bg)] border border-[var(--cn-border)] text-xs font-mono font-bold text-[var(--cn-text-secondary)]">
-                    {sIdx + 1}
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div
+                    className={clsx(
+                      'w-7 h-7 rounded-lg flex items-center justify-center font-mono text-xs font-bold shrink-0 border',
+                      isSectionComplete
+                        ? 'bg-[var(--cn-success-tint)] text-[var(--cn-success)] border-[var(--cn-success)]/40'
+                        : hasActiveLesson
+                        ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40'
+                        : 'bg-[var(--cn-surface)] text-[var(--cn-text-muted)] border-[var(--cn-border)]',
+                    )}
+                  >
+                    {isSectionComplete ? <IconCircleCheck size={14} /> : `0${sIdx + 1}`.slice(-2)}
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-bold text-sm text-[var(--cn-text-primary)] truncate font-sans">
                         {section.title}
                       </h4>
                       {isSectionComplete && (
@@ -144,7 +151,7 @@ export function CurriculumRoadmapDiagram({
                   <span className="text-xs font-mono text-[var(--cn-text-muted)] hidden sm:inline">
                     {sectionCompleted} / {sectionTotal} lessons
                   </span>
-                  {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                  {isCollapsed ? <IconChevronRight size={16} /> : <IconChevronDown size={16} />}
                 </div>
               </button>
 
@@ -184,9 +191,9 @@ export function CurriculumRoadmapDiagram({
                           )}
                         >
                           {isLessonCompleted ? (
-                            <CheckCircle2 size={15} />
+                            <IconCircleCheck size={15} />
                           ) : isActive ? (
-                            <Play size={13} fill="currentColor" />
+                            <IconPlayerPlay size={13} />
                           ) : (
                             <span className="text-[11px] font-mono font-medium">{lIdx + 1}</span>
                           )}
@@ -231,7 +238,7 @@ export function CurriculumRoadmapDiagram({
 
                               {lesson.estimatedDurationMinutes && (
                                 <div className="flex items-center gap-1 text-[var(--cn-text-muted)]">
-                                  <Clock size={11} />
+                                  <IconClock size={11} />
                                   <span>{lesson.estimatedDurationMinutes}m</span>
                                 </div>
                               )}
@@ -242,7 +249,7 @@ export function CurriculumRoadmapDiagram({
                                 </span>
                               )}
 
-                              <ChevronRight size={13} className="text-[var(--cn-text-muted)] group-hover:text-[var(--cn-text-primary)] group-hover:translate-x-0.5 transition-all" />
+                              <IconChevronRight size={13} className="text-[var(--cn-text-muted)] group-hover:text-[var(--cn-text-primary)] group-hover:translate-x-0.5 transition-all" />
                             </div>
                           </div>
                         </Link>

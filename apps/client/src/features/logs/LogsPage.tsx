@@ -10,20 +10,19 @@ import {
   type LogCategory 
 } from '../../lib/logger';
 import { 
-  Terminal, 
-  Search, 
-  Copy, 
-  Download, 
-  Trash2, 
-  AlertTriangle, 
-  AlertCircle, 
-  Info, 
-  CheckCircle2, 
-  Bug, 
-  ChevronDown, 
-  ChevronRight,
-  HardDrive
-} from 'lucide-react';
+  IconTerminal, 
+  IconSearch, 
+  IconCopy, 
+  IconDownload, 
+  IconTrash, 
+  IconAlertTriangle, 
+  IconAlertCircle, 
+  IconInfoCircle, 
+  IconCircleCheck, 
+  IconBug, 
+  IconChevronDown, 
+  IconChevronRight 
+} from '@tabler/icons-react';
 
 export function LogsPage() {
   const { logs } = useSystemLogs();
@@ -86,9 +85,8 @@ export function LogsPage() {
     addLog(
       'ERROR',
       'IMPORTER',
-      'Archive decompression simulated warning: CRC32 checksum mismatch in block chunk 4',
-      'Source: /media/external/CS301_part2.zip • File: module2_assets.tar • Handled by atomic recovery manager',
-      'Error: Simulated extraction exception at CourseImportEngine.analyzeArchive (importer.ts:142)\n    at async extractMultipleArchives (archiver.ts:68)',
+      'Archive verification simulated warning: CRC32 checksum mismatch in block chunk 4',
+      'Source: /media/external/CS301_part2.zip • Handled by atomic recovery manager',
     );
   };
 
@@ -97,21 +95,21 @@ export function LogsPage() {
       case 'ERROR':
         return (
           <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--cn-danger-tint)] text-[var(--cn-danger)] border border-[var(--cn-danger)]/40">
-            <AlertCircle size={11} />
+            <IconAlertCircle size={11} />
             ERROR
           </span>
         );
       case 'WARN':
         return (
           <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border border-[var(--cn-warning)]/40">
-            <AlertTriangle size={11} />
+            <IconAlertTriangle size={11} />
             WARN
           </span>
         );
       case 'INFO':
         return (
           <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[var(--cn-info-tint)] text-[var(--cn-info)] border border-[var(--cn-info)]/40">
-            <Info size={11} />
+            <IconInfoCircle size={11} />
             INFO
           </span>
         );
@@ -125,19 +123,19 @@ export function LogsPage() {
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-[var(--cn-primary)] font-semibold mb-1">
-            <Terminal size={14} />
-            <span>SYSTEM LOGS & DIAGNOSTICS</span>
+            <IconTerminal size={14} />
+            <span>SYSTEM LOGS & TELEMETRY</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
+          <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
             System Diagnostics & Error Logs
-          </h1>
-          <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] mt-1">
-            Audit extraction events, external drive connections, Zip Slip checks, and runtime health records.
+          </h2>
+          <p className="text-xs text-[var(--cn-text-secondary)] mt-1">
+            Audit extraction events, external drive connections, path checks, and runtime health records.
           </p>
         </div>
 
@@ -147,15 +145,15 @@ export function LogsPage() {
             onClick={handleCopyLogs}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
           >
-            <Copy size={13} />
-            <span>{copiedSuccess ? 'Copied!' : 'Copy Logs'}</span>
+            <IconCopy size={13} />
+            <span>{copiedSuccess ? 'Copied' : 'Copy'}</span>
           </button>
 
           <button
             onClick={handleDownloadText}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
           >
-            <Download size={13} />
+            <IconDownload size={13} />
             <span>Export .log</span>
           </button>
 
@@ -163,16 +161,16 @@ export function LogsPage() {
             onClick={handleDownloadJson}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
           >
-            <Download size={13} />
+            <IconDownload size={13} />
             <span>Export JSON</span>
           </button>
 
           <button
             onClick={handleSimulateTestError}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono font-medium text-[var(--cn-text-muted)] hover:text-[var(--cn-accent)] hover:border-[var(--cn-accent)]/40 transition-colors"
-            title="Inject a test diagnostic error to verify error handling"
+            title="Inject a test diagnostic entry"
           >
-            <Bug size={13} />
+            <IconBug size={13} />
             <span>Simulate Error</span>
           </button>
 
@@ -181,7 +179,7 @@ export function LogsPage() {
             className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-colors"
             title="Clear Log History"
           >
-            <Trash2 size={15} />
+            <IconTrash size={15} />
           </button>
         </div>
       </div>
@@ -190,7 +188,7 @@ export function LogsPage() {
       <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Search */}
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--cn-text-muted)]" />
+          <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--cn-text-muted)]" />
           <input
             type="text"
             placeholder="Search error messages, file paths, or exceptions..."
@@ -238,91 +236,61 @@ export function LogsPage() {
       <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] overflow-hidden">
         <div className="h-10 px-5 bg-[var(--cn-bg)] border-b border-[var(--cn-border)] flex items-center justify-between text-[11px] font-mono text-[var(--cn-text-muted)]">
           <div className="flex items-center gap-6">
-            <span>Level</span>
-            <span>Subsystem</span>
-            <span>Timestamp</span>
-            <span>Event Description</span>
+            <span className="w-20">TIME</span>
+            <span className="w-16">LEVEL</span>
+            <span className="w-20">SYSTEM</span>
+            <span>MESSAGE</span>
           </div>
-          <span>{filteredLogs.length} Records</span>
+          <span>Showing {filteredLogs.length} of {logs.length}</span>
         </div>
 
-        {filteredLogs.length === 0 ? (
-          <div className="p-12 text-center text-xs font-mono text-[var(--cn-text-muted)] space-y-2">
-            <CheckCircle2 size={32} className="mx-auto text-[var(--cn-success)] opacity-80" />
-            <p className="font-semibold text-[var(--cn-text-primary)]">No matching log records found</p>
-            <p>System operating normally without active diagnostic warnings.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-[var(--cn-border)]/60 text-xs font-mono">
-            {filteredLogs.map((log: LogEntry) => {
+        <div className="divide-y divide-[var(--cn-border)] max-h-[500px] overflow-y-auto font-mono text-xs">
+          {filteredLogs.length === 0 ? (
+            <div className="p-12 text-center text-[var(--cn-text-muted)] space-y-1">
+              <IconCircleCheck size={28} className="text-[var(--cn-success)] mx-auto opacity-70" />
+              <p className="font-semibold text-xs pt-1">No diagnostic events found matching current criteria</p>
+              <p className="text-[11px]">System runtime operations are healthy and nominal.</p>
+            </div>
+          ) : (
+            filteredLogs.map((log) => {
               const isExpanded = expandedLogIds[log.id];
-              const hasExtra = Boolean(log.details || log.stack);
+              const dateStr = new Date(log.timestamp).toLocaleTimeString();
 
               return (
-                <div
-                  key={log.id}
-                  className="p-4 hover:bg-[var(--cn-surface-subtle)]/50 transition-colors space-y-2"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-3 shrink-0">
-                      {getLevelBadge(log.level)}
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] border border-[var(--cn-border)]">
+                <div key={log.id} className="hover:bg-[var(--cn-surface-subtle)]/50 transition-colors">
+                  <div
+                    onClick={() => toggleExpand(log.id)}
+                    className="p-3.5 px-5 flex items-start justify-between gap-4 cursor-pointer select-none"
+                  >
+                    <div className="flex items-center gap-6 min-w-0">
+                      <span className="w-20 text-[11px] text-[var(--cn-text-muted)] shrink-0">{dateStr}</span>
+                      <span className="w-16 shrink-0">{getLevelBadge(log.level)}</span>
+                      <span className="w-20 text-[10px] font-bold text-[var(--cn-text-secondary)] uppercase shrink-0">
                         {log.category}
                       </span>
-                      <span className="text-[11px] text-[var(--cn-text-muted)]">
-                        {new Date(log.timestamp).toLocaleTimeString()}
-                      </span>
+                      <span className="font-semibold text-[var(--cn-text-primary)] truncate">{log.message}</span>
                     </div>
 
-                    {hasExtra && (
-                      <button
-                        onClick={() => toggleExpand(log.id)}
-                        className="text-[11px] text-[var(--cn-primary)] flex items-center gap-1 hover:underline shrink-0"
-                      >
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                        <span>{isExpanded ? 'Hide Trace' : 'View Details'}</span>
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {log.details && (
+                        <span className="p-1 text-[var(--cn-text-muted)]">
+                          {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <p className="text-xs font-medium text-[var(--cn-text-primary)] leading-relaxed pl-1">
-                    {log.message}
-                  </p>
-
-                  {/* Expanded Stack or Details */}
-                  {isExpanded && hasExtra && (
-                    <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] space-y-2 mt-2">
-                      {log.details && (
-                        <div>
-                          <p className="text-[10px] uppercase font-bold text-[var(--cn-text-muted)] mb-0.5">Diagnostic Details</p>
-                          <p className="text-[11px] text-[var(--cn-text-secondary)] whitespace-pre-wrap">{log.details}</p>
-                        </div>
-                      )}
-                      {log.stack && (
-                        <div>
-                          <p className="text-[10px] uppercase font-bold text-[var(--cn-text-muted)] mb-0.5">Stack Trace</p>
-                          <pre className="text-[10px] text-[var(--cn-danger)] bg-black/40 p-2.5 rounded border border-[var(--cn-border)] overflow-x-auto leading-relaxed">
-                            {log.stack}
-                          </pre>
-                        </div>
-                      )}
+                  {isExpanded && log.details && (
+                    <div className="px-5 pb-4 pt-1 bg-[var(--cn-bg)] border-t border-[var(--cn-border)]/50 text-[11px] space-y-2">
+                      <div className="p-2.5 rounded bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-text-secondary)]">
+                        {log.details}
+                      </div>
                     </div>
                   )}
                 </div>
               );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Educational Diagnostic Guide */}
-      <div className="p-5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] flex items-start gap-3.5 text-xs">
-        <HardDrive size={18} className="text-[var(--cn-primary)] shrink-0 mt-0.5" />
-        <div className="space-y-1">
-          <p className="font-bold text-[var(--cn-text-primary)]">Error Resolution & Troubleshooting Reference</p>
-          <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-            All unexpected exceptions, Zip Slip path traversal rejections, corrupt ZIP offsets, and external disk disconnection events are recorded automatically in local storage. Use the "Export JSON" action when reporting bug reports or troubleshooting offline system health.
-          </p>
+            })
+          )}
         </div>
       </div>
     </div>
