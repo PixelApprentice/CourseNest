@@ -1,10 +1,27 @@
 import { ipcMain, dialog, app, Notification, BrowserWindow, shell } from "electron";
-import { join } from "path";
-import { readFile, stat, readdir, mkdir } from "fs/promises";
+import { join, resolve } from "path";
+import { readFile, stat, readdir, access, mkdir } from "fs/promises";
+import { constants } from "fs";
+import { createSqliteConnection, initializeSqliteDatabase } from "@coursenest/sqlite-adapter";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
 const require2 = __cjs_mod__.createRequire(import.meta.url);
+let configuredExternalMountPath = null;
+function validatePathBoundary(targetPath) {
+  const resolvedPath = resolve(targetPath);
+  const dataDir = resolve(app.getPath("userData"));
+  const tempDir = resolve(app.getPath("temp"));
+  const documentsDir = resolve(app.getPath("documents"));
+  const downloadsDir = resolve(app.getPath("downloads"));
+  const isAllowedInternal = resolvedPath.startsWith(dataDir) || resolvedPath.startsWith(tempDir) || resolvedPath.startsWith(documentsDir) || resolvedPath.startsWith(downloadsDir);
+  const isAllowedExternal = configuredExternalMountPath ? resolvedPath.startsWith(resolve(configuredExternalMountPath)) : false;
+  const isStandardMediaMount = resolvedPath.startsWith("/media") || resolvedPath.startsWith("/run/media") || resolvedPath.startsWith("/mnt") || resolvedPath.startsWith("/Volumes") || /^[a-zA-Z]:\\/.test(resolvedPath);
+  if (!isAllowedInternal && !isAllowedExternal && !isStandardMediaMount) {
+    throw new Error(`Access denied: path "${targetPath}" is outside authorized storage directories`);
+  }
+  return resolvedPath;
+}
 function registerIpcHandlers() {
   ipcMain.handle(
     "dialog:openFiles",
@@ -18,7 +35,7 @@ function registerIpcHandlers() {
         filters: options?.filters ?? [
           {
             name: "Course Materials",
-            extensions: ["zip", "pdf", "docx", "pptx", "mp4", "webm", "mkv"]
+            extensions: ["zip", "tar.gz", "tgz", "pdf", "docx", "pptx", "mp4", "webm", "mkv", "json"]
           },
           { name: "All Files", extensions: ["*"] }
         ]
@@ -28,21 +45,22 @@ function registerIpcHandlers() {
   );
   ipcMain.handle("dialog:openDirectory", async () => {
     const result = await dialog.showOpenDialog({
-      properties: ["openDirectory"]
+      properties: ["openDirectory", "createDirectory"]
     });
-    return result.canceled ? null : result.filePaths[0] ?? null;
+    if (!result.canceled && result.filePaths[0]) {
+      configuredExternalMountPath = result.filePaths[0];
+      return result.filePaths[0];
+    }
+    return null;
   });
   ipcMain.handle("fs:readFile", async (_event, filePath) => {
-    const dataDir = join(app.getPath("userData"), "data");
-    const resolvedPath = join(filePath);
-    if (!resolvedPath.startsWith(dataDir) && !resolvedPath.startsWith(app.getPath("temp"))) {
-      throw new Error("Access denied: file is outside allowed directories");
-    }
+    const resolvedPath = validatePathBoundary(filePath);
     const buffer = await readFile(resolvedPath);
     return buffer.buffer;
   });
   ipcMain.handle("fs:stat", async (_event, filePath) => {
-    const stats = await stat(filePath);
+    const resolvedPath = validatePathBoundary(filePath);
+    const stats = await stat(resolvedPath);
     return {
       size: stats.size,
       isFile: stats.isFile(),
@@ -51,12 +69,25 @@ function registerIpcHandlers() {
     };
   });
   ipcMain.handle("fs:readDir", async (_event, dirPath) => {
-    const entries = await readdir(dirPath, { withFileTypes: true });
+    const resolvedPath = validatePathBoundary(dirPath);
+    const entries = await readdir(resolvedPath, { withFileTypes: true });
     return entries.map((entry) => ({
       name: entry.name,
       isFile: entry.isFile(),
       isDirectory: entry.isDirectory()
     }));
+  });
+  ipcMain.handle("storage:checkVolumeAccess", async (_event, volumePath) => {
+    try {
+      await access(volumePath, constants.R_OK);
+      return { isMounted: true, path: volumePath };
+    } catch {
+      return { isMounted: false, path: volumePath, error: "Volume inaccessible or disconnected" };
+    }
+  });
+  ipcMain.handle("storage:setExternalMountPath", (_event, mountPath) => {
+    configuredExternalMountPath = mountPath;
+    return { success: true, mountPath };
   });
   ipcMain.handle("app:getPath", (_event, name) => {
     return app.getPath(name);
@@ -72,7 +103,8 @@ function registerIpcHandlers() {
     arch: process.arch,
     version: app.getVersion(),
     isPackaged: app.isPackaged,
-    dataDir: join(app.getPath("userData"), "data")
+    dataDir: join(app.getPath("userData"), "data"),
+    externalMountPath: configuredExternalMountPath
   }));
   ipcMain.handle("app:showNotification", (_event, title, body) => {
     if (Notification.isSupported()) {
@@ -80,6 +112,7 @@ function registerIpcHandlers() {
     }
   });
 }
+let dbConnection = null;
 async function initializeDatabase() {
   const dataDir = join(app.getPath("userData"), "data");
   const resourcesDir = join(dataDir, "resources");
@@ -89,6 +122,17 @@ async function initializeDatabase() {
   await mkdir(tempDir, { recursive: true });
   const dbPath = join(dataDir, "coursenest.db");
   console.log(`Database path: ${dbPath}`);
+  let rawDb;
+  try {
+    const BetterSqlite3 = (await import("better-sqlite3")).default;
+    rawDb = new BetterSqlite3(dbPath);
+  } catch {
+    const { DatabaseSync } = await import("node:sqlite");
+    rawDb = new DatabaseSync(dbPath);
+  }
+  dbConnection = createSqliteConnection(rawDb);
+  initializeSqliteDatabase(dbConnection);
+  return dbConnection;
 }
 let mainWindow = null;
 function createWindow() {

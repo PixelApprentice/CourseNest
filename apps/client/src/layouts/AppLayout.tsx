@@ -2,6 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { BrandLogo } from '../components/BrandLogo';
+import { NotificationDropdown } from '../components/NotificationDropdown';
 import { 
   Search, 
   Moon, 
@@ -115,6 +116,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             >
               <Search size={16} />
             </Link>
+
+            {/* Notification Center */}
+            <NotificationDropdown />
 
             {/* Theme switcher */}
             <button

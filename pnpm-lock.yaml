@@ -54,6 +54,9 @@ importers:
       '@coursenest/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@coursenest/course-manifest':
+        specifier: workspace:*
+        version: link:../../packages/course-manifest
       '@coursenest/domain':
         specifier: workspace:*
         version: link:../../packages/domain

@@ -24,6 +24,7 @@ import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
+import { AiReadingCompanion } from '../../components/AiReadingCompanion';
 import { 
   ArrowLeft, 
   ChevronLeft, 
@@ -42,7 +43,8 @@ import {
   Trash2,
   Share2,
   HardDrive,
-  Eye
+  Eye,
+  Sparkles
 } from 'lucide-react';
 
 export function LessonPlayerPage() {
@@ -57,10 +59,11 @@ export function LessonPlayerPage() {
   const activeLesson: LessonData | undefined = allLessons[currentLessonIndex >= 0 ? currentLessonIndex : 0];
 
   // Rails & Panels state
-  const [activeSidePanel, setActiveSidePanel] = useState<'none' | 'notes' | 'bookmarks' | 'curriculum'>('none');
+  const [activeSidePanel, setActiveSidePanel] = useState<'none' | 'notes' | 'bookmarks' | 'curriculum' | 'ai-tutor'>('none');
   const [notesContent, setNotesContent] = useState('');
   const [newBookmarkTitle, setNewBookmarkTitle] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
+  const [aiDocContext, setAiDocContext] = useState<string | undefined>(undefined);
 
   // Embedded Document Reader Modal state
   const [activeDocViewer, setActiveDocViewer] = useState<{
@@ -307,6 +310,20 @@ export function LessonPlayerPage() {
           >
             <StickyNote size={14} />
             <span className="hidden md:inline">Notes</span>
+          </button>
+
+          {/* AI Reading Companion Toggle */}
+          <button
+            onClick={() => setActiveSidePanel(activeSidePanel === 'ai-tutor' ? 'none' : 'ai-tutor')}
+            title="AI Reading Companion & Handout Tutor"
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
+              activeSidePanel === 'ai-tutor'
+                ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40 font-semibold'
+                : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
+            }`}
+          >
+            <Sparkles size={14} className="text-[var(--cn-primary)]" />
+            <span className="hidden md:inline">Ask AI</span>
           </button>
 
           {/* Curriculum Drawer Toggle */}
@@ -732,6 +749,30 @@ export function LessonPlayerPage() {
             </div>
           </aside>
         )}
+
+        {/* Side Rail 4: AI Reading Companion */}
+        {activeSidePanel === 'ai-tutor' && (
+          <aside className="w-96 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] flex flex-col shrink-0 z-20 shadow-2xl">
+            <div className="p-2 border-b border-[var(--cn-border)] flex justify-end bg-[var(--cn-surface-subtle)]/30">
+              <button
+                onClick={() => setActiveSidePanel('none')}
+                className="p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)]"
+                title="Close AI Companion"
+              >
+                <X size={15} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <AiReadingCompanion
+                courseTitle={courseData.title}
+                lessonTitle={activeLesson.title}
+                lessonId={activeLesson.id}
+                activeDocumentText={aiDocContext || activeLesson.description}
+                onAppendNote={(note) => setNotesContent(note)}
+              />
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Embedded Document Reader Modal */}
@@ -743,6 +784,11 @@ export function LessonPlayerPage() {
           contentSnippet={activeDocViewer.snippet}
           onClose={() => setActiveDocViewer(null)}
           isModal={true}
+          onAskAi={(excerpt) => {
+            setAiDocContext(excerpt);
+            setActiveDocViewer(null);
+            setActiveSidePanel('ai-tutor');
+          }}
         />
       )}
 

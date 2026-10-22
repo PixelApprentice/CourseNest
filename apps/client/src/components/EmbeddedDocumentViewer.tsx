@@ -12,7 +12,8 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Columns, 
-  List 
+  List,
+  Sparkles
 } from 'lucide-react';
 
 interface EmbeddedDocumentViewerProps {
@@ -22,6 +23,7 @@ interface EmbeddedDocumentViewerProps {
   contentSnippet?: string;
   onClose?: () => void;
   isModal?: boolean;
+  onAskAi?: (pageText: string) => void;
 }
 
 interface DocumentPage {
@@ -38,6 +40,7 @@ export function EmbeddedDocumentViewer({
   contentSnippet,
   onClose,
   isModal = true,
+  onAskAi,
 }: EmbeddedDocumentViewerProps) {
   // Navigation & Zoom State
   const [currentPage, setCurrentPage] = useState(1);
@@ -265,6 +268,18 @@ export function EmbeddedDocumentViewer({
             >
               <Search size={15} />
             </button>
+
+            {/* AI Assistant Quick Inquire */}
+            {onAskAi && (
+              <button
+                onClick={() => onAskAi(activePage.content)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--cn-primary)]/40 bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary)] hover:text-white transition-all shadow-xs"
+                title="Ask AI Reading Companion about this page"
+              >
+                <Sparkles size={13} />
+                <span className="hidden sm:inline">Ask AI</span>
+              </button>
+            )}
 
             {/* Download */}
             <button

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
-export type LogCategory = 'STORAGE' | 'IMPORTER' | 'PLAYER' | 'SECURITY' | 'SYNC' | 'SYSTEM';
+export type LogCategory = 'STORAGE' | 'IMPORTER' | 'PLAYER' | 'SECURITY' | 'SYNC' | 'SYSTEM' | 'AI';
 
 export interface LogEntry {
   id: string;
