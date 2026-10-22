@@ -148,6 +148,8 @@ async function initializeDatabase() {
     return null;
   }
 }
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
 let mainWindow = null;
 function resolvePreloadPath() {
   const candidates = [
@@ -185,7 +187,9 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      webSecurity: true
+      webSecurity: true,
+      backgroundThrottling: true,
+      spellcheck: false
     }
   });
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
@@ -193,7 +197,7 @@ function createWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         "Content-Security-Policy": [
-          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: file: data: https:; font-src 'self' data:; connect-src 'self' https: data: blob:;"
+          "default-src 'self' file:; script-src 'self' 'unsafe-inline' 'unsafe-eval' file:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com file:; img-src 'self' data: blob: https: file:; media-src 'self' blob: file: data: https: vault-media:; font-src 'self' data: https://fonts.gstatic.com file:; connect-src 'self' https: data: blob: file:;"
         ]
       }
     });

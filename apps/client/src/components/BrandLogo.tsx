@@ -69,7 +69,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         </span>
         {showBadge && (
           <span className="text-[10px] uppercase font-mono tracking-widest text-[var(--cn-text-muted)] font-medium -mt-1 flex items-center gap-1.5">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Offline Studio
           </span>
         )}

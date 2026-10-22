@@ -92,6 +92,15 @@ export function VlcMediaViewer({
     setCurrentTime(0);
   }, [src]);
 
+  // Clean up Web Audio graph on unmount
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+      }
+    };
+  }, []);
+
   // Lazy Web Audio API initialization ONLY when super-gain or speech filter is requested
   const ensureAudioGraph = () => {
     if (!videoRef.current || audioContextRef.current) {

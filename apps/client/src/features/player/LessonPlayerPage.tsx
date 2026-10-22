@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   useVaultCourses, 
@@ -90,6 +90,9 @@ export function LessonPlayerPage() {
 
   // Video Playback Time tracking for notes and bookmarks
   const [currentTime, setCurrentTime] = useState(0);
+  const currentTimeRef = useRef(0);
+  const lastSavedTimeRef = useRef(0);
+  const lastUiUpdateRef = useRef(0);
 
   // Quiz state
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
@@ -234,7 +237,8 @@ export function LessonPlayerPage() {
 
   // Insert current timestamp into notes
   const handleInsertTimestamp = () => {
-    const ts = `[${formatTime(currentTime)}] `;
+    const activeSec = currentTimeRef.current || currentTime;
+    const ts = `[${formatTime(activeSec)}] `;
     const newNotes = notesContent ? `${notesContent}\n${ts}` : ts;
     handleNotesChange(newNotes);
   };
@@ -256,7 +260,8 @@ export function LessonPlayerPage() {
     e.preventDefault();
     if (!newBookmarkTitle.trim()) return;
 
-    addBookmark(activeLesson.id, Math.floor(currentTime), newBookmarkTitle.trim());
+    const activeSec = currentTimeRef.current || currentTime;
+    addBookmark(activeLesson.id, Math.floor(activeSec), newBookmarkTitle.trim());
 
     setNewBookmarkTitle('');
   };
@@ -492,8 +497,14 @@ export function LessonPlayerPage() {
                     subtitles={blockSubs}
                     initialTime={getSavedPlaybackTime(activeLesson.id)}
                     onTimeUpdate={(curr) => {
-                      setCurrentTime(curr);
-                      if (Math.floor(curr) % 3 === 0) {
+                      currentTimeRef.current = curr;
+                      const now = Date.now();
+                      if (now - lastUiUpdateRef.current >= 1000) {
+                        lastUiUpdateRef.current = now;
+                        setCurrentTime(curr);
+                      }
+                      if (Math.abs(curr - lastSavedTimeRef.current) >= 5) {
+                        lastSavedTimeRef.current = curr;
                         savePlaybackTime(activeLesson.id, curr);
                       }
                     }}
