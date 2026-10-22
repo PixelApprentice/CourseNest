@@ -1,11 +1,14 @@
 appId: com.coursenest.desktop
 productName: CourseNest
+copyright: "Copyright © 2026 CourseNest Authors. Open Source Apache 2.0"
 directories:
   buildResources: build
   output: release
 files:
   - dist-electron/**/*
   - dist/renderer/**/*
+  - package.json
+artifactName: "${productName}-Setup-${version}.${ext}"
 linux:
   target:
     - AppImage
@@ -18,7 +21,18 @@ win:
     - portable
   icon: build/icon.ico
   signAndEditExecutable: false
+  requestedExecutionLevel: asInvoker
 nsis:
+  artifactName: "${productName}-Setup-${version}.${ext}"
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  uninstallDisplayName: "CourseNest Educational Studio"
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: "CourseNest"
+  differentialPackage: false
+portable:
+  artifactName: "${productName}-Portable-${version}.${ext}"

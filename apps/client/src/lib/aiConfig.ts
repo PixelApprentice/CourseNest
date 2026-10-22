@@ -68,6 +68,7 @@ export interface AiQueryPayload {
   lessonTitle?: string;
   lessonNotes?: string;
   materialExcerpt?: string;
+  subtitleTranscript?: string;
 }
 
 export interface AiQueryResponse {
@@ -101,15 +102,21 @@ export async function askAiAssistant(payload: AiQueryPayload): Promise<AiQueryRe
 
   const systemPrompt = `You are the CourseNest AI Academic Reading Companion.
 Your role is to help students understand course materials, lecture transcripts, and PDF handouts clearly, concisely, and encouragingly.
-Ground your answers directly on the provided lesson context and reading excerpts whenever relevant.
-Format your answer using clean markdown (bold terms, bullet points, concise code blocks if applicable).
-If the context does not contain the answer, provide an accurate explanation and state that it is general knowledge.`;
+
+IMPORTANT CITATION & TIMESTAMP DIRECTIVE:
+- When answering questions about a video lecture, you are provided with the exact spoken transcript with bracketed timestamps like [01:23].
+- ALWAYS cite timestamps like [mm:ss] when explaining when a concept, tool, definition, or code is discussed in the video.
+- These timestamps are interactive and allow the student to click to jump the video directly to that time.
+- Ground your explanations directly on what the instructor stated in the lecture transcript.
+- If the student asks for a summary or key moments, provide a clean chronological bulleted list with timestamps.
+- If the context does not contain the answer, provide an accurate explanation and state that it is general knowledge.`;
 
   const userPrompt = `[Context Information]
 Course: ${payload.courseTitle || 'General Study'}
 Active Lesson: ${payload.lessonTitle || 'Current Material'}
-${payload.materialExcerpt ? `Document / Handout Excerpt:\n"""\n${payload.materialExcerpt}\n"""` : ''}
-${payload.lessonNotes ? `Student Local Notes:\n"""\n${payload.lessonNotes}\n"""` : ''}
+${payload.subtitleTranscript ? `Spoken Video Lecture Transcript (with Timestamps):\n"""\n${payload.subtitleTranscript}\n"""\n` : ''}
+${payload.materialExcerpt ? `Document / Handout Excerpt:\n"""\n${payload.materialExcerpt}\n"""\n` : ''}
+${payload.lessonNotes ? `Student Local Notes:\n"""\n${payload.lessonNotes}\n"""\n` : ''}
 
 [Student Question]:
 ${payload.question}`;

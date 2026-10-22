@@ -9,11 +9,14 @@ import {
   IconWifiOff, 
   IconKey, 
   IconSettings, 
-  IconCpu 
+  IconCpu,
+  IconBadgeCc,
+  IconPlayerPlay
 } from '@tabler/icons-react';
 import { useAiConfig, askAiAssistant, type AiQueryPayload } from '../lib/aiConfig';
 import { saveUserNote, getUserNotes } from '../lib/courseStore';
 import { addLog } from '../lib/logger';
+import { timestampToSeconds } from '../lib/formatHelpers';
 import { StatusBadge } from './StatusBadge';
 import clsx from 'clsx';
 
@@ -22,6 +25,8 @@ export interface AiReadingCompanionProps {
   lessonTitle?: string;
   lessonId?: string;
   activeDocumentText?: string;
+  subtitleTranscript?: string;
+  onSeekTo?: (seconds: number) => void;
   onAppendNote?: (text: string) => void;
   className?: string;
 }
@@ -39,6 +44,8 @@ export function AiReadingCompanion({
   lessonTitle,
   lessonId,
   activeDocumentText,
+  subtitleTranscript,
+  onSeekTo,
   onAppendNote,
   className,
 }: AiReadingCompanionProps) {
@@ -47,7 +54,10 @@ export function AiReadingCompanion({
     {
       id: 'welcome',
       sender: 'assistant',
-      text: `Hello! I am your Study Companion. 
+      text: subtitleTranscript 
+        ? `Hello! I am your Study Companion. 
+I have the **spoken lecture transcript with timestamps** ready for **${lessonTitle || 'this video'}**. Ask me any question, or request a summary, and click any timestamp [mm:ss] to jump directly to that point in the lecture!`
+        : `Hello! I am your Study Companion. 
 I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer questions on complex concepts, or generate quick practice questions.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
@@ -59,6 +69,32 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
 
   const isOnline = navigator.onLine;
   const hasKey = Boolean(config.apiKey) || config.provider === 'omniroute';
+
+  const renderTimestampedText = (text: string) => {
+    const parts = text.split(/(\[\d{1,2}:\d{2}(?::\d{2})?\])/g);
+    if (parts.length === 1) return text;
+
+    return parts.map((part, index) => {
+      const match = part.match(/^\[(\d{1,2}:\d{2}(?::\d{2})?)\]$/);
+      if (match && match[1]) {
+        const ts = match[1];
+        const sec = timestampToSeconds(ts);
+        return (
+          <button
+            key={index}
+            type="button"
+            onClick={() => onSeekTo?.(sec)}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/40 hover:bg-[var(--cn-primary)] hover:text-white font-mono text-[11px] font-bold transition-all mx-0.5 shadow-xs group cursor-pointer"
+            title={`Jump video player to ${ts}`}
+          >
+            <IconPlayerPlay size={10} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
+            <span>{ts}</span>
+          </button>
+        );
+      }
+      return part;
+    });
+  };
 
   const handleAsk = async (questionText: string) => {
     const q = questionText.trim();
@@ -81,6 +117,7 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
       lessonTitle,
       lessonNotes: lessonId ? getUserNotes(lessonId) : undefined,
       materialExcerpt: activeDocumentText?.slice(0, 4000),
+      subtitleTranscript: subtitleTranscript?.slice(0, 14000),
     };
 
     const res = await askAiAssistant(payload);
@@ -130,11 +167,17 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
     setTimeout(() => setSavedNoteId(null), 2500);
   };
 
-  const quickPrompts = [
-    { label: 'Summarize Excerpt', prompt: 'Provide a concise 3-bullet summary of this lesson reading material.' },
-    { label: 'Key Formulas / Terms', prompt: 'Extract and define the key terms and formulas mentioned in this material.' },
-    { label: 'Practice Quiz', prompt: 'Generate 3 multiple-choice study questions with explanations based on this reading material.' },
-  ];
+  const quickPrompts = subtitleTranscript
+    ? [
+        { label: 'Video Timestamps', prompt: 'Provide a chronological breakdown of this lecture with exact timestamps [mm:ss] for each topic covered.' },
+        { label: 'Summarize Video', prompt: 'Summarize the core concepts explained in this video lecture, citing relevant timestamps.' },
+        { label: 'Key Definitions', prompt: 'What key technical terms are defined in this lecture? Include timestamps where each is introduced.' },
+      ]
+    : [
+        { label: 'Summarize Excerpt', prompt: 'Provide a concise 3-bullet summary of this lesson reading material.' },
+        { label: 'Key Formulas / Terms', prompt: 'Extract and define the key terms and formulas mentioned in this material.' },
+        { label: 'Practice Quiz', prompt: 'Generate 3 multiple-choice study questions with explanations based on this reading material.' },
+      ];
 
   return (
     <div className={clsx('flex flex-col h-full bg-[var(--cn-surface)] border-l border-[var(--cn-border)]', className)}>
@@ -171,6 +214,19 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
         <IconCpu size={13} className="text-[var(--cn-primary)] shrink-0" />
         <span className="line-clamp-1">Lightweight API assistance (runs smoothly on budget hardware)</span>
       </div>
+
+      {/* Subtitle Transcript Active Badge */}
+      {subtitleTranscript && (
+        <div className="px-4 py-2 bg-[var(--cn-surface-subtle)] border-b border-[var(--cn-border)] flex items-center justify-between text-[11px] font-mono text-[var(--cn-text-secondary)]">
+          <span className="flex items-center gap-1.5 text-[var(--cn-primary)] font-semibold">
+            <IconBadgeCc size={15} />
+            <span>Lecture Transcript Connected</span>
+          </span>
+          <span className="text-[10px] text-[var(--cn-text-muted)]">
+            Click timestamps to jump video
+          </span>
+        </div>
+      )}
 
       {/* Key Missing Alert */}
       {!hasKey && (
@@ -224,7 +280,7 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
                   : 'bg-[var(--cn-surface-subtle)] border border-[var(--cn-border)] text-[var(--cn-text-primary)] rounded-tl-xs',
               )}
             >
-              {m.text}
+              {m.sender === 'assistant' ? renderTimestampedText(m.text) : m.text}
             </div>
 
             <div className="flex items-center gap-2 text-[10px] font-mono text-[var(--cn-text-muted)] px-1">

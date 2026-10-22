@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   useVaultCourses, 
@@ -27,7 +27,7 @@ import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer'
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { AiReadingCompanion } from '../../components/AiReadingCompanion';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
-import { sanitizeLectureHtml } from '../../lib/formatHelpers';
+import { sanitizeLectureHtml, formatSubtitleTranscriptForAi } from '../../lib/formatHelpers';
 import { 
   IconArrowLeft, 
   IconChevronLeft, 
@@ -167,6 +167,20 @@ export function LessonPlayerPage() {
       savePlaybackTime(activeLesson.id, seconds);
     }
   };
+
+  // Active lesson subtitle transcript for AI companion grounding & interactive jumps
+  const activeLessonSubtitleTranscript = useMemo(() => {
+    if (!activeLesson) return undefined;
+    for (const block of activeLesson.blocks) {
+      if (block.subtitles && block.subtitles.length > 0) {
+        const primarySub = block.subtitles.find((s) => s.isDefault) || block.subtitles[0];
+        if (primarySub?.vttContent) {
+          return formatSubtitleTranscriptForAi(primarySub.vttContent);
+        }
+      }
+    }
+    return undefined;
+  }, [activeLesson]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -945,6 +959,8 @@ export function LessonPlayerPage() {
                 lessonTitle={activeLesson.title}
                 lessonId={activeLesson.id}
                 activeDocumentText={aiDocContext || activeLesson.description}
+                subtitleTranscript={activeLessonSubtitleTranscript}
+                onSeekTo={(sec) => seekTo(sec)}
                 onAppendNote={(note) => setNotesContent(note)}
               />
             </div>

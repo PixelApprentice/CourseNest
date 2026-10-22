@@ -1,7 +1,7 @@
 import { ipcMain, dialog, app, Notification, BrowserWindow, shell } from "electron";
 import { join, resolve } from "path";
+import { constants, existsSync } from "fs";
 import { readFile, stat, readdir, access, mkdir } from "fs/promises";
-import { constants } from "fs";
 import { createSqliteConnection, initializeSqliteDatabase } from "@coursenest/sqlite-adapter";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
@@ -114,28 +114,64 @@ function registerIpcHandlers() {
 }
 let dbConnection = null;
 async function initializeDatabase() {
-  const dataDir = join(app.getPath("userData"), "data");
-  const resourcesDir = join(dataDir, "resources");
-  const tempDir = join(dataDir, "temp");
-  await mkdir(dataDir, { recursive: true });
-  await mkdir(resourcesDir, { recursive: true });
-  await mkdir(tempDir, { recursive: true });
-  const dbPath = join(dataDir, "coursenest.db");
-  console.log(`Database path: ${dbPath}`);
-  let rawDb;
   try {
-    const BetterSqlite3 = (await import("better-sqlite3")).default;
-    rawDb = new BetterSqlite3(dbPath);
-  } catch {
-    const { DatabaseSync } = await import("node:sqlite");
-    rawDb = new DatabaseSync(dbPath);
+    const dataDir = join(app.getPath("userData"), "data");
+    const resourcesDir = join(dataDir, "resources");
+    const tempDir = join(dataDir, "temp");
+    await mkdir(dataDir, { recursive: true });
+    await mkdir(resourcesDir, { recursive: true });
+    await mkdir(tempDir, { recursive: true });
+    const dbPath = join(dataDir, "coursenest.db");
+    console.log(`Database path: ${dbPath}`);
+    let rawDb;
+    try {
+      const BetterSqlite3 = (await import("better-sqlite3")).default;
+      rawDb = new BetterSqlite3(dbPath);
+    } catch (errBetter) {
+      console.warn("better-sqlite3 driver unavailable, attempting fallback:", errBetter?.message);
+      try {
+        const nodeSqlite = await import("node:sqlite");
+        if (nodeSqlite && nodeSqlite.DatabaseSync) {
+          rawDb = new nodeSqlite.DatabaseSync(dbPath);
+        }
+      } catch {
+        console.warn("Native SQLite driver not required; CourseNest client uses sandboxed IndexedDB.");
+      }
+    }
+    if (rawDb) {
+      dbConnection = createSqliteConnection(rawDb);
+      initializeSqliteDatabase(dbConnection);
+    }
+    return dbConnection;
+  } catch (err) {
+    console.warn("Database initialization non-fatal warning:", err?.message);
+    return null;
   }
-  dbConnection = createSqliteConnection(rawDb);
-  initializeSqliteDatabase(dbConnection);
-  return dbConnection;
 }
 let mainWindow = null;
+function resolvePreloadPath() {
+  const candidates = [
+    join(__dirname, "../preload/index.mjs"),
+    join(__dirname, "../preload/index.js"),
+    join(app.getAppPath(), "dist-electron/preload/index.mjs"),
+    join(app.getAppPath(), "dist-electron/preload/index.js")
+  ];
+  return candidates.find((p) => existsSync(p));
+}
+function resolveRendererPath() {
+  const candidates = [
+    join(app.getAppPath(), "dist/renderer/index.html"),
+    join(__dirname, "../../dist/renderer/index.html"),
+    join(__dirname, "../renderer/index.html"),
+    join(__dirname, "dist/renderer/index.html")
+  ];
+  const found = candidates.find((p) => existsSync(p));
+  if (found) return found;
+  console.warn("Could not find renderer at primary candidates, using appPath fallback:", candidates[0]);
+  return candidates[0];
+}
 function createWindow() {
+  const preloadFile = resolvePreloadPath();
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -143,11 +179,13 @@ function createWindow() {
     minHeight: 600,
     title: "CourseNest",
     show: false,
+    backgroundColor: "#0D1117",
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: preloadFile,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true
+      sandbox: false,
+      webSecurity: true
     }
   });
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
@@ -155,26 +193,55 @@ function createWindow() {
       responseHeaders: {
         ...details.responseHeaders,
         "Content-Security-Policy": [
-          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: file:; font-src 'self'; connect-src 'self'"
+          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: file: data: https:; font-src 'self' data:; connect-src 'self' https: data: blob:;"
         ]
       }
     });
   });
-  mainWindow.on("ready-to-show", () => {
-    mainWindow?.show();
+  let hasShown = false;
+  const showWindowSafely = () => {
+    if (!hasShown && mainWindow && !mainWindow.isDestroyed()) {
+      hasShown = true;
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  };
+  mainWindow.once("ready-to-show", () => {
+    showWindowSafely();
   });
+  mainWindow.webContents.once("did-finish-load", () => {
+    showWindowSafely();
+  });
+  mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+    console.error(`Window failed to load: ${validatedURL} (${errorCode}: ${errorDescription})`);
+    showWindowSafely();
+  });
+  setTimeout(showWindowSafely, 750);
   if (process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    const htmlFile = resolveRendererPath();
+    console.log(`Loading renderer HTML from: ${htmlFile}`);
+    mainWindow.loadFile(htmlFile).catch((err) => {
+      console.error("mainWindow.loadFile error:", err);
+      showWindowSafely();
+    });
   }
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
 }
 app.whenReady().then(async () => {
-  await initializeDatabase();
-  registerIpcHandlers();
+  try {
+    await initializeDatabase();
+  } catch (err) {
+    console.warn("initializeDatabase error caught in app.whenReady:", err?.message);
+  }
+  try {
+    registerIpcHandlers();
+  } catch (err) {
+    console.warn("registerIpcHandlers error caught:", err?.message);
+  }
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

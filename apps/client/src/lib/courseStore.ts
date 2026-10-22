@@ -14,6 +14,7 @@ export interface SubtitleTrackData {
   src: string;
   filename: string;
   isDefault?: boolean;
+  vttContent?: string;
 }
 
 export interface ContentBlockData {

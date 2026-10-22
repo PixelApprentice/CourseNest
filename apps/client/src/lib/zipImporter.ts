@@ -587,6 +587,7 @@ export async function commitImportedCourse(params: {
                 src: `vault-media://${courseId}/${subPath}`,
                 filename: subItem.filename,
                 isDefault: subIdx === 0,
+                vttContent: vttText.slice(0, 100000),
               });
             }
           } catch (err: any) {

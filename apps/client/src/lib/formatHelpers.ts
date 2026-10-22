@@ -143,3 +143,134 @@ export function sanitizeLectureHtml(rawHtml: string): string {
 
   return html;
 }
+
+export interface SubtitleCue {
+  id: number;
+  seconds: number;
+  timestamp: string; // e.g. "02:15"
+  text: string;
+}
+
+/**
+ * Converts timestamp string (e.g. "02:15", "01:23:45", "00:02:15.250") into total seconds.
+ */
+export function timestampToSeconds(timestamp: string): number {
+  if (!timestamp) return 0;
+  const cleaned = timestamp.replace(/^[[(]/, '').replace(/[\])]$/, '').trim();
+  const parts = cleaned.split(':');
+  if (parts.length === 2) {
+    const min = parseFloat(parts[0] || '0');
+    const sec = parseFloat(parts[1] || '0');
+    return Math.floor(min * 60 + sec);
+  }
+  if (parts.length === 3) {
+    const hr = parseFloat(parts[0] || '0');
+    const min = parseFloat(parts[1] || '0');
+    const sec = parseFloat(parts[2] || '0');
+    return Math.floor(hr * 3600 + min * 60 + sec);
+  }
+  return 0;
+}
+
+/**
+ * Converts total seconds into clean mm:ss or hh:mm:ss string.
+ */
+export function secondsToTimestamp(seconds: number): string {
+  if (isNaN(seconds) || seconds < 0) return '00:00';
+  const total = Math.floor(seconds);
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hrs > 0) {
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Parses WebVTT or SRT text into structured timestamped cues.
+ */
+export function parseSubtitleCues(vttOrSrtText: string): SubtitleCue[] {
+  if (!vttOrSrtText) return [];
+
+  const cues: SubtitleCue[] = [];
+  const normalized = vttOrSrtText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const blocks = normalized.split(/\n\n+/);
+
+  let cueId = 1;
+
+  for (const block of blocks) {
+    const lines = block.trim().split('\n');
+    let timeLine = '';
+    let textLines: string[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!.trim();
+      if (line.includes('-->')) {
+        timeLine = line;
+        textLines = lines.slice(i + 1);
+        break;
+      }
+    }
+
+    if (!timeLine) continue;
+
+    const match = timeLine.match(/(\d{2}:\d{2}:\d{2}[.,]\d{3}|\d{2}:\d{2}[.,]\d{3}|\d{2}:\d{2}:\d{2}|\d{2}:\d{2})/);
+    if (!match || !match[1]) continue;
+
+    const rawStart = match[1];
+    const seconds = timestampToSeconds(rawStart);
+    const cleanText = textLines
+      .join(' ')
+      .replace(/<[^>]+>/g, '') // Strip HTML tags
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (cleanText) {
+      cues.push({
+        id: cueId++,
+        seconds,
+        timestamp: secondsToTimestamp(seconds),
+        text: cleanText,
+      });
+    }
+  }
+
+  return cues;
+}
+
+/**
+ * Formats subtitle cues into a compact, token-efficient transcript for AI context.
+ * Automatically consolidates contiguous cues into chronological paragraph chunks.
+ */
+export function formatSubtitleTranscriptForAi(vttOrSrtText: string, maxChars: number = 14000): string {
+  const cues = parseSubtitleCues(vttOrSrtText);
+  if (cues.length === 0) return '';
+
+  const paragraphs: string[] = [];
+  let currentTimestamp = '';
+  let currentBuffer: string[] = [];
+
+  for (const cue of cues) {
+    if (!currentTimestamp) {
+      currentTimestamp = cue.timestamp;
+    }
+
+    currentBuffer.push(cue.text);
+
+    // Group cues into coherent chunks
+    if (currentBuffer.length >= 4 || cue.text.endsWith('.') || cue.text.endsWith('?')) {
+      paragraphs.push(`[${currentTimestamp}] ${currentBuffer.join(' ')}`);
+      currentTimestamp = '';
+      currentBuffer = [];
+    }
+  }
+
+  if (currentBuffer.length > 0 && currentTimestamp) {
+    paragraphs.push(`[${currentTimestamp}] ${currentBuffer.join(' ')}`);
+  }
+
+  const full = paragraphs.join('\n');
+  return full.slice(0, maxChars);
+}

@@ -25,7 +25,7 @@ CourseNest is a modern, privacy-respecting, **air-gapped educational platform** 
 <br/><br/>
 
 ### AI Academic Reading Companion (Optional BYO-API)
-*Instant lecture handout Q&A, formula explanations, and 1-click note-saving via Google Gemini Pro or campus OmniRoute without local GPU overhead.*
+*Instant lecture handout Q&A, formula explanations, and 1-click note-saving via Google Gemini Pro or campus OmniRoute without local GPU overhead. Subtitle cues (`.vtt` / `.srt`) are automatically connected to provide precise timestamped references (e.g. `[04:20]`) that jump the video player on click.*
 <img src="./docs/screenshots/13_ai_reading_companion.png" width="92%" alt="CourseNest AI Reading Companion" />
 
 <br/><br/>
@@ -200,11 +200,20 @@ CourseNest uses `electron-builder` with an NSIS target to package standalone Win
 pnpm --filter @coursenest/client build
 pnpm --filter @coursenest/desktop build
 
-# Build Windows NSIS executable installer
+# Build Windows NSIS executable installer & portable .exe
 cd apps/desktop
 pnpm dist:win
-# Output located in: apps/desktop/release/CourseNest Setup *.exe
+# Output located in: apps/desktop/release/CourseNest-Setup-0.1.0.exe and CourseNest 0.1.0.exe
 ```
+
+#### 🛡️ Windows 11 / Windows 10 SmartScreen Installation Note
+As an independent, community-driven open-source project, CourseNest does not purchase expensive proprietary code-signing certificates. Because of this, Microsoft Defender SmartScreen may display an initial notification saying *"Windows protected your PC"* when opening the newly downloaded `.exe` installer.
+
+To install:
+1. Click **"More info"** on the SmartScreen dialog.
+2. Click **"Run anyway"**.
+
+The installer runs with standard user privileges (`requestedExecutionLevel: asInvoker`), never requests unneeded administrative rights, and includes foreground window presentation guarantees tested on Windows 11.
 
 ### 📱 Android Tablet & Mobile (`.apk`)
 CourseNest uses Capacitor to embed the high-performance React client into a native Android application:
