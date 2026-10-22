@@ -21,6 +21,7 @@ interface EmbeddedDocumentViewerProps {
   fileSizeBytes?: number;
   description?: string;
   contentSnippet?: string;
+  fileUrl?: string;
   onClose?: () => void;
   isModal?: boolean;
   onAskAi?: (pageText: string) => void;
@@ -38,6 +39,7 @@ export function EmbeddedDocumentViewer({
   fileSizeBytes = 2400000,
   description = 'Course Lecture Handout & Slide Deck',
   contentSnippet,
+  fileUrl,
   onClose,
   isModal = true,
   onAskAi,
@@ -125,8 +127,15 @@ export function EmbeddedDocumentViewer({
 
   // Download export
   const handleDownload = () => {
+    if (fileUrl) {
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = filename;
+      a.click();
+      return;
+    }
     const fullText = pages.map((p) => `=== PAGE ${p.pageNumber}: ${p.chapterTitle} ===\n\n${p.content}\n`).join('\n\n');
-    const blob = new Blob([fullText], { type: 'application/pdf' });
+    const blob = new Blob([fullText], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -349,11 +358,18 @@ export function EmbeddedDocumentViewer({
           )}
 
           {/* Center Document Canvas */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[var(--cn-bg)] flex justify-center items-start">
-            <div 
-              className={`flex gap-6 justify-center w-full transition-all duration-150`}
-              style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-            >
+          <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-[var(--cn-bg)] flex justify-center items-start h-full">
+            {fileUrl ? (
+              <iframe
+                src={fileUrl}
+                title={filename}
+                className="w-full h-full min-h-[650px] rounded-xl border border-[var(--cn-border)] bg-white"
+              />
+            ) : (
+              <div 
+                className={`flex gap-6 justify-center w-full transition-all duration-150`}
+                style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
+              >
               {/* Page 1 Canvas */}
               <div className="w-full max-w-2xl bg-[var(--cn-surface)] border border-[var(--cn-border)] rounded-xl p-8 md:p-12 shadow-xl space-y-6 select-text card-tactile">
                 {/* Header Stamp */}
@@ -409,6 +425,7 @@ export function EmbeddedDocumentViewer({
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Right Search / Annotation Panel */}

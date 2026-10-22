@@ -190,13 +190,13 @@ export function HomePage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)] flex items-center gap-2">
             <BookOpen size={15} className="text-[var(--cn-primary)]" />
-            <span>Enrolled Curriculums in Vault</span>
+            <span>My Courses</span>
           </h2>
           <Link
             to="/library"
             className="text-xs font-mono text-[var(--cn-primary)] hover:underline font-medium"
           >
-            Vault Directory ({courses.length})
+            View All ({courses.length})
           </Link>
         </div>
 

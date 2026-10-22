@@ -65,8 +65,8 @@ function getStoredLogs(): LogEntry[] {
       timestamp: new Date(Date.now() - 1800000).toISOString(),
       level: 'INFO',
       category: 'IMPORTER',
-      message: 'Foundational course manifests verified and registered',
-      details: 'CS-101 (Computer Systems) & ML-201 (Machine Learning)',
+      message: 'Course import engine initialized and ready for course packages',
+      details: 'ZIP archive inspection and chapter detection active',
     },
   ];
 

@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import cs101Manifest from '../../../../fixtures/courses/cs101_systems.json';
-import ml201Manifest from '../../../../fixtures/courses/ml201_machine_learning.json';
 
 export interface QuizQuestion {
   id: string;
@@ -209,7 +207,7 @@ export function getVaultCourses(): CourseData[] {
     const raw = localStorage.getItem(VAULT_COURSES_KEY);
     if (raw) {
       const parsed: CourseData[] = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -217,17 +215,7 @@ export function getVaultCourses(): CourseData[] {
     console.warn('Could not read vault storage:', err);
   }
 
-  // Initial Seed from foundational manifests
-  const defaultCourses: CourseData[] = [
-    transformManifest(cs101Manifest),
-    transformManifest(ml201Manifest),
-  ];
-
-  try {
-    localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify(defaultCourses));
-  } catch {}
-
-  return defaultCourses;
+  return [];
 }
 
 export function saveVaultCourses(courses: CourseData[]): void {
@@ -259,7 +247,7 @@ export const removeCourseFromVault = deleteCourseFromVault;
 
 export function resetVaultToDefaults(): void {
   try {
-    localStorage.removeItem(VAULT_COURSES_KEY);
+    localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify([]));
     window.dispatchEvent(new Event('coursenest_vault_updated'));
   } catch {}
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_NAME, APP_VERSION } from '@coursenest/config';
 import { getVaultAnalytics, resetVaultToDefaults } from '../../lib/courseStore';
+import { clearAllMedia } from '../../lib/mediaVault';
 import { 
   useStorageConfig, 
   setVolumeType, 
@@ -143,8 +144,9 @@ export function SettingsPage() {
     }
   };
 
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     resetVaultToDefaults();
+    await clearAllMedia();
     setAnalytics(getVaultAnalytics());
     setShowResetModal(false);
   };
@@ -590,7 +592,7 @@ export function SettingsPage() {
             </div>
 
             <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
-              This will re-initialize the course vault with foundational curriculums (CS-101 and ML-201).
+              This will clear all course files, study progress, and media from your local device so you can start with a fresh, clean vault.
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--cn-border)]">

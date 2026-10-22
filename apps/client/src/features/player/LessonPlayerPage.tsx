@@ -22,6 +22,7 @@ import {
 } from '../../lib/courseStore';
 import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
+import { getMediaBlobUrl } from '../../lib/mediaVault';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { AiReadingCompanion } from '../../components/AiReadingCompanion';
@@ -71,7 +72,11 @@ export function LessonPlayerPage() {
     fileSizeBytes?: number;
     description?: string;
     snippet?: string;
+    fileUrl?: string;
   } | null>(null);
+
+  // Resolved media URLs from IndexedDB vault
+  const [resolvedMediaUrls, setResolvedMediaUrls] = useState<Record<string, string>>({});
 
   // Video Playback Time tracking for notes and bookmarks
   const [currentTime, setCurrentTime] = useState(0);
@@ -109,6 +114,22 @@ export function LessonPlayerPage() {
     const savedTime = getSavedPlaybackTime(lId);
     if (savedTime > 0) {
       setCurrentTime(savedTime);
+    }
+
+    // Resolve offline binary assets from IndexedDB media vault
+    for (const block of activeLesson.blocks) {
+      if (block.src?.startsWith('vault-media://')) {
+        const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
+        if (match && match[1] && match[2]) {
+          const cId = match[1];
+          const relPath = match[2];
+          getMediaBlobUrl(cId, relPath).then((url) => {
+            if (url) {
+              setResolvedMediaUrls((prev) => ({ ...prev, [block.id]: url }));
+            }
+          });
+        }
+      }
     }
   }, [activeLesson, courseData]);
 
@@ -349,7 +370,7 @@ export function LessonPlayerPage() {
           {activeLesson.blocks.map((block: ContentBlockData) => {
             // 1. VIDEO BLOCK
             if (block.type === 'video') {
-              const src = block.src || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+              const videoSrc = resolvedMediaUrls[block.id] || (block.src?.startsWith('vault-media://') ? '' : block.src) || '';
 
               // If External Storage is Disconnected, show graceful fallback card
               if (isExternalDisconnected) {
@@ -390,10 +411,21 @@ export function LessonPlayerPage() {
                 );
               }
 
+              if (!videoSrc) {
+                return (
+                  <div key={block.id} className="p-8 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-center space-y-2">
+                    <p className="font-bold text-sm text-[var(--cn-text-primary)]">Offline Video Lecture</p>
+                    <p className="text-xs text-[var(--cn-text-muted)] font-mono">
+                      {block.filename ? `Attached file: ${block.filename}` : 'Preparing video stream...'}
+                    </p>
+                  </div>
+                );
+              }
+
               return (
                 <div key={block.id} className="space-y-3">
                   <VlcMediaViewer
-                    src={src}
+                    src={videoSrc}
                     title={activeLesson.title}
                     initialTime={getSavedPlaybackTime(activeLesson.id)}
                     onTimeUpdate={(curr) => {
@@ -451,14 +483,25 @@ export function LessonPlayerPage() {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() =>
+                      onClick={async () => {
+                        let fileUrl = resolvedMediaUrls[block.id];
+                        if (!fileUrl && block.src?.startsWith('vault-media://')) {
+                          const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
+                          if (match && match[1] && match[2]) {
+                            const cId = match[1];
+                            const relPath = match[2];
+                            const resolved = await getMediaBlobUrl(cId, relPath);
+                            if (resolved) fileUrl = resolved;
+                          }
+                        }
                         setActiveDocViewer({
                           filename,
                           fileSizeBytes: size,
-                          description: 'Course Lecture Handout & Architectural Specifications',
+                          description: 'Course Lecture Handout & Study Material',
                           snippet: block.content,
-                        })
-                      }
+                          fileUrl,
+                        });
+                      }}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
                     >
                       <Eye size={13} />
@@ -782,6 +825,7 @@ export function LessonPlayerPage() {
           fileSizeBytes={activeDocViewer.fileSizeBytes}
           description={activeDocViewer.description}
           contentSnippet={activeDocViewer.snippet}
+          fileUrl={activeDocViewer.fileUrl}
           onClose={() => setActiveDocViewer(null)}
           isModal={true}
           onAskAi={(excerpt) => {
