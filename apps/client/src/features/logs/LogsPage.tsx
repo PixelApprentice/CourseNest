@@ -131,7 +131,7 @@ export function LogsPage() {
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-[var(--cn-primary)] font-semibold mb-1">
             <Terminal size={14} />
-            <span>OPERATIONAL TELEMETRY & DIAGNOSTICS</span>
+            <span>SYSTEM LOGS & DIAGNOSTICS</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
             System Diagnostics & Error Logs
@@ -321,7 +321,7 @@ export function LogsPage() {
         <div className="space-y-1">
           <p className="font-bold text-[var(--cn-text-primary)]">Error Resolution & Troubleshooting Reference</p>
           <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-            All unexpected exceptions, Zip Slip path traversal rejections, corrupt ZIP offsets, and external disk disconnection events are recorded automatically in local storage. Use the "Export JSON" action when reporting bug reports or verifying air-gapped system integrity.
+            All unexpected exceptions, Zip Slip path traversal rejections, corrupt ZIP offsets, and external disk disconnection events are recorded automatically in local storage. Use the "Export JSON" action when reporting bug reports or troubleshooting offline system health.
           </p>
         </div>
       </div>

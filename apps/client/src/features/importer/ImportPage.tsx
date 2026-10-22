@@ -247,7 +247,7 @@ export function ImportPage() {
         language: 'en',
         instructorName,
         subject: courseSubject,
-        tags: [courseSubject, 'Systems', 'Air-Gapped', targetStorage === 'external' ? 'ExternalStorage' : 'InternalStorage'],
+        tags: [courseSubject, 'Systems', 'Offline', targetStorage === 'external' ? 'ExternalStorage' : 'InternalStorage'],
         estimatedDurationMinutes: proposedSections.reduce((acc, s) => acc + s.lessons.length * 45, 0),
         learningObjectives: [
           'Architectural foundations of the discipline',
@@ -283,7 +283,7 @@ export function ImportPage() {
                   id: `blk-txt-${Date.now()}-${sIdx}-${lIdx}`,
                   type: 'rich_text',
                   position: 2,
-                  content: `### ${les.title}\n\nIngested academic material verified inside sandboxed local vault.\n\nTarget Storage: ${
+                  content: `### ${les.title}\n\nCourse material saved and ready for offline study.\n\nTarget Storage: ${
                     targetStorage === 'external' ? `External Volume (${storageConfig.externalMountPath})` : 'Internal App Vault'
                   }\n\nIncluded Files:\n- ${les.files.join('\n- ')}\n\nStudy this unit without external connectivity.`,
                 },
@@ -369,14 +369,14 @@ export function ImportPage() {
           <div className="max-w-xl mx-auto space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30">
               <ShieldCheck size={13} />
-              <span>MULTI-ARCHIVE INGESTION ENGINE</span>
+              <span>COURSE IMPORT</span>
             </div>
             <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--cn-text-primary)]">
-              Ingest Single or Multiple ZIP Archives
+              Add ZIP Course Archives
             </h2>
             <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] leading-relaxed">
               Select one or multiple ZIP files belonging to one course (e.g. lectures, labs, slide decks).
-              CourseNest extracts and merges them into a unified curriculum with full Zip Slip verification.
+              CourseNest extracts and organizes them into complete course modules for offline study.
             </p>
           </div>
 
@@ -400,7 +400,7 @@ export function ImportPage() {
                   : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
               }`}
             >
-              Multiple Archives / Manifest (.zip, .json)
+              Course Archives (.zip, .json)
             </button>
             <button
               onClick={() => setImportMode('json')}
@@ -410,7 +410,7 @@ export function ImportPage() {
                   : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
               }`}
             >
-              Paste JSON Manifest
+              Paste Course JSON
             </button>
           </div>
 
@@ -425,10 +425,10 @@ export function ImportPage() {
               </div>
               <div className="space-y-1">
                 <p className="font-bold text-sm text-[var(--cn-text-primary)]">
-                  Click to select multiple ZIP archives or drop course folder here
+                  Click to select course files or drag them here
                 </p>
                 <p className="text-xs text-[var(--cn-text-muted)] font-mono">
-                  Select multiple files at once (e.g. part1.zip, part2.zip) or manifest.json
+                  Select course ZIP files (e.g. part1.zip, part2.zip) or course.json
                 </p>
               </div>
 
@@ -455,7 +455,7 @@ export function ImportPage() {
             /* Paste JSON Manifest */
             <div className="space-y-3 text-left">
               <label className="text-xs font-mono font-semibold text-[var(--cn-text-secondary)]">
-                CourseNest Manifest JSON Specification
+                Course JSON Structure
               </label>
               <textarea
                 value={rawJsonInput}
@@ -484,13 +484,13 @@ export function ImportPage() {
                     ]);
                     setStep('review');
                   } catch {
-                    alert('Invalid JSON manifest structure.');
+                    alert('Invalid JSON structure. Please check the file contents.');
                   }
                 }}
                 disabled={!rawJsonInput.trim()}
                 className="px-5 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] disabled:opacity-50 transition-colors"
               >
-                Parse & Review Manifest
+                Preview & Continue
               </button>
             </div>
           )}
@@ -783,26 +783,26 @@ export function ImportPage() {
 
           <div className="space-y-1">
             <h2 className="text-2xl font-extrabold text-[var(--cn-text-primary)]">
-              Curriculum Ingested Successfully!
+              Course Added Successfully!
             </h2>
             <p className="text-xs text-[var(--cn-text-secondary)] font-mono">
-              {courseTitle} is registered and available offline.
+              {courseTitle} is saved and ready for offline study.
             </p>
           </div>
 
           <div className="max-w-md mx-auto p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono text-left space-y-2">
             <div className="flex justify-between">
-              <span className="text-[var(--cn-text-muted)]">Source Archives:</span>
+              <span className="text-[var(--cn-text-muted)]">Source Files:</span>
               <span className="font-semibold text-[var(--cn-text-primary)]">{selectedArchives.length} files merged</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--cn-text-muted)]">Curriculum Modules:</span>
+              <span className="text-[var(--cn-text-muted)]">Course Modules:</span>
               <span className="font-semibold text-[var(--cn-text-primary)]">{proposedSections.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--cn-text-muted)]">Storage Target:</span>
+              <span className="text-[var(--cn-text-muted)]">Storage Location:</span>
               <span className="font-semibold text-[var(--cn-primary)]">
-                {targetStorage === 'external' ? 'External Volume' : 'Internal Vault'}
+                {targetStorage === 'external' ? 'Removable Drive' : 'Internal Storage'}
               </span>
             </div>
           </div>
@@ -812,7 +812,7 @@ export function ImportPage() {
               onClick={() => navigate('/library')}
               className="px-6 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors"
             >
-              Open in Course Vault
+              Go to My Courses
             </button>
             <button
               onClick={() => {
@@ -821,7 +821,7 @@ export function ImportPage() {
               }}
               className="px-4 py-2.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]"
             >
-              Ingest Another Package
+              Add Another Course
             </button>
           </div>
         </div>

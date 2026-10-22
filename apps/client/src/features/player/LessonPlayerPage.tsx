@@ -249,7 +249,7 @@ export function LessonPlayerPage() {
             className="flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] transition-colors shrink-0"
           >
             <ArrowLeft size={14} />
-            <span className="hidden sm:inline">Dossier</span>
+            <span className="hidden sm:inline">Course Overview</span>
           </Link>
           <span className="text-[var(--cn-text-muted)] font-mono hidden sm:inline">|</span>
           <span className="text-xs font-bold text-[var(--cn-text-primary)] truncate max-w-xs md:max-w-md">
@@ -422,7 +422,7 @@ export function LessonPlayerPage() {
                 <div key={block.id} className="p-6 md:p-8 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-4">
                   <div className="flex items-center gap-2 text-xs font-mono text-[var(--cn-primary)] font-semibold border-b border-[var(--cn-border)] pb-2">
                     <FileText size={14} />
-                    <span>SYLLABUS LECTURE NOTES</span>
+                    <span>LESSON NOTES</span>
                   </div>
                   <div className="prose prose-sm max-w-none text-[var(--cn-text-primary)] leading-relaxed whitespace-pre-line font-sans">
                     {content}

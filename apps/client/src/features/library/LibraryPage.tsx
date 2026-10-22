@@ -77,10 +77,10 @@ export function LibraryPage() {
             <span>LOCAL REPOSITORY</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
-            Course Vault
+            My Courses
           </h1>
           <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] mt-1">
-            Access your air-gapped university subjects, curriculum modules, and local media files.
+            Access all your offline courses, videos, and study materials.
           </p>
         </div>
 
@@ -89,7 +89,7 @@ export function LibraryPage() {
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors self-start md:self-auto shadow-sm"
         >
           <Upload size={14} />
-          <span>Ingest New Package</span>
+          <span>Add New Course</span>
         </Link>
       </div>
 
@@ -171,12 +171,12 @@ export function LibraryPage() {
           <BookOpen size={44} className="mx-auto text-[var(--cn-text-muted)]" />
           <div className="space-y-1">
             <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
-              {searchQuery ? 'No matching courses found in vault' : 'Your vault is currently empty'}
+              {searchQuery ? 'No matching courses found' : 'You have no courses yet'}
             </h3>
             <p className="text-xs text-[var(--cn-text-muted)] max-w-md mx-auto">
               {searchQuery
                 ? `No courses matching "${searchQuery}". Try adjusting your keywords or clearing the filter.`
-                : 'Ingest educational course packages, PDFs, and slide decks to study completely offline.'}
+                : 'Add course folders, PDFs, or ZIP archives to study completely offline.'}
             </p>
           </div>
           {searchQuery ? (
@@ -195,7 +195,7 @@ export function LibraryPage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold"
             >
               <Upload size={14} />
-              <span>Ingest Course Package</span>
+              <span>Add Course Materials</span>
             </Link>
           )}
         </div>

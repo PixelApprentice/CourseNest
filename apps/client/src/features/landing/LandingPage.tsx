@@ -42,7 +42,7 @@ export function LandingPage() {
           {/* Top Pill Badges */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono font-semibold bg-[#57C564]/10 text-[#57C564] border border-[#57C564]/30 moss-glow-sm">
             <Radio size={14} className="text-[#57C564]" />
-            <span>OPEN-SOURCE • AIR-GAPPED LEARNING STUDIO</span>
+            <span>OPEN-SOURCE • PRIVATE OFFLINE LEARNING</span>
           </div>
 
           {/* Main Headline */}
@@ -56,10 +56,10 @@ export function LandingPage() {
 
           {/* Subheadline */}
           <p className="text-base sm:text-lg md:text-xl text-[var(--cn-text-secondary)] max-w-3xl leading-relaxed font-sans">
-            Transform any machine into an air-gapped academic workstation. Ingest multi-part course archives,
+            Transform any computer into a private offline study space. Add multi-part course archives,
             amplify low-volume lecture audio up to <span className="text-white font-semibold">200% with VLC Web Audio</span>,
             and inspect slide decks with an embedded <span className="text-white font-semibold">Mozilla PDF.js reader</span>.
-            Zero cloud telemetry. Zero tracking.
+            No cloud tracking. 100% private.
           </p>
 
           {/* Primary Action Buttons */}
@@ -69,7 +69,7 @@ export function LandingPage() {
               className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#57C564] text-[#0A0A0B] text-sm font-bold hover:bg-[#69D475] transition-all shadow-lg moss-glow hover:scale-[1.02] active:scale-[0.98]"
             >
               <Library size={18} />
-              <span>Launch Course Vault</span>
+              <span>Explore Courses</span>
               <ArrowRight size={16} />
             </Link>
 
@@ -78,7 +78,7 @@ export function LandingPage() {
               className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-semibold text-[var(--cn-text-primary)] hover:border-[#57C564]/40 hover:bg-[var(--cn-surface-hover)] transition-all card-tactile"
             >
               <Upload size={18} className="text-[#57C564]" />
-              <span>Ingest Course Archives</span>
+              <span>Add Course Materials</span>
             </Link>
 
             <a
@@ -111,7 +111,7 @@ export function LandingPage() {
             </div>
 
             <div className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] card-tactile">
-              <span className="text-[10px] text-[var(--cn-text-muted)] uppercase block">Air-Gap Vault</span>
+              <span className="text-[10px] text-[var(--cn-text-muted)] uppercase block">Offline Storage</span>
               <span className="text-xs font-bold text-white flex items-center gap-1 mt-0.5">
                 <HardDrive size={13} className="text-[#57C564]" />
                 SQLite Decoupled
@@ -330,7 +330,7 @@ export function LandingPage() {
         <div className="max-w-6xl mx-auto space-y-12">
           <div className="text-center space-y-3 max-w-2xl mx-auto">
             <h2 className="text-2xl md:text-3xl font-bold font-display tracking-tight text-white">
-              Why Air-Gapped & Open-Source Matters
+              Why Private & Offline Learning Matters
             </h2>
             <p className="text-sm text-[var(--cn-text-secondary)]">
               Built for universities, researchers, travelers, and field engineers who cannot rely on cloud connectivity.
@@ -484,7 +484,7 @@ cd coursenest
 # 2. Install workspace dependencies (pnpm v10)
 pnpm install
 
-# 3. Launch Air-Gapped Local Studio
+# 3. Launch CourseNest
 pnpm dev
 
 # Or run optional Python 3.14 FastAPI backend
@@ -501,13 +501,13 @@ uvicorn app.main:app --port 8000`}
           <div className="flex items-center gap-3">
             <BrandLogo size="sm" />
             <span className="text-xs font-mono text-[var(--cn-text-muted)]">
-              Open-Source Air-Gapped Course Platform
+              Open-Source Offline Learning Platform
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-mono text-[var(--cn-text-secondary)]">
-            <Link to="/library" className="hover:text-white transition-colors">Course Vault</Link>
-            <Link to="/import" className="hover:text-white transition-colors">Ingest Materials</Link>
+            <Link to="/library" className="hover:text-white transition-colors">My Courses</Link>
+            <Link to="/import" className="hover:text-white transition-colors">Add Materials</Link>
             <Link to="/settings" className="hover:text-white transition-colors">Settings</Link>
             <Link to="/logs" className="hover:text-white transition-colors">System Logs</Link>
           </div>

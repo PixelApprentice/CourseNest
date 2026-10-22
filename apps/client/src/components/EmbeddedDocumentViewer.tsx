@@ -59,7 +59,7 @@ export function EmbeddedDocumentViewer({
       {
         pageNumber: 1,
         chapterTitle: '1. Executive Abstract & Architecture',
-        content: contentSnippet || `COURSE DOSSIER: ${filename}\nModule Overview & Learning Contracts\n\nThis document provides foundational notes, circuit diagrams, and mathematical proofs corresponding to this course module. All content is stored offline within the sandboxed CourseNest vault for air-gapped study.\n\nKey Prerequisites:\n- Understanding of memory-mapped I/O and process registers\n- Familiarity with POSIX thread synchronization and condition variables\n- Foundational graph theory for dependency graphs and pipeline stages`,
+        content: contentSnippet || `LESSON HANDOUT: ${filename}\nLesson Overview & Key Takeaways\n\nThis document provides foundational notes, circuit diagrams, and mathematical proofs corresponding to this course module. All content is stored offline within the CourseNest vault for private study.\n\nKey Prerequisites:\n- Understanding of memory-mapped I/O and process registers\n- Familiarity with POSIX thread synchronization and condition variables\n- Foundational graph theory for dependency graphs and pipeline stages`,
         subsections: ['1.1 System Scope', '1.2 Operational Contracts', '1.3 Memory Layout'],
       },
       {
@@ -77,19 +77,19 @@ export function EmbeddedDocumentViewer({
       {
         pageNumber: 4,
         chapterTitle: '4. Distributed Vault & Decoupled Storage Specifications',
-        content: `SECTION 4: LOCAL-FIRST DATA ISOLATION\n\nIn CourseNest, learning telemetry (progress state, quiz submissions, bookmarks, study notes) is strictly isolated from heavy multimedia video files.\n\nGuarantees:\n1. Zero State Loss: If the removable USB or SD drive is suddenly disconnected during playback, the SQLite/IndexedDB internal vault maintains all progress intact.\n2. Non-Blocking Recovery: When the media drive is remounted, video assets resume from the recorded timestamp without requiring app reloads.\n3. Content Verification: Ingested course packages are verified via SHA-256 fingerprinting before being registered into the catalog.`,
+        content: `SECTION 4: LOCAL-FIRST DATA ISOLATION\n\nIn CourseNest, learning progress (completion state, quiz scores, bookmarks, notes) is strictly isolated from heavy multimedia video files.\n\nGuarantees:\n1. Zero State Loss: If the removable USB or SD drive is suddenly disconnected during playback, the internal storage maintains all progress intact.\n2. Non-Blocking Recovery: When the media drive is remounted, video assets resume from the recorded timestamp without requiring app reloads.\n3. Content Verification: Ingested course packages are verified via SHA-256 fingerprinting before being registered into the catalog.`,
         subsections: ['4.1 Vault Resilience', '4.2 Media Mount Handshake', '4.3 Offline Integrity'],
       },
       {
         pageNumber: 5,
-        chapterTitle: '5. Diagnostic Log Telemetry & Audit Checklist',
-        content: `SECTION 5: DIAGNOSTICS & SYSTEM AUDITING\n\nDiagnostic logs operate as a bounded ring buffer (500 entries) in local memory.\n\nCategories Logged:\n- [STORAGE]: Removable drive discovery, mount unmount events, safety snapshots.\n- [IMPORTER]: Decompression progress, magic byte sniffing, Zip Slip validations.\n- [PLAYER]: Playback rate adjustments, VLC super-gain triggers, audio filter state.\n- [SECURITY]: Sandboxed text-only code isolation, path traversal blocks.`,
+        chapterTitle: '5. System Logs & Diagnostics Reference',
+        content: `SECTION 5: DIAGNOSTICS & SYSTEM AUDITING\n\nDiagnostic logs operate as a bounded ring buffer (500 entries) in local memory.\n\nCategories Logged:\n- [STORAGE]: Removable drive discovery, mount unmount events, backups.\n- [IMPORTER]: Decompression progress, magic byte sniffing, Zip Slip validations.\n- [PLAYER]: Playback rate adjustments, VLC super-gain triggers, audio filter state.\n- [SECURITY]: Sandboxed text-only code isolation, path traversal blocks.`,
         subsections: ['5.1 Ring Buffer Specs', '5.2 Audit Criteria', '5.3 Event Taxonomy'],
       },
       {
         pageNumber: 6,
         chapterTitle: '6. Review Exercises & Discussion Questions',
-        content: `SECTION 6: PRACTICE PROBLEM SET\n\n1. Explain why Amdahl's Law places an asymptotic ceiling on multicore parallelization if 10% of a program is strictly serial.\n2. Design an atomic compare-and-swap (CAS) lock-free queue in pseudo-C++.\n3. Why does Zip Slip directory traversal bypass standard folder extractions when entry paths contain '../' sequences?\n4. What precautions must an air-gapped workstation take when previewing untrusted static script files?`,
+        content: `SECTION 6: PRACTICE PROBLEM SET\n\n1. Explain why Amdahl's Law places an asymptotic ceiling on multicore parallelization if 10% of a program is strictly serial.\n2. Design an atomic compare-and-swap (CAS) lock-free queue in pseudo-C++.\n3. Why does Zip Slip directory traversal bypass standard folder extractions when entry paths contain '../' sequences?\n4. What precautions should an offline study system take when previewing student script files?`,
         subsections: ['6.1 Amdahl Proofs', '6.2 Lock-Free Queues', '6.3 Sandbox Defense'],
       },
     ];

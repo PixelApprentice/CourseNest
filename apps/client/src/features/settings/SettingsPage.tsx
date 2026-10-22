@@ -138,7 +138,7 @@ export function SettingsPage() {
   const handleCreateSnapshot = () => {
     const res = createSafetyBackup();
     if (res.success) {
-      setBackupNotice(`Safety snapshot captured (${(res.sizeBytes / 1024).toFixed(1)} KB)`);
+      setBackupNotice(`Backup created successfully (${(res.sizeBytes / 1024).toFixed(1)} KB)`);
       setTimeout(() => setBackupNotice(null), 3000);
     }
   };
@@ -283,7 +283,7 @@ export function SettingsPage() {
           <div className="flex items-center gap-2.5">
             <Database size={18} className="text-[var(--cn-primary)]" />
             <h2 className="text-sm font-bold font-mono text-[var(--cn-text-primary)] uppercase tracking-wider">
-              Safety Snapshot & Data Backups
+              Backup & Export Data
             </h2>
           </div>
           <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)] px-2.5 py-1 rounded bg-[var(--cn-surface-subtle)] border border-[var(--cn-border)]">
@@ -297,7 +297,7 @@ export function SettingsPage() {
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
           >
             <ShieldCheck size={14} />
-            <span>Create Immediate Safety Snapshot</span>
+            <span>Back Up My Progress Now</span>
           </button>
 
           <button
@@ -338,7 +338,7 @@ export function SettingsPage() {
           <div className="flex items-center gap-2.5">
             <Sparkles size={18} className="text-[var(--cn-primary)]" />
             <h2 className="text-sm font-bold font-mono text-[var(--cn-text-primary)] uppercase tracking-wider">
-              AI Reading Companion (Optional BYO-API)
+              AI Study Companion (Optional Key)
             </h2>
           </div>
           <StatusBadge
@@ -352,7 +352,7 @@ export function SettingsPage() {
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] space-y-2 text-xs">
           <div className="flex items-center gap-2 font-bold text-[var(--cn-text-primary)]">
             <Cpu size={15} className="text-[var(--cn-primary)]" />
-            <span>Low-Power Workstation & Air-Gapped Philosophy</span>
+            <span>Built for Everyday Laptops & Offline Study</span>
           </div>
           <p className="text-[11px] text-[var(--cn-text-muted)] font-mono leading-relaxed">
             CourseNest runs <strong className="text-[var(--cn-text-primary)]">100% offline</strong> for all reading, video playback, and quiz workflows. We deliberately do <em>not</em> run heavy local models (like Ollama or 8GB GGUFs) that would overheat or freeze budget student laptops. When you have internet or a school LAN proxy, you can optionally connect your own API key to ask questions about lecture handouts.

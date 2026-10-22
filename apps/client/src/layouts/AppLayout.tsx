@@ -54,14 +54,14 @@ export function AppLayout({ children }: AppLayoutProps) {
   // Determine page title & breadcrumb
   const getPageContext = () => {
     const path = location.pathname;
-    if (path === '/') return { section: 'Vault', title: 'Curriculum Overview' };
-    if (path === '/welcome' || path === '/landing') return { section: 'Platform', title: 'Open-Source Showcase' };
-    if (path.startsWith('/library')) return { section: 'Vault', title: 'Course Library' };
-    if (path.startsWith('/import')) return { section: 'Tools', title: 'Ingest Materials' };
-    if (path.startsWith('/course/')) return { section: 'Courses', title: 'Curriculum Dossier' };
-    if (path.startsWith('/settings')) return { section: 'System', title: 'Vault Settings' };
+    if (path === '/') return { section: 'Home', title: 'Learning Overview' };
+    if (path === '/welcome' || path === '/landing') return { section: 'About', title: 'Platform Showcase' };
+    if (path.startsWith('/library')) return { section: 'Courses', title: 'My Library' };
+    if (path.startsWith('/import')) return { section: 'Materials', title: 'Add Courses' };
+    if (path.startsWith('/course/')) return { section: 'Courses', title: 'Course Details' };
+    if (path.startsWith('/settings')) return { section: 'Preferences', title: 'Settings' };
     if (path.startsWith('/logs')) return { section: 'Diagnostics', title: 'System Logs' };
-    return { section: 'Studio', title: APP_NAME };
+    return { section: 'CourseNest', title: APP_NAME };
   };
 
   const context = getPageContext();
@@ -89,14 +89,14 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Offline Vault Air-Gap Indicator */}
+            {/* Offline Vault Indicator */}
             <div 
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-medium border ${
                 isOnline
                   ? 'bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] border-[var(--cn-border)]'
                   : 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40'
               }`}
-              title="CourseNest runs entirely on local disk without telemetry or remote dependencies"
+              title="CourseNest runs entirely on your local machine without tracking or internet requirements"
             >
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--cn-primary)] opacity-75"></span>
@@ -164,7 +164,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             }`}
           >
             <Upload size={18} />
-            Ingest
+            Add Courses
           </Link>
           <Link
             to="/settings"

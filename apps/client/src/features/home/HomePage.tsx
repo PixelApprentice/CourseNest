@@ -46,7 +46,7 @@ export function HomePage() {
         <div className="relative z-10 max-w-2xl space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30">
             <ShieldCheck size={14} />
-            <span>AIR-GAPPED OFFLINE STUDIO</span>
+            <span>PRIVATE OFFLINE LEARNING</span>
           </div>
 
           <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
@@ -54,7 +54,7 @@ export function HomePage() {
           </h1>
 
           <p className="text-sm md:text-base text-[var(--cn-text-secondary)] leading-relaxed">
-            {APP_NAME} turns your device into an autonomous academic workstation. All videos, lecture notes,
+            {APP_NAME} turns your computer into a distraction-free offline study space. All videos, lecture notes,
             slide decks, and checkpoint assessments execute 100% locally from your machine.
           </p>
 
@@ -71,28 +71,28 @@ export function HomePage() {
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[#0A0A0B] text-xs font-bold hover:bg-[#69D475] transition-colors shadow-sm"
             >
               <Upload size={15} />
-              <span>Ingest Course Package</span>
+              <span>Add Course Materials</span>
             </Link>
             <Link
               to="/library"
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)] transition-colors"
             >
               <Library size={15} />
-              <span>Explore Vault ({courses.length} Courses)</span>
+              <span>My Courses ({courses.length})</span>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Learning Telemetry Grid */}
+      {/* Learning Progress Grid */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
           <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
-            <span className="text-[11px] font-mono uppercase tracking-wider">Vault Courses</span>
+            <span className="text-[11px] font-mono uppercase tracking-wider">Courses</span>
             <BookOpen size={15} className="text-[var(--cn-primary)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.totalCourses}</p>
-          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">{analytics.totalLessons} curriculum units</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">{analytics.totalLessons} lessons total</p>
         </div>
 
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
@@ -101,41 +101,41 @@ export function HomePage() {
             <Award size={15} className="text-[var(--cn-success)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.completedLessons}</p>
-          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Verified offline completion</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Completed offline</p>
         </div>
 
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
           <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
-            <span className="text-[11px] font-mono uppercase tracking-wider">Study Notes</span>
+            <span className="text-[11px] font-mono uppercase tracking-wider">My Notes</span>
             <StickyNote size={15} className="text-[var(--cn-accent)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.notesCount}</p>
-          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Private local markdown</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Saved on your device</p>
         </div>
 
         <div className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] space-y-1">
           <div className="flex items-center justify-between text-[var(--cn-text-muted)]">
-            <span className="text-[11px] font-mono uppercase tracking-wider">Local Storage</span>
+            <span className="text-[11px] font-mono uppercase tracking-wider">Storage Used</span>
             <HardDrive size={15} className="text-[var(--cn-info)]" />
           </div>
           <p className="text-2xl font-bold font-mono text-[var(--cn-text-primary)]">{analytics.estimatedStorageMB} MB</p>
-          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">Zero remote dependencies</p>
+          <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">100% offline & private</p>
         </div>
       </section>
 
-      {/* Active Course Resume Dossier */}
+      {/* Continue Learning */}
       {activeCourseData && resumeLesson && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)] flex items-center gap-2">
               <Zap size={15} className="text-[var(--cn-primary)]" />
-              <span>Active Curriculum in Session</span>
+              <span>Continue Learning</span>
             </h2>
             <Link
               to={`/course/${activeCourseData.id}`}
               className="text-xs text-[var(--cn-primary)] hover:underline flex items-center gap-1 font-mono font-medium"
             >
-              <span>View Full Syllabus</span>
+              <span>View Course Lessons</span>
               <ArrowRight size={13} />
             </Link>
           </div>
@@ -206,7 +206,7 @@ export function HomePage() {
             <div>
               <p className="font-bold text-sm text-[var(--cn-text-primary)]">Your vault is currently empty</p>
               <p className="text-xs text-[var(--cn-text-muted)] mt-1">
-                Ingest a university course package or manifest to begin learning completely offline.
+                Add a course zip package or json file to begin learning completely offline.
               </p>
             </div>
             <Link
@@ -214,7 +214,7 @@ export function HomePage() {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-medium"
             >
               <Upload size={14} />
-              <span>Ingest First Course</span>
+              <span>Add First Course</span>
             </Link>
           </div>
         ) : (
@@ -256,7 +256,7 @@ export function HomePage() {
             <span>Zero-Phone-Home Privacy</span>
           </div>
           <p className="text-[11px] text-[var(--cn-text-muted)] leading-relaxed">
-            No telemetry, no analytics beacons, and no ads. Your learning timeline belongs strictly to you.
+            No tracking, no analytics beacons, and no ads. Your learning timeline belongs strictly to you.
           </p>
         </div>
 

@@ -77,11 +77,11 @@ export function CourseLandingPage() {
           className="inline-flex items-center gap-2 text-xs font-mono font-medium text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] transition-colors"
         >
           <ArrowLeft size={14} />
-          <span>Return to Vault Directory</span>
+          <span>Back to My Courses</span>
         </Link>
       </div>
 
-      {/* Course Dossier Hero Banner */}
+      {/* Course Hero Banner */}
       <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 md:p-8 space-y-6">
         <div className="flex flex-col md:flex-row items-start justify-between gap-6">
           <div className="space-y-4 flex-1">
@@ -92,7 +92,7 @@ export function CourseLandingPage() {
               <span className="text-[var(--cn-text-muted)]">•</span>
               <span className="inline-flex items-center gap-1 text-[var(--cn-success)] font-medium">
                 <ShieldCheck size={13} />
-                <span>Verified Local Manifest</span>
+                <span>Saved Offline & Ready</span>
               </span>
             </div>
 
@@ -124,7 +124,7 @@ export function CourseLandingPage() {
           <div className="w-full md:w-68 bg-[var(--cn-bg)] border border-[var(--cn-border)] rounded-xl p-5 space-y-4 shrink-0">
             <ProgressBar
               value={progressPercent}
-              label="Course Mastery"
+              label="Course Progress"
               showValueText={true}
               size="md"
               tone="primary"
@@ -142,7 +142,7 @@ export function CourseLandingPage() {
 
             <div className="p-3 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[11px] font-mono text-[var(--cn-text-muted)] flex items-center gap-2">
               <CheckCircle2 size={13} className="text-[var(--cn-success)]" />
-              <span>All assets stored in local vault</span>
+              <span>Stored on your device for offline study</span>
             </div>
           </div>
         </div>
@@ -152,7 +152,7 @@ export function CourseLandingPage() {
       {course.learningObjectives && course.learningObjectives.length > 0 && (
         <section className="border border-[var(--cn-border)] rounded-xl bg-[var(--cn-surface)] p-6 space-y-4">
           <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)]">
-            Core Competencies & Objectives
+            What You'll Learn
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {course.learningObjectives.map((obj: string, i: number) => (
@@ -170,7 +170,7 @@ export function CourseLandingPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)]">
-              Curriculum Architecture ({course.sections.length} Modules • {totalLessons} Lessons)
+              Course Lessons ({course.sections.length} Modules • {totalLessons} Lessons)
             </h2>
           </div>
 

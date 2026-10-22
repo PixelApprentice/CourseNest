@@ -143,7 +143,7 @@ export function CourseCard({
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
           >
             <Play size={12} fill="currentColor" />
-            <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Curriculum'}</span>
+            <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Course'}</span>
           </Link>
 
           <div className="flex items-center gap-1.5">
@@ -151,13 +151,13 @@ export function CourseCard({
               to={`/course/${course.id}`}
               className="px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
             >
-              Dossier
+              Overview
             </Link>
 
             {onRemoveDownload && (
               <button
                 onClick={() => onRemoveDownload(course.id)}
-                title="Remove course from local vault"
+                title="Remove downloaded course files"
                 aria-label="Remove downloaded course files"
                 className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-colors"
               >

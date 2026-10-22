@@ -6,9 +6,9 @@ import { useVaultCourses, getVaultAnalytics } from '../lib/courseStore';
 const navItems = [
   { to: '/', icon: Home, label: 'Overview' },
   { to: '/welcome', icon: Sparkles, label: 'Platform Showcase' },
-  { to: '/library', icon: Library, label: 'Course Vault' },
-  { to: '/import', icon: Upload, label: 'Ingest Materials' },
-  { to: '/settings', icon: Settings, label: 'Vault Settings' },
+  { to: '/library', icon: Library, label: 'My Courses' },
+  { to: '/import', icon: Upload, label: 'Add Materials' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
   { to: '/logs', icon: Terminal, label: 'System Logs' },
 ] as const;
 
@@ -86,7 +86,7 @@ export function Sidebar() {
         <div className="pt-2 border-t border-[var(--cn-border)]/60 flex items-center justify-between text-[10px] text-[var(--cn-text-muted)]">
           <span className="flex items-center gap-1">
             <ShieldCheck size={11} className="text-[var(--cn-success)]" />
-            Zero-Cloud Local
+            Private & Offline
           </span>
           <span className="font-mono font-medium text-[var(--cn-text-secondary)]">{analytics.estimatedStorageMB} MB</span>
         </div>

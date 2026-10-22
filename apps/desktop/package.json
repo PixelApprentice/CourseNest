@@ -1,6 +1,8 @@
 {
   "name": "@coursenest/desktop",
   "version": "0.1.0",
+  "description": "CourseNest Desktop - Fast, Private, Offline-First Learning Platform",
+  "author": "CourseNest Authors",
   "private": true,
   "type": "module",
   "main": "dist-electron/main/index.js",
