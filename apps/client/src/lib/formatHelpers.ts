@@ -131,14 +131,18 @@ export function sanitizeLectureHtml(rawHtml: string): string {
   html = html.replace(/<meta\b[^>]*>/gi, '');
   html = html.replace(/<link\b[^>]*>/gi, '');
 
-  // 2. Strip broken SVG sprites with xlink:href
+  // 2. Strip inline event handlers (e.g. onerror, onload, onclick) and javascript: pseudo-protocols
+  html = html.replace(/\son[a-zA-Z]+\s*=\s*(?:'[^']*'|"[^"]*"|[^\s>]+)/gi, '');
+  html = html.replace(/\s(href|src)\s*=\s*['"]?\s*javascript:[^'"]*['"]?/gi, ' $1="#"');
+
+  // 3. Strip broken SVG sprites with xlink:href
   html = html.replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '');
 
-  // 3. Remove inline styles that clash with dark theme (e.g. hardcoded dark text colors)
+  // 4. Remove inline styles that clash with dark theme (e.g. hardcoded dark text colors)
   html = html.replace(/style="[^"]*color:\s*rgb\(\s*(?:[0-9]|[1-9][0-9]|1[0-2][0-9])\s*,\s*(?:[0-9]|[1-9][0-9]|1[0-2][0-9])\s*,\s*(?:[0-9]|[1-9][0-9]|1[0-2][0-9])\s*\)[^"]*"/gi, '');
   html = html.replace(/style="[^"]*background-color:\s*transparent[^"]*"/gi, '');
 
-  // 4. Force links to open safely in new tab
+  // 5. Force links to open safely in new tab
   html = html.replace(/<a\s+(?!.*?target=)([^>]+)>/gi, '<a target="_blank" rel="noopener noreferrer" $1>');
 
   return html;
