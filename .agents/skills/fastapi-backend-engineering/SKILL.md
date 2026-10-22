@@ -14,7 +14,7 @@ This skill provides patterns, conventions, and auditing procedures for the Pytho
 - **Virtual Environment**:
   - Always activate the project virtual environment before executing Python commands:
     ```bash
-    source /home/salahudin/Repos/Projects/Korse/apps/server/.venv/bin/activate
+    source apps/server/.venv/bin/activate
     ```
 - **Configuration & Settings**:
   - Use `pydantic-settings` with `BaseSettings` reading from environment variables and `.env` fallback.

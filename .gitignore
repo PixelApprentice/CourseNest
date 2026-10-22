@@ -59,8 +59,14 @@ uploads/
 .DS_Store
 Thumbs.db
 
-# Electron
+# Electron & Packaging Binaries
 apps/desktop/release/
+*.apk
+*.aab
+*.exe
+*.AppImage
+*.deb
+*.dmg
 
 # Android / Capacitor
 apps/android/android/

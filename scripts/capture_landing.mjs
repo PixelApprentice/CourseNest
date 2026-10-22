@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 
-const outDir = '/home/salahudin/.gemini/antigravity-cli/brain/02439cee-5033-4125-a177-856afa0b9448/screenshots';
+const outDir = path.resolve('docs/screenshots');
 fs.mkdirSync(outDir, { recursive: true });
 
 async function main() {

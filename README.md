@@ -1,118 +1,160 @@
 # CourseNest 🎓
-> **Local-First, AI-Assisted Offline Learning Platform**
+> **Open-Source, Local-First, AI-Assisted Educational Studio & Course Player**
 
-[![CI](https://github.com/coursenest/coursenest/actions/workflows/ci.yml/badge.svg)](https://github.com/coursenest/coursenest/actions)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Node.js](https://img.shields.io/badge/Node.js-22_LTS-green.svg)](https://nodejs.org/)
-[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://python.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20_LTS-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org/)
+[![Electron](https://img.shields.io/badge/Electron-33-47848F.svg)](https://www.electronjs.org/)
+[![Capacitor](https://img.shields.io/badge/Capacitor-Android_7-119EFF.svg)](https://capacitorjs.com/)
 [![pnpm](https://img.shields.io/badge/pnpm-10.34-orange.svg)](https://pnpm.io/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-CourseNest is a modern, privacy-respecting, **local-first learning platform** built for university students and instructors. It takes unorganized course folders, PDFs, slide decks, video lectures, and ZIP archives, and automatically structures them into beautiful, offline-capable courses inspired by the study experience of Coursera and Udemy.
+CourseNest is a modern, privacy-respecting, **air-gapped educational platform** designed for students, educators, and institutions. It ingests unorganized course folders, PDFs, slide decks, video lectures, and partitioned multi-archive ZIP packages, structuring them into a rich, self-contained learning curriculum inspired by Coursera, Udemy, and Nuzz.space.
 
 ---
 
-## ⚡ 1. What is CourseNest?
+## 📸 Visual Showcase & Platform Tour
 
-Educational materials distributed by universities often arrive as disorganized ZIP archives, poorly named files, missing lesson numbers, or arbitrary folders. Students frequently lack reliable campus internet or need to study while commuting, traveling, or offline.
+<div align="center">
 
-CourseNest solves this by combining:
-1. **Genuine Local-First Architecture**: Your courses, downloaded videos, notes, progress, bookmarks, and quiz attempts live in an embedded SQLite database on your device. **Zero internet connection required** after material is imported.
-2. **Intelligent Ingestion Pipeline**: Deterministic file hierarchy organizer with built-in Zip-Slip protection, SHA-256 deduplication, and optional local AI (Ollama / Nemotron / Llama) or cloud LLM structuring.
-3. **Rich Learning Player**: Smooth video playback, synchronized transcripts, markdown study guides, PDF readers, inline note-taking, and progress tracking.
-4. **Cross-Platform Availability**: Runs as an **Electron Desktop App** (Linux & Windows), an **Android App** (Tablets & Phones), and a **Web Client**.
-5. **Optional University Sync Backend**: Optional FastAPI + PostgreSQL central server for automated distribution, university accounts, and multi-device progress sync.
+### Interactive Curriculum Roadmap & Progress Path
+*Visual node-based curriculum pipeline with completion checkmarks, active lesson tracking, and direct milestone navigation.*
+<img src="./docs/screenshots/12_curriculum_progress_diagram.png" width="92%" alt="CourseNest Interactive Learning Roadmap" />
+
+<br/><br/>
+
+### AI Academic Reading Companion (Optional BYO-API)
+*Instant lecture handout Q&A, formula explanations, and 1-click note-saving via Google Gemini Pro or campus OmniRoute without local GPU overhead.*
+<img src="./docs/screenshots/13_ai_reading_companion.png" width="92%" alt="CourseNest AI Reading Companion" />
+
+<br/><br/>
+
+### Open-Source Platform Showcase (`/welcome`)
+*Live interactive engine sandbox inspired by Kiwix, Kolibri, VLC, and Nuzz.space.*
+<img src="./docs/screenshots/09_open_source_landing.png" width="92%" alt="CourseNest Open Source Landing Showcase" />
+
+<br/><br/>
+
+### VLC-Grade Media Suite Player
+*200% Web Audio API super-gain booster, speech presence clarity equalizer (+6dB @ 2.5kHz), A-B looper, frame stepper, and native `vlc://` launcher.*
+<img src="./docs/screenshots/10_vlc_video_player.png" width="92%" alt="CourseNest VLC-Grade Media Suite" />
+
+<br/><br/>
+
+### Mozilla PDF.js Document Studio Reader
+*Two-page book spread, in-document keyword search with match counter, zoom presets (50%-225%), and chapter outlines.*
+<img src="./docs/screenshots/11_pdf_js_document_reader.png" width="92%" alt="CourseNest Mozilla PDF.js Reader" />
+
+<br/><br/>
+
+### Priority Notification Center & System Alerts
+*Real-time notifications inspired by SSGI Training-Request with priority badges, storage disconnect warnings, and formatted timestamps.*
+<img src="./docs/screenshots/15_notification_dropdown.png" width="92%" alt="CourseNest Notification Center" />
+
+<br/><br/>
+
+### Multi-ZIP Sandboxed Course Ingest Wizard
+*Atomically merges multiple partitioned ZIP archives for a single course with Zip-Slip path traversal protection.*
+<img src="./docs/screenshots/05_import_wizard.png" width="92%" alt="CourseNest Ingest Wizard" />
+
+<br/><br/>
+
+### Diagnostic Event Logging & Audit Trail
+*500-event in-memory ring buffer with level filtering, one-click clipboard copying, and JSON diagnostic export.*
+<img src="./docs/screenshots/07_system_logs.png" width="92%" alt="CourseNest System Logs" />
+
+</div>
+
+---
+
+## ⚡ Core Architectural Pillars
+
+### 1. 100% Offline-First Learning Core (Zero Cloud Overhead)
+* **Zero Telemetry or Remote Lock-in**: All course manifests, notes, bookmarks, quiz scores, and video progress are saved strictly to the device's local sandboxed database (SQLite in WAL mode / IndexedDB).
+* **Low-End Hardware Optimization**: Students with budget dual-core laptops (e.g. Celeron, Core i3, 4GB RAM) run the application with **0% idle CPU**. The app loads instantly and does not strain battery life or system memory.
+
+### 2. Optional Bring-Your-Own-API (BYO-API) Companion
+* **The "Offline-First + AI" Hybrid Model**: Running heavy local LLMs (Ollama, 8GB GGUFs) would freeze older laptops and exhaust RAM. CourseNest solves this by keeping the entire learning core 100% offline, while offering an **optional cloud/LAN AI assistant**.
+* **Bring-Your-Own-API**: When online or on a school campus network, students can connect their own **Google Gemini Pro** API key or point to a school **OmniRoute / OpenAI-compatible** gateway.
+* **Lightweight Network Payload**: The client sends concise prompts and context excerpts over HTTPS. Zero neural network weights are run on the student's machine.
+* **Air-Gap Graceful Degradation**: If disconnected from the internet or if no API key is set, 100% of video, PDF, quiz, and note features remain fully accessible without errors.
+
+### 3. Decoupled Media Tier & Storage Disconnection Resilience
+* **Separation of State and Multimedia**: Heavy video files can be stored on removable USB flash drives or external SD cards, while learning state (notes, progress, quiz submissions) resides on internal device storage.
+* **Unplugged Resilience**: If an external media drive is unexpectedly unplugged during playback, the application preserves all notes and checkpoint data, transitions gracefully to an informative reconnect prompt, and automatically resumes video upon re-insertion.
+
+### 4. Hardened Multi-Archive Ingestion Pipeline
+* **Multi-ZIP Aggregation**: Supports selecting and merging multiple ZIP archives representing a single course in one folder.
+* **Zip Slip Defense**: Canonical path boundary validation strictly rejects archive entries containing `../`, root paths, or null bytes (`\0`).
+* **Atomic Staging & Rollback**: Ingestion executes inside a temporary staging sandbox. If any validation fails, partial state is automatically rolled back to prevent corrupting the local vault.
+* **Untrusted Code Sandboxing**: Ingested `.html`, `.js`, `.py`, or `.sh` files are parsed strictly as plain text within an inert preview pane—preventing arbitrary local code execution.
+
+---
+
+## 🛠️ Monorepo Architecture
 
 ```mermaid
 flowchart TD
-    subgraph Inputs["Course Materials Ingestion"]
-        ZIP["Raw ZIP Archives / Folders"]
-        PDF["PDFs & Slide Decks"]
-        VID["Video Lectures & Audio"]
+    subgraph Storage["Storage & Hardware Tiers"]
+        INT["Internal Vault (SQLite WAL / IndexedDB)\nProgress • Notes • Bookmarks • Quizzes"]
+        EXT["Removable Volume (USB-OTG / SD Card)\nHeavy Video Lectures • Raw PDFs"]
     end
 
-    subgraph CoreEngine["Local Course Engine"]
-        SEC["Zip-Slip Security Guard"]
-        DEDUP["SHA-256 Hash Deduplication"]
-        DET["MIME & Structure Detector"]
-        AI["AI Curriculum Organizer\n(Local Ollama / Nemotron)"]
+    subgraph Core["Core Packages"]
+        IMP["@coursenest/importer\nMulti-ZIP • Zip-Slip Guard • MIME Sniffer"]
+        MAN["@coursenest/course-manifest\nPortable JSON Course Specification"]
+        SQL["@coursenest/sqlite-adapter\nClean Architecture Database Repositories"]
+        UI["@coursenest/ui\nObsidian Moss Tokens • StatusBadges • Roadmap"]
     end
 
-    subgraph Persistence["Local-First Storage"]
-        SQL["Embedded SQLite (WAL Mode)"]
-        FS["Encrypted File Vault"]
+    subgraph Platforms["Cross-Platform Surfaces"]
+        DESK["Electron Desktop\nLinux AppImage/deb • Windows .exe"]
+        ANDR["Capacitor Android Shell\nPhones & Tablets (.apk)"]
+        WEB["React 19 + Vite Web Client\nZero-Cloud Air-Gapped Mode"]
     end
 
-    subgraph Clients["Cross-Platform Apps"]
-        DESK["Electron Desktop\n(Linux & Windows)"]
-        ANDR["Android Tablet & Phone\n(Capacitor)"]
-        WEB["Web Client (React + Vite)"]
+    subgraph Optional["Optional Extensions"]
+        AI["AI Reading Companion\nGemini Pro • OmniRoute • Campus Proxy"]
+        SRV["FastAPI Sync Server\nPostgreSQL • Institutional Fleet Management"]
     end
 
-    subgraph SyncServer["Optional Central Backend"]
-        API["FastAPI Synchronization Server"]
-        PG["PostgreSQL Database"]
-    end
-
-    ZIP --> SEC --> DET --> DEDUP --> AI
-    PDF --> DET
-    VID --> DET
-    AI --> SQL
-    AI --> FS
-    SQL <--> DESK
-    FS <--> DESK
-    SQL <--> ANDR
-    FS <--> ANDR
-    SQL <--> WEB
-    SQL -.->|Optional Bi-directional Sync| API <--> PG
+    IMP --> MAN --> SQL
+    SQL <--> INT
+    Platforms <--> Core
+    Platforms <--> Storage
+    Platforms -.->|When Connected| AI
+    INT -.->|Optional Sync| SRV
 ```
 
 ---
 
-## 🚀 2. Run in Under 5 Minutes
+## 🚀 Quickstart Guide
 
-### Option A: One-Command Setup (Docker Compose) 🐳
+### 1. Prerequisites
+- **Node.js**: `>= 20.0.0` (LTS recommended)
+- **pnpm**: `>= 9.0.0`
+- **Python**: `>= 3.11` (for optional FastAPI backend)
 
-The fastest way to spin up the entire CourseNest stack (PostgreSQL + FastAPI backend + Web Client):
-
+### 2. Monorepo Installation & Build
 ```bash
 # Clone the repository
 git clone https://github.com/coursenest/coursenest.git
 cd coursenest
 
-# Launch the full stack
-docker compose up -d
-```
-
-- **Web Application**: Visit [http://localhost](http://localhost)
-- **API Documentation**: Visit [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Database**: PostgreSQL 16 on port `5432` with pre-seeded test courses
-
----
-
-### Option B: Local Bare-Metal Setup (pnpm) 💻
-
-If you are developing locally or running the Electron desktop app:
-
-#### 1. Prerequisites
-- **Node.js**: `>= 20.0.0` (v22 recommended)
-- **pnpm**: `>= 9.0.0`
-- **Python**: `>= 3.11` (for backend server)
-
-#### 2. Install & Build Monorepo
-```bash
-# Install workspace dependencies
+# Install all workspace dependencies
 pnpm install
 
-# Build shared packages (domain, SQLite adapter, UI, importer)
+# Build all internal packages
 pnpm build:packages
 ```
 
-#### 3. Run Applications
-- **Web Client**:
+### 3. Launching the Applications
+- **Web Client & Open-Source Showcase**:
   ```bash
   pnpm dev
   # Open http://localhost:5173
+  # Showcase: http://localhost:5173/welcome
   ```
 
 - **Electron Desktop Application**:
@@ -120,86 +162,100 @@ pnpm build:packages
   pnpm dev:desktop
   ```
 
-- **Python FastAPI Backend** (Optional):
+- **Python FastAPI Central Server (Optional)**:
   ```bash
   cd apps/server
   python -m venv .venv
   source .venv/bin/activate
   pip install -e .
-  alembic upgrade head
-  uvicorn app.main:app --reload --port 8000
+  uvicorn app.main:app --host 0.0.0.0 --port 8000
+  ```
+
+- **One-Command Docker Deployment (Full Stack)**:
+  ```bash
+  docker compose up -d
+  # Web: http://localhost | API: http://localhost:8000/docs
   ```
 
 ---
 
-## 📂 3. Monorepo Structure
+## 📦 Building Platform Packages: Linux, Windows (.exe), and Android (.apk)
 
+### 🐧 Linux Desktop (`.AppImage` & `.deb`)
+```bash
+# Build production client bundle & main process
+pnpm --filter @coursenest/client build
+pnpm --filter @coursenest/desktop build
+
+# Package Linux targets
+cd apps/desktop
+pnpm dist:linux
+# Output located in: apps/desktop/release/*.AppImage and *.deb
 ```
-coursenest/
-├── apps/
-│   ├── client/               # React 18 + Vite Web Application & Course Player
-│   ├── desktop/              # Electron Desktop Application (Linux & Windows)
-│   ├── android/              # Capacitor Android Native Shell (Phones & Tablets)
-│   └── server/               # FastAPI backend with asyncpg, SQLAlchemy 2 & Alembic
-│
-├── packages/
-│   ├── domain/               # Pure domain entities, branded IDs & TypeScript types
-│   ├── database-contracts/   # Decoupled repository contracts (DIP)
-│   ├── sqlite-adapter/       # Local SQLite storage driver with WAL & foreign keys
-│   ├── storage-adapters/     # File storage abstraction (Local Disk, Memory, S3)
-│   ├── importer/             # Material parser, zip extractor & curriculum organizer
-│   ├── course-manifest/      # Portable JSON course specification & serializer
-│   ├── validation/           # Zod runtime schemas & input validation
-│   ├── ui/                   # Shared UI component library & design system
-│   └── config/               # Shared constants, environment & theme configurations
-│
-├── fixtures/courses/         # Portable seed curricula (CS101 Systems, ML201)
-├── docker-compose.yml        # One-command containerized production stack
-├── .github/                  # CI workflows, issue templates & PR templates
-├── CONTRIBUTING.md           # Guide for open-source contributors
-└── LICENSE                   # Apache License 2.0
+
+### 🪟 Windows Desktop (`.exe` Installer)
+CourseNest uses `electron-builder` with an NSIS target to package standalone Windows installers:
+```bash
+# Build desktop assets
+pnpm --filter @coursenest/client build
+pnpm --filter @coursenest/desktop build
+
+# Build Windows NSIS executable installer
+cd apps/desktop
+pnpm dist:win
+# Output located in: apps/desktop/release/CourseNest Setup *.exe
+```
+
+### 📱 Android Tablet & Mobile (`.apk`)
+CourseNest uses Capacitor to embed the high-performance React client into a native Android application:
+```bash
+# 1. Build the client web assets
+pnpm --filter @coursenest/client build
+
+# 2. Sync web assets into the Android native project
+cd apps/android
+npx cap sync android
+
+# 3. Compile the debug APK using Gradle
+cd android
+./gradlew assembleDebug
+
+# Output APK located in:
+# apps/android/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
 
-## 🌟 4. Good First Issues (Start Contributing!)
+## 🛡️ Pre-Open-Source Privacy & Security Invariants
 
-We welcome contributors of all experience levels! If you'd like to get your feet wet, check out these beginner-friendly tasks:
-
-| Issue | Area | Description |
-| :--- | :--- | :--- |
-| **Markdown Syntax Highlighting** | `client` `ui` | Add syntax code block highlighting to the player using `shiki` or `prism`. |
-| **Keyboard Shortcuts for Player** | `player` `a11y` | Add `Alt + Left/Right` to skip lessons and `Space` to toggle video playback. |
-| **Notes Export as Markdown** | `notes` `client` | Add a button in the notes sidebar to export student notes as a `.md` file. |
-| **EPUB & Notebook Detection** | `importer` | Add `.ipynb` and `.epub` heuristics in `packages/importer/src/detector.ts`. |
-| **Dark Mode Contrast Polish** | `ui` `css` | Refine WCAG AA contrast colors in `apps/client/src/styles/global.css`. |
-
-Browse all open beginner issues tagged [`good-first-issue`](https://github.com/coursenest/coursenest/labels/good-first-issue).
+CourseNest is designed with strict respect for user privacy and air-gapped security:
+1. **Zero Secret Leakage**: No hardcoded API keys, bearer tokens, or private credentials exist within the repository.
+2. **Local Path Sandboxing**: No hardcoded operating system usernames or developer paths are compiled into binaries.
+3. **Bring-Your-Own-Key Privacy**: AI API keys entered by students in Vault Settings are stored exclusively in the browser's local `localStorage` and are never logged, proxied, or transmitted to any CourseNest server.
+4. **Air-Gap Default**: The application does not send telemetry, analytics, crash reports, or phone-home pings.
 
 ---
 
-## 🧪 5. Testing & Verification
+## 🧪 Testing & Quality Assurance
 
-We enforce strict test suites across TypeScript and Python:
+We maintain strict verification across all packages:
 
 ```bash
-# Run unit tests across all TypeScript packages (including SQLite adapter)
+# Run unit test suites across all packages (importer, sqlite-adapter, etc.)
 pnpm test
 
-# Run TypeScript typechecks
+# Run TypeScript compilation and strict type checks
 pnpm typecheck
 
-# Check code formatting
-pnpm format:check
-
-# Run Python server tests
-cd apps/server && pytest tests/
+# Run Python server pytest suite
+cd apps/server
+source .venv/bin/activate
+pytest tests/
 ```
 
 ---
 
-## 📄 6. License
+## 📄 License
 
-CourseNest is licensed under the **[Apache License 2.0](LICENSE)**.
-
-You are free to use, modify, distribute, and integrate CourseNest in commercial and private projects under the terms of the Apache-2.0 license.
+CourseNest is open-source software licensed under the **[Apache License 2.0](LICENSE)**.
+Feel free to use, modify, distribute, and integrate CourseNest in personal, educational, or commercial projects.
