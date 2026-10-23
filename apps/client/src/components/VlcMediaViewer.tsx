@@ -372,7 +372,7 @@ export function VlcMediaViewer({
               if (videoRef.current) videoRef.current.currentTime = newTime;
               setCurrentTime(newTime);
             }}
-            className="w-full h-1.5 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-all"
+            className="w-full h-1.5 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-[height] duration-150 ease-out"
           />
           <div className="flex items-center justify-between text-xs font-mono text-white/70">
             <span>{formatTime(currentTime)}</span>
@@ -385,7 +385,7 @@ export function VlcMediaViewer({
           <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={togglePlay}
-              className="p-2.5 rounded-xl bg-[var(--cn-brand)] text-black font-bold hover:brightness-110 transition-all shadow-md active:scale-95"
+              className="p-2.5 rounded-xl bg-[var(--cn-brand)] text-black font-bold hover:brightness-110 transition-[transform,filter] duration-150 ease-out shadow-md active:scale-95"
               title={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? <IconPlayerPause size={18} /> : <IconPlayerPlay size={18} />}
@@ -443,7 +443,7 @@ export function VlcMediaViewer({
         playsInline
         crossOrigin="anonymous"
         preload="metadata"
-        className={`w-full h-full cursor-pointer transition-all ${
+        className={`w-full h-full cursor-pointer transition-[transform] duration-200 ease-out ${
           aspectRatio === 'cover'
             ? 'object-cover'
             : aspectRatio === 'fill'
@@ -648,7 +648,7 @@ export function VlcMediaViewer({
               }
               setCurrentTime(newTime);
             }}
-            className="w-full h-1 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-all"
+            className="w-full h-1 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-[height] duration-150 ease-out"
           />
 
           {/* A-B Loop Indicators on Scrubber */}
@@ -674,7 +674,7 @@ export function VlcMediaViewer({
             {/* Play/Pause */}
             <button
               onClick={togglePlay}
-              className="p-1.5 rounded-lg bg-[var(--cn-brand)] text-black hover:brightness-110 transition-all font-bold"
+              className="p-1.5 rounded-lg bg-[var(--cn-brand)] text-black hover:brightness-110 transition-[transform,filter] duration-150 ease-out active:scale-95 font-bold"
               title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             >
               {isPlaying ? <IconPlayerPause size={17} /> : <IconPlayerPlay size={17} />}

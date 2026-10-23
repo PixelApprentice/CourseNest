@@ -133,7 +133,7 @@ export function CourseLandingPage() {
             {resumeLesson && (
               <Link
                 to={`/course/${course.id}/lesson/${resumeLesson.id}`}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
               >
                 <IconPlayerPlay size={14} />
                 <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Course'}</span>
@@ -178,7 +178,7 @@ export function CourseLandingPage() {
           <div className="inline-flex rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] p-0.5 self-start">
             <button
               onClick={() => setViewMode('diagram')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 ${
                 viewMode === 'diagram'
                   ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-bold shadow-xs'
                   : 'text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)]'
@@ -189,7 +189,7 @@ export function CourseLandingPage() {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 ${
                 viewMode === 'list'
                   ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-bold shadow-xs'
                   : 'text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)]'

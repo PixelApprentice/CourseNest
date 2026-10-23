@@ -59,14 +59,14 @@ export function HomePage() {
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
               to="/import"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[#0A0A0B] text-xs font-bold hover:bg-[#69D475] transition-colors shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-bold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
             >
               <IconUpload size={15} />
               <span>Add Course Materials</span>
             </Link>
             <Link
               to="/library"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)] transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)] transition-[background-color,color,transform] duration-150 ease-out active:scale-95"
             >
               <IconBooks size={15} />
               <span>My Courses ({courses.length})</span>
@@ -166,7 +166,7 @@ export function HomePage() {
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
               <Link
                 to={`/course/${activeCourseData.id}/lesson/${resumeLesson.id}`}
-                className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-all shadow-sm"
+                className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
               >
                 <IconPlayerPlay size={14} />
                 <span>Resume Lesson</span>
@@ -202,7 +202,7 @@ export function HomePage() {
             </div>
             <Link
               to="/import"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95"
             >
               <IconUpload size={14} />
               <span>Add First Course</span>

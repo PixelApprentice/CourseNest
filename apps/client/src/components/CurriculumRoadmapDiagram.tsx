@@ -105,7 +105,7 @@ export function CurriculumRoadmapDiagram({
             <div
               key={section.id}
               className={clsx(
-                'rounded-2xl border transition-all overflow-hidden',
+                'rounded-2xl border transition-[border-color,background-color,box-shadow] duration-200 ease-out overflow-hidden',
                 hasActiveLesson
                   ? 'border-[var(--cn-primary)]/50 bg-[var(--cn-surface)] shadow-md ring-1 ring-[var(--cn-primary)]/20'
                   : 'border-[var(--cn-border)] bg-[var(--cn-surface)]',
@@ -182,7 +182,7 @@ export function CurriculumRoadmapDiagram({
                         {/* Node Circle Indicator */}
                         <div
                           className={clsx(
-                            'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all',
+                            'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-[background-color,border-color,color] duration-150 ease-out',
                             isLessonCompleted
                               ? 'border-[var(--cn-primary)] bg-[var(--cn-primary)] text-white shadow-sm'
                               : isActive
@@ -203,7 +203,7 @@ export function CurriculumRoadmapDiagram({
                         <Link
                           to={`/course/${course.id}/lesson/${lesson.id}`}
                           className={clsx(
-                            'flex-1 min-w-0 rounded-xl border p-3.5 transition-all text-left block',
+                            'flex-1 min-w-0 rounded-xl border p-3.5 transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.99] text-left block',
                             isActive
                               ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/40 shadow-xs'
                               : isLessonCompleted
@@ -249,7 +249,7 @@ export function CurriculumRoadmapDiagram({
                                 </span>
                               )}
 
-                              <IconChevronRight size={13} className="text-[var(--cn-text-muted)] group-hover:text-[var(--cn-text-primary)] group-hover:translate-x-0.5 transition-all" />
+                              <IconChevronRight size={13} className="text-[var(--cn-text-muted)] group-hover:text-[var(--cn-text-primary)] group-hover:translate-x-0.5 transition-[color,transform] duration-150 ease-out" />
                             </div>
                           </div>
                         </Link>

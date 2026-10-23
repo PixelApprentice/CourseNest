@@ -16,6 +16,11 @@
   --font-body: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
+  /* Emil Kowalski Custom Easing Curves */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
   --cn-bg: #0A0A0B;
   --cn-surface: #121316;
   --cn-surface-subtle: #17191E;
@@ -432,12 +437,27 @@ code, pre, .font-mono {
   background-color: var(--cn-surface);
   border: 1px solid var(--cn-border);
   border-radius: var(--cn-radius-lg);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), transform 150ms var(--ease-out);
 }
 
 .card-tactile:hover {
   border-color: var(--cn-primary);
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 0 12px -2px var(--theme-glow);
+}
+
+.card-tactile:active {
+  transform: scale(0.98);
+}
+
+/* Global Button Tactile Feedback (Emil Kowalski Physics: Subtle scale on press) */
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+}
+
+/* Transition utility for smooth responsive buttons */
+button, [role="button"] {
+  transition: transform 120ms var(--ease-out), background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out, box-shadow 150ms ease-out;
 }
 
 /* Claymorphic Utility for Toybox */
@@ -624,6 +644,11 @@ code, pre, .font-mono {
   box-shadow: 4px 4px 0px rgba(24, 24, 27, 0.95);
 }
 
+[data-theme="manga"] button:not(:disabled):active {
+  transform: translate(1px, 1px) scale(0.98);
+  box-shadow: 1px 1px 0px rgba(24, 24, 27, 0.95);
+}
+
 /* Toybox Theme: Playful Bubbly Curves & Soft Clay Shadows */
 [data-theme="toybox"] .rounded-2xl {
   border-radius: 24px !important;
@@ -648,5 +673,29 @@ code, pre, .font-mono {
 [data-theme="halal"] .rounded-2xl:hover {
   border-color: rgba(217, 119, 6, 0.45) !important;
   box-shadow: 0 4px 16px -4px rgba(4, 120, 87, 0.08);
+}
+
+/* =============================================================================
+   ACCESSIBILITY & TOUCH ENVIRONMENT RULES (Emil Kowalski Guidelines)
+   ============================================================================= */
+
+/* Reduced motion media query: disable movement transforms while keeping gentle opacity fades */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Touch device protection: avoid sticky hover states on mobile/touch interfaces */
+@media (hover: none) {
+  button:hover,
+  a:hover {
+    transform: none !important;
+  }
 }
 

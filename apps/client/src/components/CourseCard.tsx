@@ -131,7 +131,7 @@ export function CourseCard({
           </div>
           <div className="h-1.5 w-full bg-[var(--cn-surface-subtle)] rounded-full overflow-hidden border border-[var(--cn-border)]">
             <div
-              className="h-full bg-[var(--cn-primary)] rounded-full transition-all duration-300"
+              className="h-full bg-[var(--cn-primary)] rounded-full transition-[width] duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -141,7 +141,7 @@ export function CourseCard({
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
           <Link
             to={lastLessonId ? `/course/${course.id}/lesson/${lastLessonId}` : `/course/${course.id}`}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
           >
             <IconPlayerPlay size={13} />
             <span>{progressPercent > 0 ? 'Resume' : 'Start'}</span>
@@ -150,7 +150,7 @@ export function CourseCard({
           <div className="flex items-center gap-1.5">
             <Link
               to={`/course/${course.id}`}
-              className="px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-[background-color,color,transform] duration-150 ease-out active:scale-95"
             >
               Overview
             </Link>
@@ -160,7 +160,7 @@ export function CourseCard({
                 onClick={() => onRemoveDownload(course.id)}
                 title="Remove course from library"
                 aria-label="Remove course from library"
-                className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-colors"
+                className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-[color,background-color,transform] duration-150 ease-out active:scale-90"
               >
                 <IconTrash size={14} />
               </button>

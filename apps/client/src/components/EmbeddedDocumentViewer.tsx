@@ -157,7 +157,7 @@ export function EmbeddedDocumentViewer({
     : 'border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] overflow-hidden shadow-xl';
 
   const innerClasses = isModal
-    ? `bg-[var(--cn-surface)] border border-[var(--cn-border)] rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden transition-all duration-200 ${
+    ? `bg-[var(--cn-surface)] border border-[var(--cn-border)] rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden transition-[width,height,border-radius] duration-200 ease-out ${
         isFullscreen ? 'h-screen max-w-none rounded-none' : 'max-w-6xl h-[90vh]'
       }`
     : 'flex flex-col h-[700px] w-full';
@@ -283,7 +283,7 @@ export function EmbeddedDocumentViewer({
             {onAskAi && (
               <button
                 onClick={() => onAskAi(activePage.content)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--cn-primary)]/40 bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary)] hover:text-white transition-all shadow-xs"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--cn-primary)]/40 bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary)] hover:text-white transition-[background-color,color,transform] duration-150 ease-out active:scale-95 shadow-xs"
                 title="Ask Reading Companion about this page"
               >
                 <IconBrain size={13} />
@@ -340,7 +340,7 @@ export function EmbeddedDocumentViewer({
                   <button
                     key={p.pageNumber}
                     onClick={() => jumpToPage(p.pageNumber)}
-                    className={`w-full text-left p-2 rounded-lg text-xs transition-all ${
+                    className={`w-full text-left p-2 rounded-lg text-xs transition-[background-color,color,border-color,transform] duration-150 ease-out active:scale-[0.99] ${
                       currentPage === p.pageNumber
                         ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-bold border border-[var(--cn-primary)]/30'
                         : 'text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)]'
@@ -379,14 +379,14 @@ export function EmbeddedDocumentViewer({
                 </div>
                 <button
                   onClick={handleDownload}
-                  className="px-5 py-2.5 rounded-xl bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-all shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
                 >
                   Export EPUB File
                 </button>
               </div>
             ) : (
               <div 
-                className={`flex gap-6 justify-center w-full transition-all duration-150`}
+                className={`flex gap-6 justify-center w-full transition-[transform] duration-150 ease-out`}
                 style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
               >
               {/* Page 1 Canvas */}

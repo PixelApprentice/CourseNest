@@ -60,7 +60,7 @@ export function ProgressBar({
       >
         <div
           className={clsx(
-            'h-full rounded-full transition-all duration-500 ease-out',
+            'h-full rounded-full transition-[width] duration-300 ease-out',
             barTones[tone],
           )}
           style={{ width: `${percentage}%` }}

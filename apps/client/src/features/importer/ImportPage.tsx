@@ -488,7 +488,7 @@ export function ImportPage() {
               {/* Option 1: ZIP Archive(s) */}
               <div
                 onClick={() => zipInputRef.current?.click()}
-                className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-8 bg-[var(--cn-bg)] transition-all cursor-pointer space-y-3 text-center group"
+                className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-8 bg-[var(--cn-bg)] transition-[border-color,background-color] duration-150 ease-out cursor-pointer space-y-3 text-center group"
               >
                 <div className="w-12 h-12 rounded-xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
                   <IconArchive size={24} />
@@ -506,7 +506,7 @@ export function ImportPage() {
               {/* Option 2: Extracted Folder */}
               <div
                 onClick={() => folderInputRef.current?.click()}
-                className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-8 bg-[var(--cn-bg)] transition-all cursor-pointer space-y-3 text-center group"
+                className="border-2 border-dashed border-[var(--cn-border)] hover:border-[var(--cn-primary)] rounded-2xl p-8 bg-[var(--cn-bg)] transition-[border-color,background-color] duration-150 ease-out cursor-pointer space-y-3 text-center group"
               >
                 <div className="w-12 h-12 rounded-xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
                   <IconFolder size={24} />
@@ -741,7 +741,7 @@ export function ImportPage() {
 
             <button
               onClick={() => setStep('review')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
             >
               <span>Review Course Structure</span>
               <IconArrowRight size={14} />
@@ -972,7 +972,7 @@ export function ImportPage() {
             <button
               onClick={handleFinalImport}
               disabled={proposedSections.length === 0 || totalApprovedLessons === 0}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] disabled:opacity-50 transition-colors shadow-sm"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] disabled:opacity-50 transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
             >
               <IconChecklist size={16} />
               <span>Save Course to Offline Vault</span>
@@ -997,7 +997,7 @@ export function ImportPage() {
           <div className="max-w-md mx-auto space-y-1">
             <div className="w-full bg-[var(--cn-surface-subtle)] h-2 rounded-full overflow-hidden border border-[var(--cn-border)]">
               <div
-                className="bg-[var(--cn-primary)] h-full transition-all duration-300"
+                className="bg-[var(--cn-primary)] h-full transition-[width] duration-300 ease-out"
                 style={{ width: `${importProgress}%` }}
               />
             </div>
@@ -1045,7 +1045,7 @@ export function ImportPage() {
             {savedCourseId ? (
               <button
                 onClick={() => navigate(`/course/${savedCourseId}`)}
-                className="px-6 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
+                className="px-6 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
               >
                 Open Course Now
               </button>

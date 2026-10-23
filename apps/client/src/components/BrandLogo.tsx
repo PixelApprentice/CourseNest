@@ -168,7 +168,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     <div className={`flex items-center gap-3 select-none ${className}`}>
       {/* Dynamic Theme Vector Emblem */}
       <div 
-        className={`relative flex items-center justify-center rounded-xl p-1.5 border transition-all duration-300 ${iconSizes[size]}`}
+        className={`relative flex items-center justify-center rounded-xl p-1.5 border transition-[border-color,background-color,box-shadow,transform] duration-150 ease-out ${iconSizes[size]}`}
         style={{
           borderColor: currentTheme.palette.border,
           backgroundColor: currentTheme.palette.surface,

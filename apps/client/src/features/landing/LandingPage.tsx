@@ -65,7 +65,7 @@ export function LandingPage() {
           <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
             <Link
               to="/library"
-              className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#57C564] text-[#0A0A0B] text-sm font-bold hover:bg-[#69D475] transition-all shadow-lg moss-glow hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#57C564] text-[#0A0A0B] text-sm font-bold hover:bg-[#69D475] transition-[background-color,transform] duration-150 ease-out shadow-lg moss-glow hover:scale-[1.02] active:scale-[0.98]"
             >
               <IconBooks size={18} />
               <span>Explore Courses</span>
@@ -74,7 +74,7 @@ export function LandingPage() {
 
             <Link
               to="/import"
-              className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-semibold text-[var(--cn-text-primary)] hover:border-[#57C564]/40 hover:bg-[var(--cn-surface-hover)] transition-all card-tactile"
+              className="flex items-center gap-2.5 px-6 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-semibold text-[var(--cn-text-primary)] hover:border-[#57C564]/40 hover:bg-[var(--cn-surface-hover)] transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.98] card-tactile"
             >
               <IconUpload size={18} className="text-[#57C564]" />
               <span>Add Course Materials</span>
@@ -84,7 +84,7 @@ export function LandingPage() {
               href="https://github.com"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2 px-5 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-mono text-slate-300 hover:text-white hover:border-white/30 transition-all"
+              className="flex items-center gap-2 px-5 py-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] text-sm font-mono text-slate-300 hover:text-white hover:border-white/30 transition-[color,border-color,transform] duration-150 ease-out active:scale-[0.98]"
             >
               <IconBrandGithub size={16} />
               <span>GitHub</span>
@@ -149,7 +149,7 @@ export function LandingPage() {
             <div className="flex items-center bg-[var(--cn-bg)] p-1 rounded-xl border border-[var(--cn-border)] text-xs font-mono overflow-x-auto">
               <button
                 onClick={() => setActiveDemoTab('vlc')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-[background-color,color,transform] duration-150 ease-out active:scale-95 ${
                   activeDemoTab === 'vlc'
                     ? 'bg-[#57C564] text-[#0A0A0B] font-bold shadow-sm'
                     : 'text-slate-300 hover:text-white'
@@ -161,7 +161,7 @@ export function LandingPage() {
 
               <button
                 onClick={() => setActiveDemoTab('pdf')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-[background-color,color,transform] duration-150 ease-out active:scale-95 ${
                   activeDemoTab === 'pdf'
                     ? 'bg-[#57C564] text-[#0A0A0B] font-bold shadow-sm'
                     : 'text-slate-300 hover:text-white'
@@ -173,7 +173,7 @@ export function LandingPage() {
 
               <button
                 onClick={() => setActiveDemoTab('vault')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-all ${
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg transition-[background-color,color,transform] duration-150 ease-out active:scale-95 ${
                   activeDemoTab === 'vault'
                     ? 'bg-[#57C564] text-[#0A0A0B] font-bold shadow-sm'
                     : 'text-slate-300 hover:text-white'

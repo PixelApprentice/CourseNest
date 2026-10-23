@@ -176,7 +176,7 @@ export function SettingsPage() {
         <div className="flex items-center bg-[var(--cn-surface-subtle)] p-1 rounded-xl border border-[var(--cn-border)] text-xs font-mono self-start sm:self-auto">
           <button
             onClick={() => switchTab('general')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all font-semibold ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
               activeTab === 'general'
                 ? 'bg-[var(--cn-surface)] text-[var(--cn-primary)] shadow-xs'
                 : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)]'
@@ -188,7 +188,7 @@ export function SettingsPage() {
 
           <button
             onClick={() => switchTab('logs')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-all font-semibold ${
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
               activeTab === 'logs'
                 ? 'bg-[var(--cn-surface)] text-[var(--cn-primary)] shadow-xs'
                 : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)]'
@@ -228,7 +228,7 @@ export function SettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
               <button
                 onClick={() => setVolumeType('internal')}
-                className={`p-4 rounded-xl border text-left transition-all space-y-1 ${
+                className={`p-4 rounded-xl border text-left transition-[border-color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.99] space-y-1 ${
                   storageConfig.volumeType === 'internal'
                     ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 shadow-xs'
                     : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)]'
@@ -245,7 +245,7 @@ export function SettingsPage() {
 
               <button
                 onClick={() => setVolumeType('external')}
-                className={`p-4 rounded-xl border text-left transition-all space-y-1 ${
+                className={`p-4 rounded-xl border text-left transition-[border-color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.99] space-y-1 ${
                   storageConfig.volumeType === 'external'
                     ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 shadow-xs'
                     : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)]'
@@ -277,7 +277,7 @@ export function SettingsPage() {
                     />
                     <button
                       type="submit"
-                      className="px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors"
+                      className="px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95"
                     >
                       Save Path
                     </button>
@@ -331,7 +331,7 @@ export function SettingsPage() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleCreateSnapshot}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
               >
                 <IconShieldCheck size={14} />
                 <span>Back Up My Progress Now</span>
@@ -507,7 +507,7 @@ export function SettingsPage() {
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+                  className="px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
                 >
                   Save Settings
                 </button>

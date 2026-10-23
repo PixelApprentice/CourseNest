@@ -63,7 +63,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <button
                 onClick={this.handleReset}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out shadow-sm active:scale-95"
               >
                 <IconRefresh size={15} />
                 <span>Try Again</span>
@@ -72,7 +72,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <a
                 href="#/library"
                 onClick={this.handleReset}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] text-[var(--cn-text-secondary)] text-xs font-mono font-medium hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-all"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] text-[var(--cn-text-secondary)] text-xs font-mono font-medium hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-[background-color,color,border-color,transform] duration-150 ease-out active:scale-95"
               >
                 <IconBooks size={15} />
                 <span>Go to Library</span>

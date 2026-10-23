@@ -593,7 +593,7 @@ export function LessonPlayerPage() {
                           fileUrl,
                         });
                       }}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
                     >
                       <IconEye size={14} />
                       <span>Read Document</span>
@@ -680,7 +680,7 @@ export function LessonPlayerPage() {
                     <Link
                       key={item.id}
                       to={`/course/${courseData.id}/lesson/${item.id}`}
-                      className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] hover:border-[var(--cn-primary)] hover:bg-[var(--cn-surface-hover)] transition-all flex items-center justify-between gap-3 group"
+                      className="p-3.5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] hover:border-[var(--cn-primary)] hover:bg-[var(--cn-surface-hover)] transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.99] flex items-center justify-between gap-3 group"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div className="p-1.5 rounded-md bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] group-hover:text-[var(--cn-primary)] shrink-0">
@@ -895,7 +895,7 @@ export function LessonPlayerPage() {
 
                     <button
                       onClick={() => removeBookmark(activeLesson.id, bm.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] transition-[color,opacity,transform] duration-150 ease-out active:scale-90"
                     >
                       <IconTrash size={13} />
                     </button>
@@ -1021,7 +1021,7 @@ export function LessonPlayerPage() {
           {nextLesson ? (
             <Link
               to={`/course/${courseData.id}/lesson/${nextLesson.id}`}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
             >
               <span>Next Unit</span>
               <IconChevronRight size={14} />
@@ -1029,7 +1029,7 @@ export function LessonPlayerPage() {
           ) : (
             <Link
               to={`/course/${courseData.id}`}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-success)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-success)]/90 transition-colors shadow-xs"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-success)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-success)]/90 transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
             >
               <span>Complete Course</span>
               <IconCircleCheck size={14} />

@@ -203,7 +203,7 @@ export function ThemeSelectorGrid({ onThemeSelected, compact = false }: ThemeSel
                     handleSelect(theme.id);
                   }}
                   className={clsx(
-                    'w-full py-2 px-3 rounded-lg text-xs font-mono font-medium transition-all active:scale-[0.98] flex items-center justify-center gap-1.5',
+                    'w-full py-2 px-3 rounded-lg text-xs font-mono font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.98] flex items-center justify-center gap-1.5',
                     isActive
                       ? 'bg-[var(--cn-primary)] text-[var(--cn-primary-text)] font-semibold shadow-xs'
                       : 'border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)]'

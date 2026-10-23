@@ -24,7 +24,7 @@ export const ThemeScenicBackdrop: React.FC = () => {
 
             {/* Grand Mosque Skyline Vector Illustration at Bottom-Right & Center */}
             <svg
-              className="absolute right-0 bottom-0 w-full max-w-4xl h-80 sm:h-96 opacity-[0.12] text-[#047857] transition-all duration-700"
+              className="absolute right-0 bottom-0 w-full max-w-4xl h-80 sm:h-96 opacity-[0.12] text-[#047857] transition-opacity duration-300 ease-out"
               viewBox="0 0 1000 400"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -130,7 +130,7 @@ export const ThemeScenicBackdrop: React.FC = () => {
 
             {/* Mt. Fuji & Japanese Garden Bridge Silhouette at Bottom */}
             <svg
-              className="absolute right-0 bottom-0 w-full max-w-3xl h-72 opacity-[0.10] text-[#EC4899] transition-all duration-700"
+              className="absolute right-0 bottom-0 w-full max-w-3xl h-72 opacity-[0.10] text-[#EC4899] transition-opacity duration-300 ease-out"
               viewBox="0 0 800 300"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -332,7 +332,7 @@ export const ThemeScenicBackdrop: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none transition-all duration-500">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none transition-opacity duration-300 ease-out">
       {/* 1. Underlying Scenic Art Layer */}
       {renderScenicIllustration()}
 

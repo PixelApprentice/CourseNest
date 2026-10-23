@@ -86,7 +86,7 @@ export function LibraryPage() {
 
         <Link
           to="/import"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors self-start md:self-auto shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 self-start md:self-auto shadow-sm"
         >
           <IconUpload size={15} />
           <span>Add Course Materials</span>
@@ -103,7 +103,7 @@ export function LibraryPage() {
             placeholder="Search by title, subject, or instructor..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] placeholder-[var(--cn-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)] transition-all font-mono"
+            className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] placeholder-[var(--cn-text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)] transition-[border-color,box-shadow] duration-150 ease-out font-mono"
           />
         </div>
 
@@ -114,7 +114,7 @@ export function LibraryPage() {
               <button
                 key={filterKey}
                 onClick={() => setActiveFilter(filterKey)}
-                className={`px-3 py-1 rounded-md font-medium capitalize transition-colors ${
+                className={`px-3 py-1 rounded-md font-medium capitalize transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 ${
                   activeFilter === filterKey
                     ? 'bg-[var(--cn-surface)] text-[var(--cn-primary)] shadow-xs font-semibold'
                     : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)]'
@@ -142,7 +142,7 @@ export function LibraryPage() {
             <button
               onClick={() => setViewMode('grid')}
               aria-label="Grid view"
-              className={`p-2 transition-colors ${
+              className={`p-2 transition-[background-color,color,transform] duration-150 ease-out active:scale-90 ${
                 viewMode === 'grid'
                   ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)]'
                   : 'text-[var(--cn-text-muted)] hover:bg-[var(--cn-surface)]'
@@ -153,7 +153,7 @@ export function LibraryPage() {
             <button
               onClick={() => setViewMode('list')}
               aria-label="List view"
-              className={`p-2 transition-colors ${
+              className={`p-2 transition-[background-color,color,transform] duration-150 ease-out active:scale-90 ${
                 viewMode === 'list'
                   ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)]'
                   : 'text-[var(--cn-text-muted)] hover:bg-[var(--cn-surface)]'
@@ -192,7 +192,7 @@ export function LibraryPage() {
           ) : (
             <Link
               to="/import"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
             >
               <IconUpload size={14} />
               <span>Add Course Materials</span>

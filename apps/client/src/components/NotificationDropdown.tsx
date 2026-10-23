@@ -188,7 +188,7 @@ export function NotificationDropdown() {
                           e.stopPropagation();
                           markAsRead(n.id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-primary)] hover:bg-[var(--cn-surface)] transition-all shrink-0"
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-[var(--cn-text-muted)] hover:text-[var(--cn-primary)] hover:bg-[var(--cn-surface)] transition-[color,background-color,opacity,transform] duration-150 ease-out active:scale-90 shrink-0"
                         title="Mark as read"
                       >
                         <IconCheck size={13} />

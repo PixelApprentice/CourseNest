@@ -84,7 +84,7 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
             key={index}
             type="button"
             onClick={() => onSeekTo?.(sec)}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/40 hover:bg-[var(--cn-primary)] hover:text-white font-mono text-[11px] font-bold transition-all mx-0.5 shadow-xs group cursor-pointer"
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/40 hover:bg-[var(--cn-primary)] hover:text-white font-mono text-[11px] font-bold transition-[background-color,color,border-color,transform] duration-150 ease-out active:scale-95 mx-0.5 shadow-xs group cursor-pointer"
             title={`Jump video player to ${ts}`}
           >
             <IconPlayerPlay size={10} className="group-hover:translate-x-0.5 transition-transform shrink-0" />
