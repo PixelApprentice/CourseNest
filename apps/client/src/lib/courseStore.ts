@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DEMO_COURSES } from '../fixtures/courses';
 
 export interface QuizQuestion {
   id: string;
@@ -137,78 +138,64 @@ export function transformManifest(manifest: any): CourseData {
     learningObjectives: c.learningObjectives ?? [],
     version: c.version ?? '1.0.0',
     contentFingerprint: c.contentFingerprint ?? 'sha256-local',
-    sections: (manifest.sections ?? []).map((sec: any, sIdx: number) => ({
-      id: sec.id ?? `sec-${sIdx + 1}`,
-      title: sec.title ?? `Section ${sIdx + 1}`,
-      description: sec.description,
-      position: sec.position ?? sIdx + 1,
-      estimatedDurationMinutes: sec.estimatedDurationMinutes ?? 60,
-      lessons: (sec.lessons ?? []).map((les: any, lIdx: number) => ({
-        id: les.id ?? `les-${sIdx + 1}-${lIdx + 1}`,
-        sectionId: sec.id ?? `sec-${sIdx + 1}`,
-        title: les.title ?? `Lesson ${lIdx + 1}`,
-        description: les.description,
-        position: les.position ?? lIdx + 1,
-        estimatedDurationMinutes: les.estimatedDurationMinutes ?? 30,
-        completionPolicy: les.completionPolicy ?? 'all_blocks_completed',
-        isRequired: les.isRequired ?? true,
-        blocks: (les.blocks ?? []).map((b: any, bIdx: number) => ({
-          id: b.id ?? `blk-${sIdx + 1}-${lIdx + 1}-${bIdx + 1}`,
-          type: b.type ?? 'rich_text',
-          position: b.position ?? bIdx + 1,
-          title: b.title,
-          content: b.content ?? b.displayMetadata?.content,
-          src: b.src ?? b.displayMetadata?.src,
-          durationSeconds: b.durationSeconds ?? b.displayMetadata?.durationSeconds,
-          filename: b.filename ?? b.displayMetadata?.filename,
-          fileSizeBytes: b.fileSizeBytes ?? b.displayMetadata?.fileSizeBytes,
-          mimeType: b.mimeType,
-          language: b.language,
-          code: b.code,
-        })),
-        quiz: les.quiz ?? (les.id === 'les-1-2' ? {
-          id: 'quiz-os-concurrency',
-          title: 'Concurrency & Deadlock Checkpoint Assessment',
-          passingScorePercent: 70,
-          questions: [
-            {
-              id: 'q1',
-              prompt: 'Which of the following is NOT one of the four necessary Coffman conditions for a deadlock?',
-              options: [
-                { id: 'o1', text: 'Mutual Exclusion', isCorrect: false },
-                { id: 'o2', text: 'Hold and Wait', isCorrect: false },
-                { id: 'o3', text: 'Preemptive Resource Deallocation', isCorrect: true },
-                { id: 'o4', text: 'Circular Wait', isCorrect: false },
-              ],
-              explanation: 'Preemption breaks deadlock. The 4 conditions are Mutual Exclusion, Hold & Wait, No Preemption, and Circular Wait.',
-            },
-            {
-              id: 'q2',
-              prompt: 'True or False: A mutex lock allows multiple threads to access a critical section concurrently as long as they are read-only.',
-              options: [
-                { id: 'o2_1', text: 'True', isCorrect: false },
-                { id: 'o2_2', text: 'False', isCorrect: true },
-              ],
-              explanation: 'A mutex enforces mutual exclusion for a single owner. A Reader-Writer lock (shared mutex) is needed for concurrent read-only access.',
-            },
-            {
-              id: 'q3',
-              prompt: 'What happens when a thread attempts to acquire a spinlock that is already held on a single-core uniprocessor machine?',
-              options: [
-                { id: 'o3_1', text: 'It wastes CPU cycles in a tight loop until context switched', isCorrect: true },
-                { id: 'o3_2', text: 'It instantly awakens the holding thread', isCorrect: false },
-                { id: 'o3_3', text: 'The OS kernel automatically promotes the thread to kernel mode', isCorrect: false },
-              ],
-              explanation: 'On a single core, spinning wastes cycles because the holding thread cannot run to release the lock until a timer interrupt switches context.',
-            },
-          ],
-        } : undefined),
-      })),
-    })),
-    addedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    sections: (manifest.sections ?? []).map((secWrap: any, sIdx: number) => {
+      const sec = secWrap.section ?? secWrap;
+      const rawLessons = secWrap.lessons ?? sec.lessons ?? [];
+      return {
+        id: sec.id ?? `sec-${sIdx + 1}`,
+        title: sec.title ?? `Section ${sIdx + 1}`,
+        description: sec.description,
+        position: sec.position ?? sIdx + 1,
+        estimatedDurationMinutes: sec.estimatedDurationMinutes ?? 60,
+        lessons: rawLessons.map((lesWrap: any, lIdx: number) => {
+          const les = lesWrap.lesson ?? lesWrap;
+          const rawBlocks = lesWrap.blocks ?? les.blocks ?? [];
+          const act = lesWrap.activity ?? les.activity;
+          return {
+            id: les.id ?? `les-${sIdx + 1}-${lIdx + 1}`,
+            sectionId: sec.id ?? `sec-${sIdx + 1}`,
+            title: les.title ?? `Lesson ${lIdx + 1}`,
+            description: les.description,
+            position: les.position ?? lIdx + 1,
+            estimatedDurationMinutes: les.estimatedDurationMinutes ?? 30,
+            completionPolicy: les.completionPolicy ?? 'all_blocks_completed',
+            isRequired: les.isRequired ?? true,
+            blocks: rawBlocks.map((b: any, bIdx: number) => ({
+              id: b.id ?? `blk-${sIdx + 1}-${lIdx + 1}-${bIdx + 1}`,
+              type: b.type ?? 'rich_text',
+              position: b.position ?? bIdx + 1,
+              title: b.title ?? b.displayMetadata?.title,
+              content: b.content ?? b.displayMetadata?.content,
+              src: b.src ?? b.displayMetadata?.src,
+              durationSeconds: b.durationSeconds ?? b.displayMetadata?.durationSeconds,
+              filename: b.filename ?? b.displayMetadata?.filename,
+              fileSizeBytes: b.fileSizeBytes ?? b.displayMetadata?.fileSizeBytes,
+              mimeType: b.mimeType ?? b.displayMetadata?.mimeType,
+              language: b.language,
+              code: b.code,
+            })),
+            quiz: act && act.type === 'quiz' ? {
+              id: act.id,
+              title: act.title,
+              passingScorePercent: act.passingScore || 70,
+              questions: (act.questions || []).map((q: any) => ({
+                id: q.id,
+                prompt: q.text || q.prompt,
+                options: q.options || [],
+                explanation: q.explanation,
+              })),
+            } : les.quiz,
+          };
+        }),
+      };
+    }),
+    addedAt: c.createdAt || new Date().toISOString(),
+    updatedAt: c.updatedAt || new Date().toISOString(),
   };
 }
+
+// Pre-bundled university courses available immediately out of the box
+export const DEFAULT_PREBUNDLED_COURSES: CourseData[] = DEMO_COURSES.map(transformManifest);
 
 // -----------------------------------------------------------------------------
 // Core Vault Ingestion & Retrieval
@@ -218,7 +205,7 @@ export function getVaultCourses(): CourseData[] {
     const raw = localStorage.getItem(VAULT_COURSES_KEY);
     if (raw) {
       const parsed: CourseData[] = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         return parsed;
       }
     }
@@ -226,7 +213,7 @@ export function getVaultCourses(): CourseData[] {
     console.warn('Could not read vault storage:', err);
   }
 
-  return [];
+  return DEFAULT_PREBUNDLED_COURSES;
 }
 
 export function saveVaultCourses(courses: CourseData[]): void {
