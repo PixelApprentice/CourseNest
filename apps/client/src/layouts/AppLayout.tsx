@@ -81,7 +81,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             {/* Quick search button */}
             <Link
               to="/library"
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors"
+              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
               title="Search courses"
               aria-label="Search courses"
             >
@@ -95,7 +95,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <button
               data-testid="theme-studio-btn"
               onClick={() => setIsThemeModalOpen(true)}
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors relative"
+              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90 relative"
               title="Open Theme & Aesthetic Studio"
               aria-label="Open Theme & Aesthetic Studio"
             >
@@ -105,7 +105,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             {/* Quick Dark/Light Toggle */}
             <button
               onClick={toggleQuickDark}
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors"
+              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
               title={currentTheme.isDark ? 'Switch to daylight reading' : 'Switch to dark focus'}
               aria-label="Toggle color theme"
             >

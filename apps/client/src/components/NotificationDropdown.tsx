@@ -71,7 +71,7 @@ export function NotificationDropdown() {
       {/* Bell Trigger Button */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors"
+        className="relative p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95"
         title="Notifications"
         aria-label="View notifications"
       >
@@ -85,7 +85,7 @@ export function NotificationDropdown() {
 
       {/* Flyout Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150 ease-out origin-top-right">
           {/* Header */}
           <div className="px-4 py-3 border-b border-[var(--cn-border)] flex items-center justify-between bg-[var(--cn-surface-subtle)]/50">
             <div className="flex items-center gap-2">

@@ -39,7 +39,7 @@ export function CourseCard({
 
   return (
     <div
-      className={`group relative rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-border-highlight)] transition-all duration-200 overflow-hidden flex ${
+      className={`group relative rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-border-highlight)] transition-[border-color,box-shadow,transform] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden flex ${
         viewMode === 'list' ? 'flex-row items-center p-5 gap-6' : 'flex-col'
       }`}
     >
@@ -141,7 +141,7 @@ export function CourseCard({
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
           <Link
             to={lastLessonId ? `/course/${course.id}/lesson/${lastLessonId}` : `/course/${course.id}`}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
           >
             <IconPlayerPlay size={13} />
             <span>{progressPercent > 0 ? 'Resume' : 'Start'}</span>

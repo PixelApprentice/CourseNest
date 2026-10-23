@@ -79,7 +79,7 @@ export function ThemeSelectorGrid({ onThemeSelected, compact = false }: ThemeSel
               data-category-id={tab.id}
               onClick={() => setSelectedCategory(tab.id)}
               className={clsx(
-                'px-3 py-1.5 rounded-lg text-xs font-mono font-medium whitespace-nowrap transition-all',
+                'px-3 py-1.5 rounded-lg text-xs font-mono font-medium whitespace-nowrap transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95',
                 selectedCategory === tab.id
                   ? 'bg-[var(--cn-primary)] text-[var(--cn-primary-text)] font-semibold shadow-xs'
                   : 'bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-hover)] hover:text-[var(--cn-text-primary)] border border-transparent'
@@ -102,7 +102,7 @@ export function ThemeSelectorGrid({ onThemeSelected, compact = false }: ThemeSel
               data-theme-id={theme.id}
               onClick={() => handleSelect(theme.id)}
               className={clsx(
-                'group relative rounded-2xl border p-5 cursor-pointer transition-all duration-200 flex flex-col justify-between overflow-hidden',
+                'group relative rounded-2xl border p-5 cursor-pointer transition-[border-color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.98] flex flex-col justify-between overflow-hidden select-none',
                 isActive
                   ? 'border-[var(--cn-primary)] bg-[var(--cn-surface)] shadow-md ring-2 ring-[var(--cn-primary)]/20'
                   : 'border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-border)]/80 hover:bg-[var(--cn-surface-subtle)] hover:shadow-xs'

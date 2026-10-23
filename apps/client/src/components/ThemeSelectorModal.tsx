@@ -32,7 +32,7 @@ export function ThemeSelectorModal({ isOpen, onClose }: ThemeSelectorModalProps)
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-3xl border border-[var(--cn-border)] bg-[var(--cn-surface)] shadow-2xl overflow-hidden"
+        className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-3xl border border-[var(--cn-border)] bg-[var(--cn-surface)] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 ease-out"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -59,7 +59,7 @@ export function ThemeSelectorModal({ isOpen, onClose }: ThemeSelectorModalProps)
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] border border-transparent hover:border-[var(--cn-border)] transition-colors"
+            className="p-2 rounded-xl text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
             title="Close theme studio"
             aria-label="Close theme studio"
           >

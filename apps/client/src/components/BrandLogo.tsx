@@ -184,7 +184,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           className={`font-extrabold tracking-tight text-[var(--cn-text-primary)] transition-colors duration-200 ${titleSizes[size]}`}
           style={{ fontFamily: currentTheme.fonts.display }}
         >
-          Course<span style={{ color: currentTheme.palette.primary }}>Nest</span>
+          CourseNest
         </span>
         {showBadge && (
           <span 

@@ -40,7 +40,7 @@ export function Sidebar() {
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `group relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all ${
+              `group relative flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs font-medium transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.98] ${
                 isActive
                   ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-semibold shadow-xs'
                   : 'text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)]'

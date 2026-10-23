@@ -349,7 +349,7 @@ export function LessonPlayerPage() {
           {/* Completion checkmark */}
           <button
             onClick={handleToggleCompletion}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
               isCompleted
                 ? 'bg-[var(--cn-success-tint)] text-[var(--cn-success)] border-[var(--cn-success)]/40'
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
@@ -363,7 +363,7 @@ export function LessonPlayerPage() {
           <button
             onClick={() => setActiveSidePanel(activeSidePanel === 'bookmarks' ? 'none' : 'bookmarks')}
             title="Lesson Bookmarks"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
               activeSidePanel === 'bookmarks'
                 ? 'bg-[var(--cn-accent)]/15 text-[var(--cn-accent)] border-[var(--cn-accent)]/40 font-semibold'
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
@@ -382,7 +382,7 @@ export function LessonPlayerPage() {
           <button
             onClick={() => setActiveSidePanel(activeSidePanel === 'notes' ? 'none' : 'notes')}
             title="Lesson Notes"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
               activeSidePanel === 'notes'
                 ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40 font-semibold'
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
@@ -396,7 +396,7 @@ export function LessonPlayerPage() {
           <button
             onClick={() => setActiveSidePanel(activeSidePanel === 'ai-tutor' ? 'none' : 'ai-tutor')}
             title="AI Reading Companion & Handout Tutor"
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-mono transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
               activeSidePanel === 'ai-tutor'
                 ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40 font-semibold'
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
@@ -410,7 +410,7 @@ export function LessonPlayerPage() {
           <button
             onClick={() => setActiveSidePanel(activeSidePanel === 'curriculum' ? 'none' : 'curriculum')}
             title="Curriculum Outline"
-            className={`p-2 rounded-lg border text-xs transition-colors ${
+            className={`p-2 rounded-lg border text-xs transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
               activeSidePanel === 'curriculum'
                 ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40'
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
