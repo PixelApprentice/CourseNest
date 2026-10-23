@@ -40,6 +40,14 @@ CourseNest features a **built-in 9-theme design studio** with bespoke typography
 | :---: | :---: |
 | ![Home Dashboard](docs/screenshots/01_home_dashboard.png) | ![Import Wizard](docs/screenshots/05_import_wizard.png) |
 
+| Lesson Player & Syntax Code Viewer | In-App Mini Window Documentation Viewer |
+| :---: | :---: |
+| ![Lesson Player](docs/screenshots/04_lesson_player.png) | ![Mini Window](docs/screenshots/04b_mini_window_link.png) |
+
+| Unit Complete & "Next Lesson" Flow | Local AI Study Buddy (Offline Timestamps) |
+| :---: | :---: |
+| ![Unit Complete](docs/screenshots/04c_unit_complete_next.png) | ![Local AI Buddy](docs/screenshots/04d_local_ai_study_buddy.png) |
+
 | Course Dossier & Inline Title Editor | Storage Purge Confirmation Modal |
 | :---: | :---: |
 | ![Course Landing](docs/screenshots/03_course_landing.png) | ![Delete Purge Modal](docs/screenshots/03b_delete_purge_modal.png) |
@@ -77,6 +85,9 @@ The user interface follows strict design engineering standards:
 * **Speech Presence Clarity Equalizer**: A dedicated Biquad bandpass boost (+6dB @ 2.5kHz) brings vocal frequencies to the foreground over background room echo.
 * **Frame-by-Frame Stepper**: Step backward or forward by exactly 1/30th of a second for technical diagrams or code walkthroughs.
 * **A-B Looping**: Set custom loop markers to repeat difficult lecture segments continuously.
+* **Full-Width Mouse Wheel Scroll**: Unified scroll pipeline across 100% of the viewport width—smooth scrolling remains completely fluid whether hovering over video margins, controls, or code blocks.
+* **Picture-in-Picture (PiP) & Mini-Window**: Seamless floating video playback while continuing to read course texts and lecture materials.
+* **Auto-Completion & "Next Lesson" Flow**: Automatically marks units as complete when a lecture video finishes, prompting the student with an intuitive celebratory card to advance to the next unit with a single click or keyboard shortcut.
 * **External `vlc://` Protocol Bridge**: One-click stream handoff to desktop VLC Media Player.
 
 ### 3. Decoupled Media Tier & Storage Disconnection Resilience
@@ -108,10 +119,16 @@ CourseNest operates with an **air-gapped, zero-cloud architecture**. Decompresse
 * **Atomic Staging & Rollback**: Ingestion executes inside a temporary staging sandbox. If any validation fails, partial state is automatically rolled back to prevent corrupting the local vault.
 * **Untrusted Code Sandboxing**: Ingested `.html`, `.js`, `.py`, or `.sh` files are parsed strictly as plain text within an inert preview pane—preventing arbitrary local code execution.
 
-### 5. Optional Bring-Your-Own-API (BYO-API) Companion
-* **The "Offline-First + AI" Hybrid Model**: Running heavy local LLMs would freeze older laptops and exhaust RAM. CourseNest solves this by keeping the entire learning core 100% offline, while offering an **optional cloud/LAN AI assistant**.
-* **Bring-Your-Own-API**: When online or on a school campus network, students can connect their own **Google Gemini Pro** API key or point to a school **OmniRoute / OpenAI-compatible** gateway.
-* **Air-Gap Graceful Degradation**: If disconnected from the internet or if no API key is set, 100% of video, PDF, quiz, and note features remain fully accessible without errors.
+### 5. Local AI Study Buddy & Optional BYO-API Companion
+* **The "Offline-First + AI" Hybrid Model**: CourseNest bridges local privacy and AI assistance without requiring cloud lock-in:
+  - **100% Offline Heuristics Engine**: Operates completely offline with **zero API keys and zero internet connection**. It extracts lecture transcripts, parses speech timestamps `[mm:ss]`, generates structured topic summaries, captures key definitions, and generates self-test comprehension questions directly from local course content.
+  - **Local Ollama Integration**: Connects directly to local offline LLMs running on your machine (e.g. `http://localhost:11434` / `127.0.0.1` with Llama 3, Mistral, or Qwen) with zero telemetry and automatic loopback exemption.
+  - **Bring-Your-Own-API (BYO-API)**: When connected to campus or home internet, students can connect **Google Gemini Pro** or any **OpenAI-compatible / OmniRoute** gateway.
+* **Air-Gap Resilience**: If disconnected or if no API key is present, the app gracefully switches to the Offline Heuristic Companion—never throwing modal errors or blocking study progress.
+
+### 6. Interactive Developer & Reference Suite
+* **Syntax-Highlighted Code Block Viewer**: Built-in dark terminal chrome with line numbers, regex-based keyword/string/comment syntax highlighting, and tactile 1-click "Copy Code" with checkmark verification. Automatically parses inline code blocks (` ```lang ... ``` `) within course lecture notes.
+* **In-App Mini Window Documentation Viewer**: Sandboxed browser iframe modal with traffic light controls, address bar, reload button, URL copy, and expand/minimize options. Allows students to read official documentation, MDN references, and course links without switching browser tabs or desktop applications.
 
 ---
 
@@ -129,6 +146,7 @@ flowchart TD
         MAN["@coursenest/course-manifest\nPortable JSON Course Specification"]
         SQL["@coursenest/sqlite-adapter\nClean Architecture Database Repositories"]
         UI["@coursenest/ui\nTheme Studio Tokens • StatusBadges • Roadmap"]
+        MCP["@coursenest/mcp-server\nModel Context Protocol Stdio Server"]
     end
 
     subgraph Platforms["Cross-Platform Surfaces"]
@@ -138,7 +156,7 @@ flowchart TD
     end
 
     subgraph Optional["Optional Extensions"]
-        AI["AI Reading Companion\nGemini Pro • OmniRoute • Campus Proxy"]
+        AI["AI Reading Companion\nGemini Pro • Ollama • Offline Heuristics"]
         SRV["FastAPI Sync Server\nSQLite / PostgreSQL • Institutional Fleet Management"]
     end
 
@@ -148,6 +166,53 @@ flowchart TD
     Platforms <--> Storage
     Platforms -.->|When Connected| AI
     INT -.->|Optional Sync| SRV
+    MCP <--> SQL
+```
+
+---
+
+## 🔌 Model Context Protocol (MCP) Server
+
+CourseNest includes an official **Model Context Protocol (MCP) server** (`@coursenest/mcp-server`), enabling AI coding assistants, agents, and desktop companions (such as **Claude Desktop**, **Claude Web**, **Gemini CLI**, **Cursor**, or **Antigravity**) to inspect courses, explore curriculums, search transcripts, and save study notes directly through standardized JSON-RPC stdio.
+
+### ⚙️ Claude Desktop Configuration
+Add the CourseNest MCP server to your `claude_desktop_config.json`:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "coursenest": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/Korse/packages/mcp-server/dist/index.js"
+      ]
+    }
+  }
+}
+```
+
+### 🛠️ Available MCP Tools & Resources
+
+| Tool / Resource | Type | Description |
+| :--- | :--- | :--- |
+| `coursenest_list_courses` | Tool | Lists all enrolled courses in the local vault with statistics, lesson counts, and progress |
+| `coursenest_get_curriculum` | Tool | Returns the structured chapter and lesson tree for a course with lesson IDs, types, and durations |
+| `coursenest_get_lesson` | Tool | Retrieves the full lesson content, lecture notes, video URL, code blocks, and transcript for study |
+| `coursenest_search` | Tool | Performs keyword and full-text search across all enrolled courses, lecture notes, and transcripts |
+| `coursenest_save_note` | Tool | Creates or updates study notes and markdown summaries for a specific lesson |
+| `coursenest://courses` | Resource | Read-only JSON resource containing all enrolled courses and metadata |
+
+### 🧪 Running MCP Standalone
+You can run the MCP server directly via stdio:
+```bash
+# Build the MCP server
+pnpm --filter @coursenest/mcp-server build
+
+# Launch over stdio JSON-RPC
+node packages/mcp-server/dist/index.js
 ```
 
 ---
@@ -251,7 +316,10 @@ pnpm -r test
 # 2. Client TypeScript & Vite build
 pnpm --filter @coursenest/client build
 
-# 3. FastAPI pytest suite
+# 3. Model Context Protocol (MCP) server build & verification
+pnpm --filter @coursenest/mcp-server build
+
+# 4. FastAPI pytest suite
 cd apps/server && .venv/bin/pytest -v
 ```
 

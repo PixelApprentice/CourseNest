@@ -96,10 +96,52 @@ export const DEMO_COURSES: FixtureCourseData[] = [
                 schemaVersion: '1.0.0',
               },
               {
+                id: createId('blk-1-1-c1'),
+                lessonId: createId('les-1-1'),
+                type: ContentBlockType.CodeExample,
+                position: 3,
+                displayMetadata: {
+                  title: 'Cache Benchmark & L1/L2 Stride Traversal in C',
+                  filename: 'cache_stride_bench.c',
+                  language: 'c',
+                  content: `#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define KB 1024
+#define MB (1024 * KB)
+
+// Measure access latency across L1, L2, and RAM strides
+void benchmark_stride(int array_size_bytes, int stride_bytes) {
+    int count = array_size_bytes / sizeof(int);
+    int stride = stride_bytes / sizeof(int);
+    int *buffer = (int *)malloc(array_size_bytes);
+    
+    // Warm up the CPU caches
+    for (int i = 0; i < count; i += stride) {
+        buffer[i] = i * 2;
+    }
+    
+    clock_t start = clock();
+    int sum = 0;
+    for (int iter = 0; iter < 1000; iter++) {
+        for (int i = 0; i < count; i += stride) {
+            sum += buffer[i];
+        }
+    }
+    clock_t elapsed = clock() - start;
+    printf("Stride: %4d bytes | Elapsed ticks: %ld\\n", stride_bytes, elapsed);
+    free(buffer);
+}`,
+                },
+                isRequired: false,
+                schemaVersion: '1.0.0',
+              },
+              {
                 id: createId('blk-1-1-d1'),
                 lessonId: createId('les-1-1'),
                 type: ContentBlockType.Document,
-                position: 3,
+                position: 4,
                 displayMetadata: {
                   filename: 'CS101_Lecture01_Architecture_Diagrams.pdf',
                   fileSizeBytes: 3450000,
@@ -110,10 +152,26 @@ export const DEMO_COURSES: FixtureCourseData[] = [
                 schemaVersion: '1.0.0',
               },
               {
+                id: createId('blk-1-1-ref1'),
+                lessonId: createId('les-1-1'),
+                type: ContentBlockType.Download,
+                position: 5,
+                displayMetadata: {
+                  title: 'CPU Cache Hierarchy Reference & Specification',
+                  filename: 'Wikipedia CPU Cache Specification',
+                  src: 'https://en.wikipedia.org/wiki/CPU_cache',
+                  fileSizeBytes: 145000,
+                  mimeType: 'text/html',
+                  description: 'Interactive documentation reference for L1/L2/L3 cache coherence and latency.',
+                },
+                isRequired: false,
+                schemaVersion: '1.0.0',
+              },
+              {
                 id: createId('blk-1-1-dl1'),
                 lessonId: createId('les-1-1'),
                 type: ContentBlockType.Download,
-                position: 4,
+                position: 6,
                 displayMetadata: {
                   filename: 'cache_simulator_starter.tar.gz',
                   fileSizeBytes: 1820000,

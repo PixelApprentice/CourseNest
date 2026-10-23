@@ -1,0 +1,35 @@
+{
+  "name": "@coursenest/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "coursenest-mcp": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node ./dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@coursenest/config": "workspace:*",
+    "@coursenest/course-manifest": "workspace:*",
+    "@coursenest/domain": "workspace:*",
+    "@coursenest/sqlite-adapter": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.7.0"
+  }
+}

@@ -192,11 +192,9 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
 
         <div className="flex items-center gap-2">
           {hasKey && isOnline ? (
-            <StatusBadge tone="success" size="sm" label={config.provider === 'gemini' ? 'Gemini' : config.provider} showDot={true} />
-          ) : !isOnline ? (
-            <StatusBadge tone="warning" size="sm" label="Offline" showDot={true} />
+            <StatusBadge tone="success" size="sm" label={config.provider === 'gemini' ? 'Gemini Pro' : config.provider} showDot={true} />
           ) : (
-            <StatusBadge tone="neutral" size="sm" label="No Key" showDot={false} />
+            <StatusBadge tone="info" size="sm" label="Local Companion" showDot={true} />
           )}
 
           <Link

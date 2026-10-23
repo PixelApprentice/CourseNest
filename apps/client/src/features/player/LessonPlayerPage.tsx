@@ -26,6 +26,8 @@ import { getMediaBlobUrl } from '../../lib/mediaVault';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { AiReadingCompanion } from '../../components/AiReadingCompanion';
+import { CodeSnippetViewer } from '../../components/CodeSnippetViewer';
+import { MiniWindowLinkModal } from '../../components/MiniWindowLinkModal';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { sanitizeLectureHtml, formatSubtitleTranscriptForAi } from '../../lib/formatHelpers';
 import { 
@@ -75,6 +77,9 @@ export function LessonPlayerPage() {
   const [newBookmarkTitle, setNewBookmarkTitle] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
   const [aiDocContext, setAiDocContext] = useState<string | undefined>(undefined);
+
+  // In-app Mini Window URL Preview state
+  const [activeMiniUrl, setActiveMiniUrl] = useState<{ url: string; title?: string } | null>(null);
 
   // Embedded Document Reader Modal state
   const [activeDocViewer, setActiveDocViewer] = useState<{
@@ -308,16 +313,49 @@ export function LessonPlayerPage() {
 
   const isExternalDisconnected = storageConfig.volumeType === 'external' && !storageConfig.isMounted;
 
-  // Sort blocks: Video first, Rich text/HTML second, Documents third, Assets/links fourth
+  // Sort blocks: Video first, Code blocks second, Rich text/HTML third, Documents fourth, Assets/links fifth
   const typeRank: Record<string, number> = {
     video: 1,
     audio: 2,
-    rich_text: 3,
-    document: 4,
-    downloadable_asset: 5,
-    code: 6,
+    code: 3,
+    code_snippet: 3,
+    rich_text: 4,
+    document: 5,
+    downloadable_asset: 6,
   };
   const sortedBlocks = [...activeLesson.blocks].sort((a, b) => (typeRank[a.type] || 99) - (typeRank[b.type] || 99));
+
+  // Helper to render markdown code blocks inside rich text
+  const renderRichTextContent = (content: string) => {
+    if (!content.includes('```')) {
+      return (
+        <div className="prose max-w-none text-[var(--cn-text-primary)] leading-relaxed whitespace-pre-line font-sans text-sm">
+          {content}
+        </div>
+      );
+    }
+
+    const segments = content.split(/(```[\s\S]*?```)/g);
+    return (
+      <div className="space-y-3 font-sans text-sm text-[var(--cn-text-primary)] leading-relaxed">
+        {segments.map((seg, idx) => {
+          const match = seg.match(/^```([a-zA-Z0-9_-]*)\n([\s\S]*?)```$/);
+          if (match) {
+            const lang = match[1] || 'python';
+            const code = match[2] || '';
+            return (
+              <div key={idx} className="my-3">
+                <CodeSnippetViewer code={code} language={lang} />
+              </div>
+            );
+          }
+          return seg.trim() ? (
+            <p key={idx} className="whitespace-pre-line">{seg}</p>
+          ) : null;
+        })}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-[var(--cn-bg)]">
@@ -423,9 +461,10 @@ export function LessonPlayerPage() {
 
       {/* Main Workspace (Player Content + Side Rails) */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Central Lesson Content Column */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 max-w-4xl mx-auto w-full">
-          <ErrorBoundary fallbackTitle="Unable to display this lesson block">
+        {/* Central Lesson Content Column (100% width scrollable viewport - guarantees mouse wheel scrolling anywhere) */}
+        <div className="flex-1 overflow-y-auto w-full scroll-smooth select-text" id="lesson-scroll-viewport">
+          <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
+            <ErrorBoundary fallbackTitle="Unable to display this lesson block">
             {/* Ordered Content Blocks Loop */}
           {sortedBlocks.map((block: ContentBlockData) => {
             // 1. VIDEO BLOCK
@@ -486,6 +525,11 @@ export function LessonPlayerPage() {
                     title={activeLesson.title}
                     subtitles={blockSubs}
                     initialTime={getSavedPlaybackTime(activeLesson.id)}
+                    onEnded={() => {
+                      setIsCompleted(true);
+                      setLessonProgress(courseData.id, activeLesson.id, { completed: true });
+                      addLog('INFO', 'PLAYER', `Lesson completed via video finish: ${activeLesson.title}`);
+                    }}
                     onTimeUpdate={(curr) => {
                       currentTimeRef.current = curr;
                       const now = Date.now();
@@ -511,7 +555,21 @@ export function LessonPlayerPage() {
               );
             }
 
-            // 2. RICH TEXT / LECTURE NOTES / HTML BLOCK (DIRECTLY UNDER VIDEO)
+            // 2. DEDICATED CODE BLOCK
+            if (block.type === 'code_snippet' || (block.type as string) === 'code') {
+              return (
+                <div key={block.id} className="space-y-2">
+                  <CodeSnippetViewer
+                    code={block.content || ''}
+                    language={block.language || 'c'}
+                    title={block.title}
+                    filename={block.filename}
+                  />
+                </div>
+              );
+            }
+
+            // 3. RICH TEXT / LECTURE NOTES / HTML BLOCK (DIRECTLY UNDER VIDEO)
             if (block.type === 'rich_text') {
               const rawContent = block.content || '';
               const isHtml = /<[a-z][\s\S]*>/i.test(rawContent);
@@ -536,15 +594,13 @@ export function LessonPlayerPage() {
                       dangerouslySetInnerHTML={{ __html: sanitizeLectureHtml(rawContent) }}
                     />
                   ) : (
-                    <div className="prose max-w-none text-[var(--cn-text-primary)] leading-relaxed whitespace-pre-line font-sans text-sm">
-                      {rawContent}
-                    </div>
+                    renderRichTextContent(rawContent)
                   )}
                 </div>
               );
             }
 
-            // 3. DOCUMENT VIEWER / SLIDE DECK BLOCK (DIRECTLY UNDER VIDEO)
+            // 4. DOCUMENT VIEWER / SLIDE DECK BLOCK (DIRECTLY UNDER VIDEO)
             if (block.type === 'document') {
               const filename = block.filename || 'Document.pdf';
               const size = block.fileSizeBytes || 1024000;
@@ -593,7 +649,7 @@ export function LessonPlayerPage() {
               );
             }
 
-            // 4. DOWNLOADABLE ASSET OR WEB LINK (DIRECTLY UNDER VIDEO)
+            // 5. DOWNLOADABLE ASSET OR WEB LINK (DIRECTLY UNDER VIDEO)
             if (block.type === 'downloadable_asset') {
               const filename = block.filename || 'Reference Link';
               const size = block.fileSizeBytes || 0;
@@ -618,15 +674,25 @@ export function LessonPlayerPage() {
                   </div>
 
                   {isUrl ? (
-                    <a
-                      href={block.src}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-medium hover:bg-[var(--cn-primary-hover)] transition-colors"
-                    >
-                      <span>Open Link</span>
-                      <IconExternalLink size={13} />
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setActiveMiniUrl({ url: block.src!, title: block.title || filename })}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+                        title="Open in in-app mini window without leaving application"
+                      >
+                        <IconExternalLink size={13} />
+                        <span>Mini Window</span>
+                      </button>
+                      <a
+                        href={block.src}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-lg border border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface)] transition-colors"
+                        title="Open in new browser tab"
+                      >
+                        <IconExternalLink size={14} />
+                      </a>
+                    </div>
                   ) : (
                     <button
                       onClick={() => {
@@ -794,8 +860,36 @@ export function LessonPlayerPage() {
               </div>
             </div>
           )}
+
+          {/* Unit Completion / Next Action Banner */}
+          {isCompleted && (
+            <div className="p-5 rounded-2xl border border-[var(--cn-success)]/40 bg-[var(--cn-success-tint)]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[var(--cn-success)] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <IconCircleCheck size={22} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">Unit Complete! 🎉</h4>
+                  <p className="text-xs text-[var(--cn-text-secondary)] font-mono">
+                    Your progress has been saved to your local offline vault.
+                  </p>
+                </div>
+              </div>
+
+              {nextLesson && (
+                <Link
+                  to={`/course/${courseData.id}/lesson/${nextLesson.id}`}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-bold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm shrink-0"
+                >
+                  <span>Continue to Next Lesson</span>
+                  <IconChevronRight size={15} />
+                </Link>
+              )}
+            </div>
+          )}
           </ErrorBoundary>
         </div>
+      </div>
 
         {/* Side Rail 1: Personal Notes */}
         {activeSidePanel === 'notes' && (
@@ -987,6 +1081,15 @@ export function LessonPlayerPage() {
         />
       )}
 
+      {/* In-app Mini Window Link Preview */}
+      {activeMiniUrl && (
+        <MiniWindowLinkModal
+          url={activeMiniUrl.url}
+          title={activeMiniUrl.title}
+          onClose={() => setActiveMiniUrl(null)}
+        />
+      )}
+
       {/* Bottom Sticky Lesson Navigation */}
       <footer className="h-16 px-6 border-t border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0">
         <div>
@@ -1011,6 +1114,12 @@ export function LessonPlayerPage() {
           {nextLesson ? (
             <Link
               to={`/course/${courseData.id}/lesson/${nextLesson.id}`}
+              onClick={() => {
+                if (!isCompleted) {
+                  setIsCompleted(true);
+                  setLessonProgress(courseData.id, activeLesson.id, { completed: true });
+                }
+              }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
             >
               <span>Next Unit</span>
@@ -1019,6 +1128,12 @@ export function LessonPlayerPage() {
           ) : (
             <Link
               to={`/course/${courseData.id}`}
+              onClick={() => {
+                if (!isCompleted) {
+                  setIsCompleted(true);
+                  setLessonProgress(courseData.id, activeLesson.id, { completed: true });
+                }
+              }}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-success)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-success)]/90 transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
             >
               <span>Complete Course</span>

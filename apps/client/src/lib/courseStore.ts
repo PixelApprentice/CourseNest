@@ -161,20 +161,30 @@ export function transformManifest(manifest: any): CourseData {
             estimatedDurationMinutes: les.estimatedDurationMinutes ?? 30,
             completionPolicy: les.completionPolicy ?? 'all_blocks_completed',
             isRequired: les.isRequired ?? true,
-            blocks: rawBlocks.map((b: any, bIdx: number) => ({
-              id: b.id ?? `blk-${sIdx + 1}-${lIdx + 1}-${bIdx + 1}`,
-              type: b.type ?? 'rich_text',
-              position: b.position ?? bIdx + 1,
-              title: b.title ?? b.displayMetadata?.title,
-              content: b.content ?? b.displayMetadata?.content,
-              src: b.src ?? b.displayMetadata?.src,
-              durationSeconds: b.durationSeconds ?? b.displayMetadata?.durationSeconds,
-              filename: b.filename ?? b.displayMetadata?.filename,
-              fileSizeBytes: b.fileSizeBytes ?? b.displayMetadata?.fileSizeBytes,
-              mimeType: b.mimeType ?? b.displayMetadata?.mimeType,
-              language: b.language,
-              code: b.code,
-            })),
+            blocks: rawBlocks.map((b: any, bIdx: number) => {
+              const rawType = b.type ?? 'rich_text';
+              const normalizedType = 
+                (rawType === 'code_example' || rawType === 'coding_activity' || rawType === 'code')
+                  ? 'code_snippet'
+                  : (rawType === 'download' || rawType === 'external_link')
+                  ? 'downloadable_asset'
+                  : rawType;
+
+              return {
+                id: b.id ?? `blk-${sIdx + 1}-${lIdx + 1}-${bIdx + 1}`,
+                type: normalizedType,
+                position: b.position ?? bIdx + 1,
+                title: b.title ?? b.displayMetadata?.title,
+                content: b.content ?? b.displayMetadata?.content,
+                src: b.src ?? b.displayMetadata?.src,
+                durationSeconds: b.durationSeconds ?? b.displayMetadata?.durationSeconds,
+                filename: b.filename ?? b.displayMetadata?.filename,
+                fileSizeBytes: b.fileSizeBytes ?? b.displayMetadata?.fileSizeBytes,
+                mimeType: b.mimeType ?? b.displayMetadata?.mimeType,
+                language: b.language ?? b.displayMetadata?.language,
+                code: b.code ?? b.content ?? b.displayMetadata?.content,
+              };
+            }),
             quiz: act && act.type === 'quiz' ? {
               id: act.id,
               title: act.title,

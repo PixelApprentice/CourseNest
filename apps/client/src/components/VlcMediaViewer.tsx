@@ -30,6 +30,7 @@ interface VlcMediaViewerProps {
   subtitles?: SubtitleTrack[];
   isAudio?: boolean;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
+  onEnded?: () => void;
   initialTime?: number;
   className?: string;
 }
@@ -40,6 +41,7 @@ export function VlcMediaViewer({
   subtitles = [],
   isAudio = false,
   onTimeUpdate,
+  onEnded,
   initialTime = 0,
   className = '',
 }: VlcMediaViewerProps) {
@@ -341,6 +343,7 @@ export function VlcMediaViewer({
           onLoadedMetadata={handleLoadedMetadata}
           onPlay={() => setIsPlaying(true)}
           onPause={() => setIsPlaying(false)}
+          onEnded={onEnded}
         />
 
         <div className="flex items-center gap-4">
@@ -457,6 +460,7 @@ export function VlcMediaViewer({
         onLoadedMetadata={handleLoadedMetadata}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
+        onEnded={onEnded}
       >
         {subtitles.map((sub, idx) => (
           <track

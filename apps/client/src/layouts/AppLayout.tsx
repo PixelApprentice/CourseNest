@@ -48,6 +48,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   };
 
   const context = getPageContext();
+  const isLessonPlayerPage = location.pathname.includes('/lesson/');
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased relative">
@@ -63,64 +64,67 @@ export function AppLayout({ children }: AppLayoutProps) {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header Bar */}
-        <header className="h-16 px-6 border-b border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="md:hidden">
-              <BrandLogo size="sm" showBadge={false} />
+        {/* Top Header Bar (Hidden on Lesson Player to prevent double header stacking) */}
+        {!isLessonPlayerPage && (
+          <header className="h-16 px-6 border-b border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="md:hidden">
+                <BrandLogo size="sm" showBadge={false} />
+              </div>
+
+              <div className="hidden md:flex items-center gap-2 text-xs text-[var(--cn-text-muted)] font-mono">
+                <span>{context.section}</span>
+                <span>/</span>
+                <span className="font-sans font-semibold text-[var(--cn-text-primary)] text-sm">{context.title}</span>
+              </div>
             </div>
 
-            <div className="hidden md:flex items-center gap-2 text-xs text-[var(--cn-text-muted)] font-mono">
-              <span>{context.section}</span>
-              <span>/</span>
-              <span className="font-sans font-semibold text-[var(--cn-text-primary)] text-sm">{context.title}</span>
+            <div className="flex items-center gap-3">
+              {/* Quick search button */}
+              <Link
+                to="/library"
+                className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
+                title="Search courses"
+                aria-label="Search courses"
+              >
+                <IconSearch size={16} />
+              </Link>
+
+              {/* Notification Center */}
+              <NotificationDropdown />
+
+              {/* Theme & Aesthetic Studio Trigger */}
+              <button
+                data-testid="theme-studio-btn"
+                onClick={() => setIsThemeModalOpen(true)}
+                className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90 relative"
+                title="Open Theme & Aesthetic Studio"
+                aria-label="Open Theme & Aesthetic Studio"
+              >
+                <IconPalette size={16} />
+              </button>
+
+              {/* Quick Dark/Light Toggle */}
+              <button
+                onClick={toggleQuickDark}
+                className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
+                title={currentTheme.isDark ? 'Switch to daylight reading' : 'Switch to dark focus'}
+                aria-label="Toggle color theme"
+              >
+                {currentTheme.isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+              </button>
             </div>
-          </div>
+          </header>
+        )}
 
-          <div className="flex items-center gap-3">
-            {/* Quick search button */}
-            <Link
-              to="/library"
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
-              title="Search courses"
-              aria-label="Search courses"
-            >
-              <IconSearch size={16} />
-            </Link>
-
-            {/* Notification Center */}
-            <NotificationDropdown />
-
-            {/* Theme & Aesthetic Studio Trigger */}
-            <button
-              data-testid="theme-studio-btn"
-              onClick={() => setIsThemeModalOpen(true)}
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90 relative"
-              title="Open Theme & Aesthetic Studio"
-              aria-label="Open Theme & Aesthetic Studio"
-            >
-              <IconPalette size={16} />
-            </button>
-
-            {/* Quick Dark/Light Toggle */}
-            <button
-              onClick={toggleQuickDark}
-              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
-              title={currentTheme.isDark ? 'Switch to daylight reading' : 'Switch to dark focus'}
-              aria-label="Toggle color theme"
-            >
-              {currentTheme.isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
-            </button>
-          </div>
-        </header>
-
-        {/* Scrollable Main Region */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
+        {/* Scrollable Main Region (Dedicated single scroll context for Lesson Player) */}
+        <main className={`flex-1 ${isLessonPlayerPage ? 'overflow-hidden' : 'overflow-y-auto pb-16 md:pb-0'}`}>
           {children}
         </main>
 
-        {/* Mobile bottom navigation bar */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--cn-surface)] border-t border-[var(--cn-border)] flex items-center justify-around z-30">
+        {/* Mobile bottom navigation bar (Hidden on Lesson Player) */}
+        {!isLessonPlayerPage && (
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--cn-surface)] border-t border-[var(--cn-border)] flex items-center justify-around z-30">
           <Link
             to="/"
             className={`flex flex-col items-center gap-1 text-[11px] ${
@@ -158,6 +162,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             Settings
           </Link>
         </nav>
+        )}
       </div>
     </div>
   );
