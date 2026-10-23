@@ -427,6 +427,26 @@ export function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      setAiProvider('deepseek');
+                      setAiBaseUrl('https://api.deepseek.com');
+                      setAiModelName('deepseek-chat');
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-colors ${
+                      aiProvider === 'deepseek'
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center justify-between">
+                      <span>DeepSeek (Official API)</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/20 text-blue-400 font-mono">V3 & R1</span>
+                    </div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">deepseek-chat & deepseek-reasoner (https://api.deepseek.com)</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
                       setAiProvider('omniroute');
                       setAiBaseUrl('https://tokenharbor.ai/v1');
                       setAiModelName('deepseek-v4-flash:free');
@@ -490,7 +510,11 @@ export function SettingsPage() {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-[var(--cn-text-secondary)]">
-                    {aiProvider === 'gemini' ? 'Gemini API Key' : 'Proxy / Gateway API Key (Optional)'}
+                    {aiProvider === 'gemini' 
+                      ? 'Gemini API Key' 
+                      : aiProvider === 'deepseek'
+                        ? 'DeepSeek API Key (sk-...)'
+                        : 'Proxy / Gateway API Key (Optional)'}
                   </label>
                   {aiProvider === 'gemini' && (
                     <a
@@ -500,6 +524,16 @@ export function SettingsPage() {
                       className="text-[11px] text-[var(--cn-primary)] underline"
                     >
                       Get free Gemini API key &rarr;
+                    </a>
+                  )}
+                  {aiProvider === 'deepseek' && (
+                    <a
+                      href="https://platform.deepseek.com/api_keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-[var(--cn-primary)] underline"
+                    >
+                      Get DeepSeek API key &rarr;
                     </a>
                   )}
                 </div>

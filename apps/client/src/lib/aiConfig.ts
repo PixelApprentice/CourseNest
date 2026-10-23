@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { addLog } from './logger';
 
-export type AiProvider = 'gemini' | 'openai-compatible' | 'omniroute' | 'ollama';
+export type AiProvider = 'gemini' | 'deepseek' | 'openai-compatible' | 'omniroute' | 'ollama';
 
 export interface AiConfig {
   isEnabled: boolean;
@@ -256,9 +256,17 @@ ${payload.question}`;
 
       return { success: true, text: answer };
     } else {
-      // OpenAI-compatible or OmniRoute endpoint
-      const baseUrl = config.baseUrl.trim().replace(/\/+$/, '') || 'https://api.openai.com/v1';
-      const endpoint = `${baseUrl}/chat/completions`;
+      // DeepSeek, OpenAI-compatible, or OmniRoute endpoint
+      let defaultBaseUrl = 'https://api.openai.com/v1';
+      let defaultModel = 'gpt-4o-mini';
+
+      if (config.provider === 'deepseek') {
+        defaultBaseUrl = 'https://api.deepseek.com';
+        defaultModel = 'deepseek-chat';
+      }
+
+      const rawBase = config.baseUrl.trim().replace(/\/+$/, '') || defaultBaseUrl;
+      const endpoint = rawBase.endsWith('/chat/completions') ? rawBase : `${rawBase}/chat/completions`;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -271,7 +279,7 @@ ${payload.question}`;
         method: 'POST',
         headers,
         body: JSON.stringify({
-          model: config.modelName || 'gpt-4o-mini',
+          model: config.modelName || defaultModel,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },

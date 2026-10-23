@@ -11,12 +11,15 @@ import {
   IconSettings, 
   IconCpu,
   IconBadgeCc,
-  IconPlayerPlay
+  IconPlayerPlay,
+  IconVolume,
+  IconVolumeOff
 } from '@tabler/icons-react';
 import { useAiConfig, askAiAssistant, type AiQueryPayload } from '../lib/aiConfig';
 import { saveUserNote, getUserNotes } from '../lib/courseStore';
 import { addLog } from '../lib/logger';
 import { timestampToSeconds } from '../lib/formatHelpers';
+import { useAudible } from '../lib/audibleSuite';
 import { StatusBadge } from './StatusBadge';
 import clsx from 'clsx';
 
@@ -66,6 +69,8 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [savedNoteId, setSavedNoteId] = useState<string | null>(null);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const { speak, stop, isSpeaking } = useAudible();
 
   const isOnline = navigator.onLine;
   const hasKey = Boolean(config.apiKey) || config.provider === 'omniroute';
@@ -286,6 +291,32 @@ I can analyze reading materials for **${lessonTitle || 'this lesson'}**, answer 
 
               {m.sender === 'assistant' && !m.error && (
                 <>
+                  <button
+                    onClick={() => {
+                      if (speakingMessageId === m.id && isSpeaking) {
+                        stop();
+                        setSpeakingMessageId(null);
+                      } else {
+                        setSpeakingMessageId(m.id);
+                        speak(m.text);
+                      }
+                    }}
+                    className="hover:text-[var(--cn-primary)] flex items-center gap-0.5 transition-colors"
+                    title={speakingMessageId === m.id && isSpeaking ? 'Stop narration' : 'Listen aloud (Audible TTS)'}
+                  >
+                    {speakingMessageId === m.id && isSpeaking ? (
+                      <>
+                        <IconVolumeOff size={11} className="text-[var(--cn-primary)] animate-pulse" />
+                        <span className="text-[var(--cn-primary)] font-bold">Stop</span>
+                      </>
+                    ) : (
+                      <>
+                        <IconVolume size={11} />
+                        <span>Listen</span>
+                      </>
+                    )}
+                  </button>
+
                   <button
                     onClick={() => handleCopy(m.id, m.text)}
                     className="hover:text-[var(--cn-text-primary)] flex items-center gap-0.5 transition-colors"

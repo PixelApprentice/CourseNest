@@ -449,6 +449,19 @@ async function runAllScenarios() {
         }
       }
 
+      // Audible TTS Lecture Narration Player
+      const audibleBar = page.locator('text=Audible Narration');
+      if ((await audibleBar.count()) > 0) {
+        recordPass('Audible Lecture Narration Bar rendered with Web Speech synthesis');
+        const playTtsBtn = page.locator('button[title*="Listen Aloud (Audible TTS)" i]');
+        if ((await playTtsBtn.count()) > 0) {
+          await playTtsBtn.first().click();
+          await page.waitForTimeout(400);
+          recordPass('Audible lecture read-aloud playback triggered');
+        }
+        await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06h_lesson_audible_narration.png') });
+      }
+
       // Unit Complete Banner & Next Progression
       const markDoneBtn = page.locator('button:has-text("Mark Done")');
       if ((await markDoneBtn.count()) > 0) {
@@ -528,7 +541,14 @@ async function runAllScenarios() {
       await page.screenshot({ path: path.join(SCREENSHOT_DIR, '07c_settings_storage_backup.png') });
       recordPass('Storage & safety backup screenshot captured (07c_settings_storage_backup.png)');
 
-      // AI Provider Selection & Free Cloud AI
+      // AI Provider Selection: Test DeepSeek Official Card & TokenHarbor
+      const deepseekCard = page.locator('button:has-text("DeepSeek (Official API)")');
+      if ((await deepseekCard.count()) > 0) {
+        await deepseekCard.first().click();
+        await page.waitForTimeout(300);
+        recordPass('Selected DeepSeek (Official API) provider preset');
+      }
+
       const freeAiCard = page.locator('button:has-text("Free Cloud AI (TokenHarbor)")');
       if ((await freeAiCard.count()) > 0) {
         await freeAiCard.first().click();

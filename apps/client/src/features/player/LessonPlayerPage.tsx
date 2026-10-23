@@ -28,6 +28,8 @@ import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { AiReadingCompanion } from '../../components/AiReadingCompanion';
 import { CodeSnippetViewer } from '../../components/CodeSnippetViewer';
 import { MiniWindowLinkModal } from '../../components/MiniWindowLinkModal';
+import { AudibleLectureBar } from '../../components/AudibleLectureBar';
+import { playAudibleChime } from '../../lib/audibleSuite';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { sanitizeLectureHtml, formatSubtitleTranscriptForAi } from '../../lib/formatHelpers';
 import { 
@@ -98,6 +100,20 @@ export function LessonPlayerPage() {
   const currentTimeRef = useRef(0);
   const lastSavedTimeRef = useRef(0);
   const lastUiUpdateRef = useRef(0);
+
+  // Lesson Readable Text for Audible Text-to-Speech Narration
+  const lessonTextContent = useMemo(() => {
+    if (!activeLesson) return '';
+    const parts: string[] = [activeLesson.title];
+    if (activeLesson.description) parts.push(activeLesson.description);
+    for (const b of activeLesson.blocks) {
+      if (b.type !== 'video') {
+        if (b.title) parts.push(b.title);
+        if (b.content) parts.push(b.content);
+      }
+    }
+    return parts.join('\n\n');
+  }, [activeLesson]);
 
   // Quiz state
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
@@ -226,6 +242,7 @@ export function LessonPlayerPage() {
     const nextState = !isCompleted;
     setIsCompleted(nextState);
     setLessonProgress(courseData.id, activeLesson.id, { completed: nextState });
+    playAudibleChime(nextState ? 'complete' : 'click');
     addLog(
       'INFO',
       'PLAYER',
@@ -267,6 +284,7 @@ export function LessonPlayerPage() {
 
     const activeSec = currentTimeRef.current || currentTime;
     addBookmark(activeLesson.id, Math.floor(activeSec), newBookmarkTitle.trim());
+    playAudibleChime('bookmark');
 
     setNewBookmarkTitle('');
   };
@@ -295,6 +313,9 @@ export function LessonPlayerPage() {
     if (passed) {
       setLessonProgress(courseData.id, activeLesson.id, { completed: true });
       setIsCompleted(true);
+      playAudibleChime('success');
+    } else {
+      playAudibleChime('click');
     }
   };
 
@@ -465,6 +486,14 @@ export function LessonPlayerPage() {
         <div className="flex-1 overflow-y-auto w-full scroll-smooth select-text" id="lesson-scroll-viewport">
           <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
             <ErrorBoundary fallbackTitle="Unable to display this lesson block">
+            {/* If no video block exists, show Audible narration bar at the top */}
+            {!sortedBlocks.some((b: ContentBlockData) => b.type === 'video') && lessonTextContent && (
+              <AudibleLectureBar
+                title={activeLesson.title}
+                textToRead={lessonTextContent}
+              />
+            )}
+
             {/* Ordered Content Blocks Loop */}
           {sortedBlocks.map((block: ContentBlockData) => {
             // 1. VIDEO BLOCK
@@ -557,6 +586,14 @@ export function LessonPlayerPage() {
                     </span>
                     <span className="hidden sm:inline">Shortcuts: Space (play/pause), ←/→ (seek 5s), M (mute), F (fullscreen)</span>
                   </div>
+
+                  {/* Audible TTS Lecture Narration Bar */}
+                  {lessonTextContent && (
+                    <AudibleLectureBar
+                      title={activeLesson.title}
+                      textToRead={lessonTextContent}
+                    />
+                  )}
                 </div>
               );
             }
