@@ -277,10 +277,42 @@ pnpm dist:win
 # Output located in: apps/desktop/release/CourseNest-Setup-0.1.0.exe
 ```
 
-#### 🛡️ Windows 11 SmartScreen Notice
-The installer runs with user-mode privileges (`requestedExecutionLevel: asInvoker`) and does not require administrative privileges. If Windows Defender SmartScreen asks for confirmation:
-1. Click **"More info"**.
-2. Click **"Run anyway"**.
+#### 🛡️ Windows Code-Signing & SmartScreen Bypass (EV / OV & Free Lab Trust)
+By default, the installer runs in user-mode (`requestedExecutionLevel: asInvoker`) without needing administrator rights. On fresh unsigned or self-signed downloads, Windows Defender SmartScreen asks for confirmation (*"More info" -> "Run anyway"*).
+
+CourseNest includes an automated **Windows Authenticode Code-Signing Suite** supporting three workflows:
+
+1. **Free Air-Gapped / University Lab Trust (Zero SmartScreen Warnings)**:
+   Generate an air-gapped 4096-bit Code-Signing certificate:
+   ```bash
+   ./scripts/generate_windows_cert.sh coursenest123
+   ```
+   Build the signed installer:
+   ```bash
+   CSC_LINK="certs/coursenest_codesign.pfx" CSC_KEY_PASSWORD="coursenest123" pnpm --filter @coursenest/desktop dist:win
+   ```
+   Install trust on target Windows machines with one click (imports to `Cert:\LocalMachine\Root` and `Cert:\LocalMachine\TrustedPublisher`):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\install_windows_cert.ps1
+   ```
+   *Once installed, Windows SmartScreen will recognize CourseNest as a verified trusted publisher with zero warning prompts!*
+
+2. **Modern Cloud EV Signing (Microsoft Azure Trusted Signing)**:
+   Microsoft's official replacement for physical hardware tokens ($9.99/mo). Provides instant SmartScreen reputation from day one:
+   ```bash
+   export AZURE_TRUSTED_SIGNING_ENDPOINT="https://eus.codesigning.azure.net"
+   export AZURE_TRUSTED_SIGNING_PROFILE="CourseNestReleaseProfile"
+   pnpm --filter @coursenest/desktop dist:win
+   ```
+
+3. **Commercial OV Certificate (.pfx / .p12)**:
+   For certificates from DigiCert, Sectigo, or GlobalSign:
+   ```bash
+   export CSC_LINK="/path/to/certificate.pfx"
+   export CSC_KEY_PASSWORD="YourPassword"
+   pnpm --filter @coursenest/desktop dist:win
+   ```
+   *See [apps/desktop/README.md](apps/desktop/README.md) for full architecture details.*
 
 ### 📱 Android Tablet & Mobile (`.apk`)
 CourseNest uses Capacitor 7 to embed the React client into a native Android application:

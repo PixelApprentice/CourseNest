@@ -20,8 +20,10 @@ win:
     - nsis
     - portable
   icon: build/icon.ico
-  signAndEditExecutable: false
   requestedExecutionLevel: asInvoker
+  signtoolOptions:
+    sign: scripts/windows-sign.cjs
+    rfc3161TimeStampServer: "http://timestamp.digicert.com"
 nsis:
   artifactName: "${productName}-Setup-${version}.${ext}"
   oneClick: false
