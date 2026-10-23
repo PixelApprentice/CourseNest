@@ -8,4 +8,4 @@ router = APIRouter()
 @router.get("")
 async def health() -> dict[str, str]:
     """API health check."""
-    return {"status": "ok", "service": "coursenest-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "coursenest-api", "version": "1.0.4"}

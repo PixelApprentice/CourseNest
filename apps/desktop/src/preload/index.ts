@@ -35,6 +35,21 @@ const electronAPI = {
       >,
   },
 
+  storage: {
+    checkVolumeAccess: (volumePath: string) =>
+      ipcRenderer.invoke('storage:checkVolumeAccess', volumePath) as Promise<{
+        isMounted: boolean;
+        path: string;
+        error?: string;
+      }>,
+
+    setExternalMountPath: (mountPath: string) =>
+      ipcRenderer.invoke('storage:setExternalMountPath', mountPath) as Promise<{
+        success: boolean;
+        mountPath: string;
+      }>,
+  },
+
   app: {
     getPath: (name: 'userData' | 'temp' | 'documents' | 'downloads') =>
       ipcRenderer.invoke('app:getPath', name) as Promise<string>,

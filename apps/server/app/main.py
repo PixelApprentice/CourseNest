@@ -18,7 +18,7 @@ logger = logging.getLogger("coursenest.server")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
     # Startup
-    logger.info("Starting CourseNest Server v0.1.0 (debug=%s)", settings.debug)
+    logger.info("Starting CourseNest Server v1.0.4 (debug=%s)", settings.debug)
     yield
     # Shutdown
     await engine.dispose()
@@ -50,4 +50,4 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "1.0.4"}

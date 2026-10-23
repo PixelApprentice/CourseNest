@@ -13,3 +13,13 @@ createRoot(rootElement).render(
     <App />
   </StrictMode>,
 );
+
+// Register progressive offline-first service worker in browser environments
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      // In development or sandbox mode, registration failure is expected and non-blocking
+      console.debug('ServiceWorker registration skipped or failed:', err?.message);
+    });
+  });
+}
