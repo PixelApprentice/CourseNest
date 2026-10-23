@@ -38,19 +38,27 @@ CourseNest features a **built-in 9-theme design studio** with bespoke typography
 
 | Learning Overview (Obsidian Moss) | Multi-Archive Importer (4-Step Stepper) |
 | :---: | :---: |
-| ![Home Dashboard](docs/screenshots/01_home_dashboard.png) | ![Import Wizard](docs/screenshots/05_import_wizard.png) |
+| ![Home Dashboard](docs/screenshots/01_home_dashboard.png) | ![Import Wizard](docs/screenshots/05_import_wizard_fresh.png) |
 
-| Lesson Player & Syntax Code Viewer | In-App Mini Window Documentation Viewer |
+| Lesson Player & Multi-Format Subtitles | Syntax-Highlighted Code Block (1-Click Copy) |
 | :---: | :---: |
-| ![Lesson Player](docs/screenshots/04_lesson_player.png) | ![Mini Window](docs/screenshots/04b_mini_window_link.png) |
+| ![Lesson Subtitles](docs/screenshots/06b_lesson_subtitles_menu.png) | ![Code Viewer](docs/screenshots/06c_lesson_code_snippet.png) |
 
-| Unit Complete & "Next Lesson" Flow | Local AI Study Buddy (Offline Timestamps) |
+| In-App Mini Window Documentation Viewer | Local AI Study Buddy & Timestamps |
 | :---: | :---: |
-| ![Unit Complete](docs/screenshots/04c_unit_complete_next.png) | ![Local AI Buddy](docs/screenshots/04d_local_ai_study_buddy.png) |
+| ![Mini Window](docs/screenshots/06d_lesson_mini_window_modal.png) | ![Local AI Buddy](docs/screenshots/06g_lesson_ai_study_buddy.png) |
+
+| Curriculum Roadmap Diagram | Append Supplementary Materials Mode |
+| :---: | :---: |
+| ![Curriculum Diagram](docs/screenshots/04b_course_diagram_view.png) | ![Append Mode](docs/screenshots/05b_import_wizard_append.png) |
 
 | Course Dossier & Inline Title Editor | Storage Purge Confirmation Modal |
 | :---: | :---: |
-| ![Course Landing](docs/screenshots/03_course_landing.png) | ![Delete Purge Modal](docs/screenshots/03b_delete_purge_modal.png) |
+| ![Course Landing](docs/screenshots/04_course_landing_dossier.png) | ![Delete Purge Modal](docs/screenshots/04c_delete_purge_modal.png) |
+
+| Free Cloud AI TokenHarbor Verification | System Logs Ring-Buffer Explorer |
+| :---: | :---: |
+| ![Settings AI](docs/screenshots/07d_settings_ai_byo_tokenharbor.png) | ![System Logs](docs/screenshots/07e_settings_system_logs.png) |
 
 | 🕌 Halal Edition Wallpaper | 🌸 Sakura Bloom Garden |
 | :---: | :---: |
@@ -353,7 +361,21 @@ pnpm --filter @coursenest/mcp-server build
 
 # 4. FastAPI pytest suite
 cd apps/server && .venv/bin/pytest -v
+
+# 5. Comprehensive 50-Scenario Playwright End-to-End Suite
+node scripts/test_all_scenarios.cjs
 ```
+
+### 🧠 Reusable Gemini & Antigravity Agent Skills
+All architectural patterns, debugging methodologies, and design systems are modularized as standard agent skills in [`.agents/skills/`](.agents/skills/):
+* `web-artifacts-builder` — Standalone modern UI artifact compilation
+* `systematic-debugging` — Root-cause tracing & condition-based waiting
+* `webapp-testing` — Playwright browser automation & screen verification
+* `find-bugs` — Pre-commit flaw scanning & edge case verification
+* `security-best-practices` — Sanitization, sandbox isolation & path security
+* `audit-website` — Performance, accessibility & semantic integrity
+* `theme-customization-studio` — 9 bespoke multi-audience design themes
+* `desktop-mobile-integration` — Electron IPC & Capacitor Android bridge patterns
 
 ---
 

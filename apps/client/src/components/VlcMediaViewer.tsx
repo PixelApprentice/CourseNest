@@ -25,6 +25,8 @@ export interface SubtitleTrack {
   isDefault?: boolean;
 }
 
+const EMPTY_SUBTITLES: SubtitleTrack[] = [];
+
 interface VlcMediaViewerProps {
   src: string;
   title?: string;
@@ -39,7 +41,7 @@ interface VlcMediaViewerProps {
 export function VlcMediaViewer({
   src,
   title = 'Course Video Stream',
-  subtitles = [],
+  subtitles = EMPTY_SUBTITLES,
   isAudio = false,
   onTimeUpdate,
   onEnded,
@@ -76,11 +78,16 @@ export function VlcMediaViewer({
   const [activeSubtitles, setActiveSubtitles] = useState<SubtitleTrack[]>(subtitles);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const prevSubsKeyRef = useRef<string>('');
 
-  // Sync incoming subtitles
+  // Sync incoming subtitles only when track identifiers or sources actually change
   useEffect(() => {
-    setActiveSubtitles(subtitles);
-    setSelectedTrackIndex(0);
+    const subsKey = subtitles.map((s) => `${s.id || ''}:${s.src}:${s.label}`).join('|');
+    if (subsKey !== prevSubsKeyRef.current) {
+      prevSubsKeyRef.current = subsKey;
+      setActiveSubtitles(subtitles);
+      setSelectedTrackIndex(0);
+    }
   }, [subtitles]);
 
   // Toggle Subtitles / Closed Captions
