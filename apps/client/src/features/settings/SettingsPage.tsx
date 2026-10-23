@@ -12,9 +12,6 @@ import {
 } from '../../lib/storageConfig';
 import { 
   IconDownload, 
-  IconMoon, 
-  IconSun, 
-  IconAdjustmentsHorizontal, 
   IconShieldCheck, 
   IconAlertTriangle, 
   IconCircleCheck, 
@@ -31,13 +28,13 @@ import {
 import { useAiConfig, saveAiConfig, askAiAssistant, type AiProvider } from '../../lib/aiConfig';
 import { StatusBadge } from '../../components/StatusBadge';
 import { LogsPage } from '../logs/LogsPage';
+import { ThemeSelectorGrid } from '../../components/ThemeSelectorGrid';
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') === 'logs' ? 'logs' : 'general';
   const [activeTab, setActiveTab] = useState<'general' | 'logs'>(initialTab);
 
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [playbackSpeed, setPlaybackSpeed] = useState('1');
   const [autoplayNext, setAutoplayNext] = useState(true);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -108,22 +105,9 @@ export function SettingsPage() {
   };
 
   useEffect(() => {
-    const savedTheme = (localStorage.getItem('cn-theme') as 'light' | 'dark') || 'system';
-    setTheme(savedTheme);
     setAnalytics(getVaultAnalytics());
     setCustomPathInput(storageConfig.externalMountPath);
   }, [storageConfig.externalMountPath]);
-
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
-    setTheme(newTheme);
-    localStorage.setItem('cn-theme', newTheme);
-    if (newTheme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
-    } else {
-      document.documentElement.setAttribute('data-theme', newTheme);
-    }
-  };
 
   // Export personal notes and progress to JSON file
   const handleExportData = () => {
@@ -564,32 +548,18 @@ export function SettingsPage() {
             </form>
           </section>
 
-          {/* Visual Appearance Section */}
+          {/* Visual Appearance Section: Aesthetic Studio */}
           <section className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 space-y-4">
-            <h2 className="text-sm font-bold font-mono text-[var(--cn-text-muted)] uppercase tracking-wider">
-              Visual Theme
-            </h2>
-
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { id: 'dark', label: 'Dark Obsidian', icon: IconMoon },
-                { id: 'light', label: 'Light Clean', icon: IconSun },
-                { id: 'system', label: 'Match System', icon: IconAdjustmentsHorizontal },
-              ].map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => handleThemeChange(id as 'light' | 'dark' | 'system')}
-                  className={`p-3.5 rounded-xl border text-xs font-mono font-medium flex flex-col items-center gap-2 transition-all ${
-                    theme === id
-                      ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/40 text-[var(--cn-primary)] font-semibold shadow-xs'
-                      : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
-                  }`}
-                >
-                  <Icon size={18} />
-                  <span>{label}</span>
-                </button>
-              ))}
+            <div>
+              <h2 className="text-sm font-bold font-mono text-[var(--cn-text-muted)] uppercase tracking-wider">
+                Visual Theme & Aesthetic Studio
+              </h2>
+              <p className="text-xs text-[var(--cn-text-muted)] mt-1">
+                Curated open-source design systems with custom typography, color palettes, and theme-matched loading animations.
+              </p>
             </div>
+
+            <ThemeSelectorGrid />
           </section>
 
           {/* Playback Controls */}

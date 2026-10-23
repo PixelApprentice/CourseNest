@@ -3,10 +3,14 @@ import { useLocation, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { BrandLogo } from '../components/BrandLogo';
 import { NotificationDropdown } from '../components/NotificationDropdown';
+import { ThemeBackdropPattern } from '../components/ThemeBackdropPattern';
+import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
+import { useTheme } from '../lib/themeManager';
 import { 
   IconSearch, 
   IconMoon, 
   IconSun, 
+  IconPalette,
   IconLayoutDashboard, 
   IconBooks, 
   IconUpload, 
@@ -20,7 +24,8 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [isDark, setIsDark] = useState(false);
+  const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
+  const { currentTheme, setTheme } = useTheme();
   const location = useLocation();
 
   useEffect(() => {
@@ -30,24 +35,18 @@ export function AppLayout({ children }: AppLayoutProps) {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    const savedTheme = localStorage.getItem('cn-theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-      setIsDark(true);
-      document.documentElement.setAttribute('data-theme', 'dark');
-    }
-
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  const toggleTheme = () => {
-    const nextTheme = !isDark;
-    setIsDark(nextTheme);
-    document.documentElement.setAttribute('data-theme', nextTheme ? 'dark' : 'light');
-    localStorage.setItem('cn-theme', nextTheme ? 'dark' : 'light');
+  const toggleQuickDark = () => {
+    if (currentTheme.isDark) {
+      setTheme('paper');
+    } else {
+      setTheme('obsidian');
+    }
   };
 
   const getPageContext = () => {
@@ -65,7 +64,13 @@ export function AppLayout({ children }: AppLayoutProps) {
   const context = getPageContext();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased">
+    <div className="flex h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased relative">
+      {/* Dynamic Theme Vector Backdrop Pattern */}
+      <ThemeBackdropPattern />
+
+      {/* Theme Studio Modal */}
+      <ThemeSelectorModal isOpen={isThemeModalOpen} onClose={() => setIsThemeModalOpen(false)} />
+
       {/* Desktop Sidebar */}
       <div className="hidden md:flex shrink-0">
         <Sidebar />
@@ -115,14 +120,25 @@ export function AppLayout({ children }: AppLayoutProps) {
             {/* Notification Center */}
             <NotificationDropdown />
 
-            {/* Theme switcher */}
+            {/* Theme & Aesthetic Studio Trigger */}
             <button
-              onClick={toggleTheme}
+              data-testid="theme-studio-btn"
+              onClick={() => setIsThemeModalOpen(true)}
+              className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors relative"
+              title="Open Theme & Aesthetic Studio"
+              aria-label="Open Theme & Aesthetic Studio"
+            >
+              <IconPalette size={16} />
+            </button>
+
+            {/* Quick Dark/Light Toggle */}
+            <button
+              onClick={toggleQuickDark}
               className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-colors"
-              title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={currentTheme.isDark ? 'Switch to daylight reading' : 'Switch to dark focus'}
               aria-label="Toggle color theme"
             >
-              {isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
+              {currentTheme.isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
             </button>
           </div>
         </header>
