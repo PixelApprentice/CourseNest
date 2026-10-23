@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DEMO_COURSES } from '../fixtures/courses';
+import { deleteMediaForCourse } from './mediaVault';
 
 export interface QuizQuestion {
   id: string;
@@ -236,9 +237,56 @@ export function addCourseToVault(course: CourseData): void {
   saveVaultCourses(current);
 }
 
-export function deleteCourseFromVault(courseId: string): void {
+export function updateCourseTitle(courseId: string, newTitle: string): void {
+  const trimmed = newTitle.trim();
+  if (!trimmed) return;
+  const courses = getVaultCourses();
+  const updated = courses.map((c) => {
+    if (c.id === courseId) {
+      return { ...c, title: trimmed, updatedAt: new Date().toISOString() };
+    }
+    return c;
+  });
+  saveVaultCourses(updated);
+}
+
+export async function deleteCourseFromVault(courseId: string): Promise<void> {
   const updated = getVaultCourses().filter((c) => c.id !== courseId);
   saveVaultCourses(updated);
+
+  // 1. Purge all decompressed media files (video, audio, PDF, handouts) from IndexedDB
+  try {
+    await deleteMediaForCourse(courseId);
+  } catch (err) {
+    console.warn(`Could not purge media blobs for course ${courseId}:`, err);
+  }
+
+  // 2. Clean up associated progress keys
+  try {
+    const progressPrefix = `${VAULT_PROGRESS_KEY}:${courseId}:`;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(progressPrefix)) {
+        localStorage.removeItem(key);
+      }
+    }
+
+    // 3. Clean up associated notes
+    const rawNotes = localStorage.getItem(VAULT_NOTES_KEY);
+    if (rawNotes) {
+      const notes = JSON.parse(rawNotes).filter((n: any) => n.courseId !== courseId);
+      localStorage.setItem(VAULT_NOTES_KEY, JSON.stringify(notes));
+    }
+
+    // 4. Clean up associated bookmarks
+    const rawBm = localStorage.getItem(VAULT_BOOKMARKS_KEY);
+    if (rawBm) {
+      const bms = JSON.parse(rawBm).filter((b: any) => b.courseId !== courseId);
+      localStorage.setItem(VAULT_BOOKMARKS_KEY, JSON.stringify(bms));
+    }
+  } catch {}
+
+  window.dispatchEvent(new Event('coursenest_vault_updated'));
 }
 
 export const removeCourseFromVault = deleteCourseFromVault;

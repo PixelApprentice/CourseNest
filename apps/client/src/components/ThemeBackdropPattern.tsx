@@ -13,7 +13,7 @@ export function ThemeBackdropPattern() {
       case 'arabesque':
         // Islamic 8-point geometric star tiling (Rub el Hizb)
         return (
-          <svg className="w-full h-full opacity-[0.04] text-[var(--cn-primary)] fill-none stroke-current" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-full h-full opacity-[0.14] text-[var(--cn-primary)] fill-none stroke-current" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="pattern-arabesque" width="80" height="80" patternUnits="userSpaceOnUse">
                 {/* 8-point star polygon */}
@@ -30,7 +30,7 @@ export function ThemeBackdropPattern() {
       case 'petals':
         // Sakura Blossom Petals & Floral Accent
         return (
-          <svg className="w-full h-full opacity-[0.05] text-[var(--cn-primary)] fill-current" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-full h-full opacity-[0.13] text-[var(--cn-primary)] fill-current" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="pattern-petals" width="100" height="100" patternUnits="userSpaceOnUse">
                 {/* Petal 1 */}
@@ -49,7 +49,7 @@ export function ThemeBackdropPattern() {
       case 'confetti':
         // Toybox playful confetti & building cubes
         return (
-          <svg className="w-full h-full opacity-[0.05] text-[var(--cn-primary)] fill-current" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-full h-full opacity-[0.13] text-[var(--cn-primary)] fill-current" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="pattern-confetti" width="90" height="90" patternUnits="userSpaceOnUse">
                 <rect x="15" y="15" width="8" height="8" rx="2" transform="rotate(15 19 19)" />
@@ -65,7 +65,7 @@ export function ThemeBackdropPattern() {
       case 'grid':
         // Cyberpunk Mecha Isometric Wireframe & HUD Corner Brackets
         return (
-          <svg className="w-full h-full opacity-[0.04] text-[var(--cn-primary)] stroke-current fill-none" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-full h-full opacity-[0.12] text-[var(--cn-primary)] stroke-current fill-none" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="pattern-cyber-grid" width="60" height="60" patternUnits="userSpaceOnUse">
                 <rect x="0" y="0" width="60" height="60" strokeWidth="0.8" />
@@ -80,7 +80,7 @@ export function ThemeBackdropPattern() {
       case 'screentone':
         // Manga Halftone Screentone Dot-Matrix Pattern
         return (
-          <svg className="w-full h-full opacity-[0.045] text-[var(--cn-text-primary)] fill-current" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-full h-full opacity-[0.10] text-[var(--cn-text-primary)] fill-current" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="pattern-manga-tone" width="16" height="16" patternUnits="userSpaceOnUse">
                 <circle cx="4" cy="4" r="1.5" />
@@ -94,7 +94,7 @@ export function ThemeBackdropPattern() {
       case 'botanical':
         // Ghibli Whimsical Foliage & Leaf Contours
         return (
-          <svg className="w-full h-full opacity-[0.04] text-[var(--cn-primary)] fill-none stroke-current" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-full h-full opacity-[0.13] text-[var(--cn-primary)] fill-none stroke-current" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <pattern id="pattern-botanical" width="120" height="120" patternUnits="userSpaceOnUse">
                 <path d="M20,60 C20,40 40,30 60,30 C60,50 40,60 20,60 Z M60,30 L35,50" strokeWidth="1.5" />
@@ -111,9 +111,9 @@ export function ThemeBackdropPattern() {
         // Obsidian 24px Micro Dot Grid
         return (
           <div
-            className="w-full h-full opacity-[0.05]"
+            className="w-full h-full opacity-[0.12]"
             style={{
-              backgroundImage: 'radial-gradient(var(--cn-primary) 1.2px, transparent 1.2px)',
+              backgroundImage: 'radial-gradient(var(--cn-primary) 1.5px, transparent 1.5px)',
               backgroundSize: '24px 24px',
             }}
           />

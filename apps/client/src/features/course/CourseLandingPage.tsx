@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   useVaultCourses, 
   getCourseProgressPercent, 
   getLessonProgress, 
+  updateCourseTitle,
+  deleteCourseFromVault,
   type CourseData, 
   type SectionData, 
   type LessonData 
@@ -26,16 +28,56 @@ import {
   IconStack2, 
   IconDeviceFloppy,
   IconGitFork,
-  IconList
+  IconList,
+  IconPencil,
+  IconTrash,
+  IconX,
+  IconAlertTriangle
 } from '@tabler/icons-react';
 
 export function CourseLandingPage() {
   const { courseId } = useParams<{ courseId: string }>();
+  const navigate = useNavigate();
   const { courses } = useVaultCourses();
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [viewMode, setViewMode] = useState<'diagram' | 'list'>('diagram');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const course = courses.find((c: CourseData) => c.id === courseId) ?? courses[0];
+
+  const handleStartEdit = () => {
+    if (course) {
+      setEditedTitle(course.title);
+      setIsEditingTitle(true);
+    }
+  };
+
+  const handleSaveTitle = () => {
+    if (course && editedTitle.trim()) {
+      updateCourseTitle(course.id, editedTitle.trim());
+      setIsEditingTitle(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingTitle(false);
+  };
+
+  const handleDeleteCourse = async () => {
+    if (!course) return;
+    setIsDeleting(true);
+    try {
+      await deleteCourseFromVault(course.id);
+      setShowDeleteModal(false);
+      navigate('/library');
+    } catch (err) {
+      console.error('Failed to delete course:', err);
+      setIsDeleting(false);
+    }
+  };
 
   if (!course) {
     return (
@@ -96,9 +138,61 @@ export function CourseLandingPage() {
               </span>
             </div>
 
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
-              {course.title}
-            </h1>
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2 max-w-xl">
+                <input
+                  type="text"
+                  value={editedTitle}
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Escape') handleCancelEdit();
+                  }}
+                  autoFocus
+                  className="flex-1 px-3 py-1.5 text-xl font-bold bg-[var(--cn-bg)] border border-[var(--cn-primary)] rounded-lg text-[var(--cn-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cn-primary)]/30 font-sans"
+                />
+                <button
+                  onClick={handleSaveTitle}
+                  className="p-2 rounded-lg bg-[var(--cn-primary)] text-white hover:bg-[var(--cn-primary-hover)] transition-colors"
+                  title="Save Title"
+                  aria-label="Save Title"
+                >
+                  <IconCheck size={18} />
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  className="p-2 rounded-lg border border-[var(--cn-border)] text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
+                  title="Cancel Edit"
+                  aria-label="Cancel Edit"
+                >
+                  <IconX size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)] flex-1">
+                  {course.title}
+                </h1>
+                <div className="flex items-center gap-1.5 shrink-0 pt-1">
+                  <button
+                    onClick={handleStartEdit}
+                    className="p-1.5 rounded-lg border border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] hover:border-[var(--cn-border-highlight)] transition-colors"
+                    title="Edit course title"
+                    aria-label="Edit course title"
+                  >
+                    <IconPencil size={15} />
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="p-1.5 rounded-lg border border-red-500/20 text-red-500 hover:text-white hover:bg-red-500/90 transition-colors"
+                    title="Delete course and purge files"
+                    aria-label="Delete course and purge files"
+                  >
+                    <IconTrash size={15} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] leading-relaxed">
               {course.description}
@@ -304,6 +398,66 @@ export function CourseLandingPage() {
           </div>
         )}
       </section>
+
+      {/* Delete Course Confirmation Modal */}
+      {showDeleteModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="border border-red-500/30 bg-[var(--cn-surface)] rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center shrink-0">
+                <IconAlertTriangle size={20} />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-[var(--cn-text-primary)]">
+                  Delete Course & Purge Storage?
+                </h3>
+                <p className="text-xs text-[var(--cn-text-muted)] leading-relaxed">
+                  Permanently delete <strong className="text-[var(--cn-text-primary)] font-semibold">{course.title}</strong> and erase all downloaded videos, PDFs, and notes from your local storage vault.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-[var(--cn-bg)] border border-[var(--cn-border)] text-[11px] font-mono text-[var(--cn-text-muted)] space-y-1">
+              <p className="text-red-400 font-semibold">• Deletes course curriculum metadata</p>
+              <p className="text-red-400 font-semibold">• Cleans all binary blobs from IndexedDB</p>
+              <p className="text-red-400 font-semibold">• Clears notes, bookmarks, and quiz progress</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCourse}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-mono font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    <span>Purging...</span>
+                  </>
+                ) : (
+                  <>
+                    <IconTrash size={14} />
+                    <span>Delete & Purge Storage</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -371,14 +371,14 @@ export function ImportPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
-      {/* Step Progress Tracker */}
-      <div className="border border-[var(--cn-border)] rounded-xl bg-[var(--cn-surface)] p-4">
-        <div className="flex items-center justify-between max-w-2xl mx-auto">
+      {/* Modern Responsive Step Progress Tracker */}
+      <nav aria-label="Import Progress" className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-4 sm:p-5 shadow-xs">
+        <ol className="flex items-center w-full">
           {[
-            { id: 'select', label: '1. Select Files' },
-            { id: 'inventory', label: '2. Archive Scan' },
-            { id: 'review', label: '3. Review Structure' },
-            { id: 'complete', label: '4. Ready' },
+            { id: 'select', title: 'Select Files', short: 'Files' },
+            { id: 'inventory', title: 'Archive Scan', short: 'Scan' },
+            { id: 'review', title: 'Review Structure', short: 'Review' },
+            { id: 'complete', title: 'Import Ready', short: 'Ready' },
           ].map((item, idx) => {
             const isCurrent = step === item.id;
             const isDone =
@@ -387,31 +387,48 @@ export function ImportPage() {
               (item.id === 'review' && step === 'complete');
 
             return (
-              <div key={item.id} className="flex items-center gap-2">
-                <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-mono font-semibold ${
-                    isDone
-                      ? 'bg-[var(--cn-success)] text-white'
-                      : isCurrent
-                        ? 'bg-[var(--cn-primary)] text-white'
-                        : 'bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)] border border-[var(--cn-border)]'
-                  }`}
-                >
-                  {isDone ? <IconCheck size={13} /> : idx + 1}
+              <li key={item.id} className={`flex items-center ${idx < 3 ? 'flex-1' : ''}`}>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-colors ${
+                      isDone
+                        ? 'bg-[var(--cn-success)] text-white shadow-xs'
+                        : isCurrent
+                          ? 'bg-[var(--cn-primary)] text-[var(--cn-primary-text)] ring-2 ring-[var(--cn-primary)]/30 font-bold'
+                          : 'bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)] border border-[var(--cn-border)]'
+                    }`}
+                  >
+                    {isDone ? <IconCheck size={14} strokeWidth={2.5} /> : idx + 1}
+                  </div>
+                  <div className="hidden sm:block">
+                    <p
+                      className={`text-xs font-medium font-sans whitespace-nowrap ${
+                        isCurrent
+                          ? 'text-[var(--cn-text-primary)] font-bold'
+                          : isDone
+                            ? 'text-[var(--cn-text-secondary)]'
+                            : 'text-[var(--cn-text-muted)]'
+                      }`}
+                    >
+                      {item.title}
+                    </p>
+                  </div>
                 </div>
-                <span
-                  className={`text-xs font-mono hidden sm:inline ${
-                    isCurrent ? 'text-[var(--cn-text-primary)] font-bold' : 'text-[var(--cn-text-muted)]'
-                  }`}
-                >
-                  {item.label}
-                </span>
-                {idx < 3 && <div className="w-8 sm:w-16 h-px bg-[var(--cn-border)]" />}
-              </div>
+
+                {idx < 3 && (
+                  <div className="flex-1 mx-2 sm:mx-4 h-0.5 rounded-full overflow-hidden bg-[var(--cn-border)] min-w-[16px]">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        isDone ? 'bg-[var(--cn-success)] w-full' : isCurrent ? 'bg-[var(--cn-primary)]/60 w-1/2' : 'w-0'
+                      }`}
+                    />
+                  </div>
+                )}
+              </li>
             );
           })}
-        </div>
-      </div>
+        </ol>
+      </nav>
 
       {/* Hidden File Inputs */}
       <input

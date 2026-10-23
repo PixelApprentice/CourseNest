@@ -49,7 +49,7 @@ export function CourseCard({
           viewMode === 'list'
             ? 'w-52 h-36 rounded-lg shrink-0'
             : 'w-full h-36'
-        } relative overflow-hidden bg-[var(--cn-bg)] border-b border-[var(--cn-border)] flex flex-col justify-between p-4`}
+        } relative overflow-hidden bg-[var(--cn-surface-subtle)] border-b border-[var(--cn-border)] flex flex-col justify-between p-4`}
       >
         <div 
           className="absolute inset-0 opacity-15 pointer-events-none"
@@ -65,7 +65,7 @@ export function CourseCard({
             {courseCode}
           </span>
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[var(--cn-surface)]/90 backdrop-blur-xs border border-[var(--cn-border)] text-[var(--cn-success)]">
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-success)] shadow-xs">
             <IconCircleCheck size={12} className="text-[var(--cn-success)]" />
             <span>OFFLINE VAULT</span>
           </div>

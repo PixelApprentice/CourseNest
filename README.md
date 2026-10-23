@@ -34,6 +34,26 @@ CourseNest features a **built-in 9-theme design studio** with bespoke typography
 
 ---
 
+## 📸 Visual Showcase & UI Gallery
+
+| Learning Overview (Obsidian Moss) | Multi-Archive Importer (4-Step Stepper) |
+| :---: | :---: |
+| ![Home Dashboard](docs/screenshots/01_home_dashboard.png) | ![Import Wizard](docs/screenshots/05_import_wizard.png) |
+
+| Course Dossier & Inline Title Editor | Storage Purge Confirmation Modal |
+| :---: | :---: |
+| ![Course Landing](docs/screenshots/03_course_landing.png) | ![Delete Purge Modal](docs/screenshots/03b_delete_purge_modal.png) |
+
+| 🕌 Halal Edition Wallpaper | 🌸 Sakura Bloom Garden |
+| :---: | :---: |
+| ![Halal Edition](docs/screenshots/theme_halal_mosque.png) | ![Sakura Bloom](docs/screenshots/theme_sakura_bloom.png) |
+
+| 🧱 Toybox Playful Valley | ⚡ Neo-Tokyo Mecha Skyline |
+| :---: | :---: |
+| ![Toybox Valley](docs/screenshots/theme_toybox_playful.png) | ![Neo-Tokyo Mecha](docs/screenshots/theme_neo_tokyo_mecha.png) |
+
+---
+
 ## 🎯 Design Engineering & Polish (Emil Kowalski Philosophy)
 
 The user interface follows strict design engineering standards:
@@ -62,6 +82,25 @@ The user interface follows strict design engineering standards:
 ### 3. Decoupled Media Tier & Storage Disconnection Resilience
 * **Separation of State and Multimedia**: Heavy video files can be stored on removable USB flash drives or external SD cards, while learning state (notes, progress, quiz submissions) resides on internal device storage.
 * **Unplugged Resilience**: If an external media drive is unexpectedly unplugged during playback, the application preserves all notes and checkpoint data, transitions gracefully to an informative reconnect prompt, and automatically resumes video upon re-insertion.
+
+#### 🗄️ Where Are Decompressed Files Stored? (e.g. LangChain Course)
+CourseNest operates with an **air-gapped, zero-cloud architecture**. Decompressed archive files and media are stored depending on your runtime surface:
+
+1. **Web Browser (PWA / Chrome / Firefox)**:
+   - **Binary Media Blobs (Video, PDF, Audio)**: Stored directly in the browser's high-performance **IndexedDB** database under `coursenest_media_vault_v1`, in the `media_files` object store. Each file is keyed by `${courseId}::${filePath}` (e.g., `langchain-101::01-intro/lecture.mp4`).
+   - **Course Manifests & Tree Structure**: Persisted in `localStorage` (`coursenest_custom_courses_v1`), containing structured chapter outlines, lesson trees, and durations.
+   - **Progress & User State**: Persisted in `localStorage` under `coursenest_course_progress_v1` and `coursenest_lesson_notes_v1`.
+   - **Storage Purge on Deletion**: When you click **Delete Course**, `deleteCourseFromVault(courseId)` opens a transaction against IndexedDB and permanently purges every binary chunk associated with that course ID, immediately reclaiming browser disk space.
+2. **Electron Desktop (Windows / Linux / macOS)**:
+   - Stored in the local user data folder:
+     - **Windows**: `%APPDATA%\CourseNest\vault\courses\{course_id}\`
+     - **Linux**: `~/.config/CourseNest/vault/courses/{course_id}/`
+     - **macOS**: `~/Library/Application Support/CourseNest/vault/courses/{course_id}/`
+   - Mirrored into desktop Chromium IndexedDB for instant streaming.
+   - Course deletion unlinks both the filesystem directory and the IndexedDB records.
+3. **FastAPI Institutional Central Server (Optional)**:
+   - Stored on server disk under `apps/server/storage/courses/{course_id}/`.
+   - Course deletion asynchronously purges the directory and metadata.
 
 ### 4. Hardened Multi-Archive Ingestion Pipeline
 * **Multi-ZIP Aggregation**: Supports selecting and merging multiple ZIP archives representing a single course in one folder.
