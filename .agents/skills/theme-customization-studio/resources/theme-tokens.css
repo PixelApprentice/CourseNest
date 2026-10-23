@@ -1,0 +1,652 @@
+/* 
+ * CourseNest Multi-Audience Design System Tokens
+ * Open-Source Fonts: DM Sans, Nunito, Fredoka, Chakra Petch, Plus Jakarta Sans, JetBrains Mono
+ */
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/* =============================================================================
+   1. DEFAULT TOKENS & OBSIDIAN MOSS (Deep Focus Studio)
+   ============================================================================= */
+:root,
+[data-theme="obsidian"],
+[data-theme="dark"],
+.dark {
+  --font-display: 'DM Sans', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --cn-bg: #0A0A0B;
+  --cn-surface: #121316;
+  --cn-surface-subtle: #17191E;
+  --cn-surface-hover: #1E2127;
+  --cn-surface-active: #252932;
+  
+  --cn-text-primary: #F8FAFC;
+  --cn-text-secondary: #CBD5E1;
+  --cn-text-muted: #94A3B8;
+  --cn-border: #202328;
+  --cn-border-subtle: #181A1F;
+  
+  --cn-brand: #57C564;
+  --cn-primary: #57C564;
+  --cn-primary-hover: #69D475;
+  --cn-primary-tint: rgba(87, 197, 100, 0.14);
+  --cn-primary-text: #0A0A0B;
+  
+  --cn-accent: #F59E0B;
+  --cn-accent-tint: rgba(245, 158, 11, 0.14);
+  
+  --cn-success: #57C564;
+  --cn-warning: #F59E0B;
+  --cn-danger: #EF4444;
+
+  --theme-glow: rgba(87, 197, 100, 0.24);
+  --moss-glow: rgba(87, 197, 100, 0.24);
+  --moss-glow-soft: rgba(87, 197, 100, 0.08);
+  --ember-glow: rgba(245, 158, 11, 0.2);
+
+  --cn-radius-sm: 6px;
+  --cn-radius-md: 10px;
+  --cn-radius-lg: 14px;
+  --cn-radius-xl: 20px;
+}
+
+/* =============================================================================
+   2. HALAL SERENITY (Islamic Geometric Art & Modesty)
+   ============================================================================= */
+[data-theme="halal"] {
+  --font-display: 'Plus Jakarta Sans', 'DM Sans', -apple-system, sans-serif;
+  --font-body: 'DM Sans', 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #FBF9F4;
+  --cn-surface: #FFFFFF;
+  --cn-surface-subtle: #F3EFE6;
+  --cn-surface-hover: #EBE5D8;
+  --cn-surface-active: #E0D9C8;
+
+  --cn-text-primary: #142E24;
+  --cn-text-secondary: #2C483D;
+  --cn-text-muted: #5C766C;
+  --cn-border: #E0D9C8;
+  --cn-border-subtle: #ECE7DA;
+
+  --cn-brand: #047857;
+  --cn-primary: #047857;
+  --cn-primary-hover: #065F46;
+  --cn-primary-tint: rgba(4, 120, 87, 0.12);
+  --cn-primary-text: #FFFFFF;
+
+  --cn-accent: #D97706;
+  --cn-accent-tint: rgba(217, 119, 6, 0.12);
+
+  --cn-success: #059669;
+  --cn-warning: #D97706;
+  --cn-danger: #DC2626;
+
+  --theme-glow: rgba(4, 120, 87, 0.2);
+  --moss-glow: rgba(4, 120, 87, 0.2);
+  --moss-glow-soft: rgba(4, 120, 87, 0.08);
+  --ember-glow: rgba(217, 119, 6, 0.18);
+
+  --cn-radius-sm: 8px;
+  --cn-radius-md: 12px;
+  --cn-radius-lg: 16px;
+  --cn-radius-xl: 22px;
+}
+
+/* =============================================================================
+   3. SAKURA BLOOM (Girls / Kawaii Pastel / Cozy Floral)
+   ============================================================================= */
+[data-theme="sakura"] {
+  --font-display: 'Nunito', -apple-system, cursive, sans-serif;
+  --font-body: 'Nunito', 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #FFF5F7;
+  --cn-surface: #FFFFFF;
+  --cn-surface-subtle: #FFF0F4;
+  --cn-surface-hover: #FFE4EC;
+  --cn-surface-active: #FED7E2;
+
+  --cn-text-primary: #701A75;
+  --cn-text-secondary: #86198F;
+  --cn-text-muted: #A21CAF;
+  --cn-border: #FBCFE8;
+  --cn-border-subtle: #FCE7F3;
+
+  --cn-brand: #EC4899;
+  --cn-primary: #EC4899;
+  --cn-primary-hover: #DB2777;
+  --cn-primary-tint: rgba(236, 72, 153, 0.14);
+  --cn-primary-text: #FFFFFF;
+
+  --cn-accent: #A855F7;
+  --cn-accent-tint: rgba(168, 85, 247, 0.14);
+
+  --cn-success: #10B981;
+  --cn-warning: #F59E0B;
+  --cn-danger: #F43F5E;
+
+  --theme-glow: rgba(236, 72, 153, 0.25);
+  --moss-glow: rgba(236, 72, 153, 0.25);
+  --moss-glow-soft: rgba(236, 72, 153, 0.08);
+  --ember-glow: rgba(168, 85, 247, 0.2);
+
+  --cn-radius-sm: 10px;
+  --cn-radius-md: 16px;
+  --cn-radius-lg: 22px;
+  --cn-radius-xl: 28px;
+}
+
+/* =============================================================================
+   4. TOYBOX BUBBLY (Children & Playful Kids / Claymorphism)
+   ============================================================================= */
+[data-theme="toybox"] {
+  --font-display: 'Fredoka', 'Nunito', -apple-system, sans-serif;
+  --font-body: 'Nunito', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #FEFCE8;
+  --cn-surface: #FFFFFF;
+  --cn-surface-subtle: #FEF9C3;
+  --cn-surface-hover: #FEF08A;
+  --cn-surface-active: #FDE047;
+
+  --cn-text-primary: #1E293B;
+  --cn-text-secondary: #334155;
+  --cn-text-muted: #64748B;
+  --cn-border: #FDE047;
+  --cn-border-subtle: #FEF08A;
+
+  --cn-brand: #0284C7;
+  --cn-primary: #0284C7;
+  --cn-primary-hover: #0369A1;
+  --cn-primary-tint: rgba(2, 132, 199, 0.15);
+  --cn-primary-text: #FFFFFF;
+
+  --cn-accent: #F59E0B;
+  --cn-accent-tint: rgba(245, 158, 11, 0.18);
+
+  --cn-success: #10B981;
+  --cn-warning: #F59E0B;
+  --cn-danger: #EF4444;
+
+  --theme-glow: rgba(2, 132, 199, 0.25);
+  --moss-glow: rgba(2, 132, 199, 0.25);
+  --moss-glow-soft: rgba(2, 132, 199, 0.08);
+  --ember-glow: rgba(245, 158, 11, 0.22);
+
+  --cn-radius-sm: 12px;
+  --cn-radius-md: 18px;
+  --cn-radius-lg: 24px;
+  --cn-radius-xl: 32px;
+}
+
+/* =============================================================================
+   5. NEO-TOKYO MECHA (Boys & Anime / Sci-Fi / Cyberpunk)
+   ============================================================================= */
+[data-theme="cyberpunk"] {
+  --font-display: 'Chakra Petch', monospace, sans-serif;
+  --font-body: 'Chakra Petch', 'JetBrains Mono', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #080A10;
+  --cn-surface: #0F131F;
+  --cn-surface-subtle: #161B2E;
+  --cn-surface-hover: #1E2640;
+  --cn-surface-active: #283254;
+
+  --cn-text-primary: #F0F6FC;
+  --cn-text-secondary: #94A3B8;
+  --cn-text-muted: #64748B;
+  --cn-border: #1E2640;
+  --cn-border-subtle: #141A2D;
+
+  --cn-brand: #00F0FF;
+  --cn-primary: #00F0FF;
+  --cn-primary-hover: #38F9D7;
+  --cn-primary-tint: rgba(0, 240, 255, 0.16);
+  --cn-primary-text: #080A10;
+
+  --cn-accent: #FF007F;
+  --cn-accent-tint: rgba(255, 0, 127, 0.18);
+
+  --cn-success: #00F0FF;
+  --cn-warning: #FFB703;
+  --cn-danger: #FF0055;
+
+  --theme-glow: rgba(0, 240, 255, 0.35);
+  --moss-glow: rgba(0, 240, 255, 0.35);
+  --moss-glow-soft: rgba(0, 240, 255, 0.12);
+  --ember-glow: rgba(255, 0, 127, 0.3);
+
+  --cn-radius-sm: 3px;
+  --cn-radius-md: 6px;
+  --cn-radius-lg: 8px;
+  --cn-radius-xl: 12px;
+}
+
+/* =============================================================================
+   6. MANGA SCREENTONE (Anime & Comic Fans)
+   ============================================================================= */
+[data-theme="manga"] {
+  --font-display: 'DM Sans', -apple-system, sans-serif;
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #FAFAFA;
+  --cn-surface: #FFFFFF;
+  --cn-surface-subtle: #F4F4F5;
+  --cn-surface-hover: #E4E4E7;
+  --cn-surface-active: #D4D4D8;
+
+  --cn-text-primary: #09090B;
+  --cn-text-secondary: #27272A;
+  --cn-text-muted: #71717A;
+  --cn-border: #18181B;
+  --cn-border-subtle: #E4E4E7;
+
+  --cn-brand: #18181B;
+  --cn-primary: #DC2626;
+  --cn-primary-hover: #B91C1C;
+  --cn-primary-tint: rgba(220, 38, 38, 0.12);
+  --cn-primary-text: #FFFFFF;
+
+  --cn-accent: #F97316;
+  --cn-accent-tint: rgba(249, 115, 22, 0.14);
+
+  --cn-success: #16A34A;
+  --cn-warning: #F97316;
+  --cn-danger: #DC2626;
+
+  --theme-glow: rgba(220, 38, 38, 0.2);
+  --moss-glow: rgba(220, 38, 38, 0.2);
+  --moss-glow-soft: rgba(220, 38, 38, 0.08);
+  --ember-glow: rgba(249, 115, 22, 0.2);
+
+  --cn-radius-sm: 2px;
+  --cn-radius-md: 4px;
+  --cn-radius-lg: 6px;
+  --cn-radius-xl: 8px;
+}
+
+/* =============================================================================
+   7. STUDIO GHIBLI NATURE (Whimsical Cottagecore / Forest Focus)
+   ============================================================================= */
+[data-theme="ghibli"] {
+  --font-display: 'Plus Jakarta Sans', Georgia, serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #F5F2EB;
+  --cn-surface: #FCFAF6;
+  --cn-surface-subtle: #EDE7DC;
+  --cn-surface-hover: #E3DDD0;
+  --cn-surface-active: #D9D2C3;
+
+  --cn-text-primary: #2C2621;
+  --cn-text-secondary: #574C43;
+  --cn-text-muted: #85786D;
+  --cn-border: #DCD5C5;
+  --cn-border-subtle: #E8E2D4;
+
+  --cn-brand: #3B7A57;
+  --cn-primary: #3B7A57;
+  --cn-primary-hover: #2E6244;
+  --cn-primary-tint: rgba(59, 122, 87, 0.14);
+  --cn-primary-text: #FFFFFF;
+
+  --cn-accent: #C2593F;
+  --cn-accent-tint: rgba(194, 89, 63, 0.14);
+
+  --cn-success: #3B7A57;
+  --cn-warning: #D97706;
+  --cn-danger: #C2593F;
+
+  --theme-glow: rgba(59, 122, 87, 0.22);
+  --moss-glow: rgba(59, 122, 87, 0.22);
+  --moss-glow-soft: rgba(59, 122, 87, 0.08);
+  --ember-glow: rgba(194, 89, 63, 0.2);
+
+  --cn-radius-sm: 8px;
+  --cn-radius-md: 14px;
+  --cn-radius-lg: 20px;
+  --cn-radius-xl: 26px;
+}
+
+/* =============================================================================
+   8. OLED MIDNIGHT (True Black #000000 Battery Saver)
+   ============================================================================= */
+[data-theme="oled"] {
+  --font-display: 'DM Sans', -apple-system, sans-serif;
+  --font-body: 'DM Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #000000;
+  --cn-surface: #0A0A0A;
+  --cn-surface-subtle: #121212;
+  --cn-surface-hover: #1A1A1A;
+  --cn-surface-active: #242424;
+
+  --cn-text-primary: #FFFFFF;
+  --cn-text-secondary: #E0E0E0;
+  --cn-text-muted: #888888;
+  --cn-border: #222222;
+  --cn-border-subtle: #141414;
+
+  --cn-brand: #10B981;
+  --cn-primary: #10B981;
+  --cn-primary-hover: #059669;
+  --cn-primary-tint: rgba(16, 185, 129, 0.18);
+  --cn-primary-text: #000000;
+
+  --cn-accent: #3B82F6;
+  --cn-accent-tint: rgba(59, 130, 246, 0.18);
+
+  --cn-success: #10B981;
+  --cn-warning: #F59E0B;
+  --cn-danger: #EF4444;
+
+  --theme-glow: rgba(16, 185, 129, 0.3);
+  --moss-glow: rgba(16, 185, 129, 0.3);
+  --moss-glow-soft: rgba(16, 185, 129, 0.1);
+  --ember-glow: rgba(59, 130, 246, 0.25);
+
+  --cn-radius-sm: 6px;
+  --cn-radius-md: 8px;
+  --cn-radius-lg: 12px;
+  --cn-radius-xl: 16px;
+}
+
+/* =============================================================================
+   9. CLEAN EDITORIAL DAYLIGHT (Paper Daylight Mode)
+   ============================================================================= */
+[data-theme="paper"],
+[data-theme="light"] {
+  --font-display: 'Plus Jakarta Sans', 'DM Sans', -apple-system, sans-serif;
+  --font-body: 'DM Sans', 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --cn-bg: #F8F9FA;
+  --cn-surface: #FFFFFF;
+  --cn-surface-subtle: #F1F3F5;
+  --cn-surface-hover: #E9ECEF;
+  --cn-surface-active: #DEE2E6;
+
+  --cn-text-primary: #121417;
+  --cn-text-secondary: #495057;
+  --cn-text-muted: #6C757D;
+  --cn-border: #E2E5E9;
+  --cn-border-subtle: #ECEEF1;
+
+  --cn-brand: #3BA849;
+  --cn-primary: #3BA849;
+  --cn-primary-hover: #32923F;
+  --cn-primary-tint: #EDF7EE;
+  --cn-primary-text: #FFFFFF;
+
+  --cn-accent: #D97706;
+  --cn-accent-tint: #FFFBEB;
+
+  --cn-success: #16A34A;
+  --cn-warning: #D97706;
+  --cn-danger: #DC2626;
+
+  --theme-glow: rgba(59, 168, 73, 0.2);
+  --moss-glow: rgba(59, 168, 73, 0.2);
+  --moss-glow-soft: rgba(59, 168, 73, 0.08);
+  --ember-glow: rgba(217, 119, 6, 0.2);
+
+  --cn-radius-sm: 6px;
+  --cn-radius-md: 10px;
+  --cn-radius-lg: 14px;
+  --cn-radius-xl: 20px;
+}
+
+/* =============================================================================
+   BASE BODY & TYPOGRAPHY APPLICATION
+   ============================================================================= */
+body {
+  font-family: var(--font-body);
+  background-color: var(--cn-bg);
+  color: var(--cn-text-primary);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.025em;
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Interactive Card & Tile Utilities */
+.card-tactile {
+  background-color: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: var(--cn-radius-lg);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-tactile:hover {
+  border-color: var(--cn-primary);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 0 12px -2px var(--theme-glow);
+}
+
+/* Claymorphic Utility for Toybox */
+[data-theme="toybox"] .card-tactile {
+  box-shadow: 
+    inset 2px 2px 4px rgba(255, 255, 255, 0.7),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.05),
+    0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Mecha Bracket Utility for Cyberpunk */
+[data-theme="cyberpunk"] .card-tactile {
+  box-shadow: 0 0 15px -3px rgba(0, 240, 255, 0.15);
+}
+
+/* Screentone Comic Line for Manga */
+[data-theme="manga"] .card-tactile {
+  border-width: 2px;
+  box-shadow: 4px 4px 0px #09090B;
+}
+
+/* Custom Tactical Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cn-border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cn-text-muted);
+}
+
+/* =============================================================================
+   THEME-SPECIFIC PURE CSS KEYFRAME LOADERS (Zero-CPU & GPU Accelerated)
+   ============================================================================= */
+
+/* 1. Halal Rub-el-Hizb 8-Point Geometric Star Rotation & Pulse */
+@keyframes star8-expand {
+  0% {
+    transform: rotate(0deg) scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: rotate(45deg) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(90deg) scale(0.9);
+    opacity: 0.8;
+  }
+}
+
+.animate-star8 {
+  animation: star8-expand 3s ease-in-out infinite;
+}
+
+/* 2. Sakura Blossom Floating & Swaying */
+@keyframes sakura-float {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(0.95);
+  }
+  50% {
+    transform: translateY(-8px) rotate(12deg) scale(1.05);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg) scale(0.95);
+  }
+}
+
+.animate-sakura {
+  animation: sakura-float 2.5s ease-in-out infinite;
+}
+
+/* 3. Toybox Jumping Cubes (Playful Spring Physics) */
+@keyframes toybox-jump {
+  0%, 100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  30% {
+    transform: translateY(-16px) scale(0.95, 1.05);
+  }
+  50% {
+    transform: translateY(0) scale(1.1, 0.9);
+  }
+  70% {
+    transform: translateY(-6px) scale(0.98, 1.02);
+  }
+}
+
+.animate-toybox-1 {
+  animation: toybox-jump 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+.animate-toybox-2 {
+  animation: toybox-jump 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s infinite;
+}
+.animate-toybox-3 {
+  animation: toybox-jump 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s infinite;
+}
+
+/* 4. Cyberpunk Mecha Radar Sweep & Target Reticle */
+@keyframes cyber-radar {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-cyber-radar {
+  animation: cyber-radar 2s linear infinite;
+}
+
+/* 5. Manga Action Speedline Burst */
+@keyframes manga-speedline {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0.6;
+  }
+}
+
+.animate-manga-speed {
+  animation: manga-speedline 1.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* 6. Ghibli Seedling & Leaf Breeze */
+@keyframes ghibli-breeze {
+  0%, 100% {
+    transform: rotate(-6deg) translateY(0);
+  }
+  50% {
+    transform: rotate(8deg) translateY(-4px);
+  }
+}
+
+.animate-ghibli {
+  animation: ghibli-breeze 3s ease-in-out infinite;
+}
+
+/* 7. Obsidian Precision Dual Orbit */
+@keyframes orbit-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-orbit {
+  animation: orbit-spin 1.2s linear infinite;
+}
+
+/* =============================================================================
+   TACTILE THEME PERSONALITY STYLES (Zero AI-Slop)
+   ============================================================================= */
+
+/* Manga Theme: Hard Comic Shadows & 2px Ink Borders */
+[data-theme="manga"] .rounded-2xl,
+[data-theme="manga"] .rounded-xl {
+  border-width: 1.5px !important;
+  border-color: #18181B !important;
+  box-shadow: 3px 3px 0px rgba(24, 24, 27, 0.9) !important;
+}
+
+[data-theme="manga"] button:not(:disabled):hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px rgba(24, 24, 27, 0.95);
+}
+
+/* Toybox Theme: Playful Bubbly Curves & Soft Clay Shadows */
+[data-theme="toybox"] .rounded-2xl {
+  border-radius: 24px !important;
+  box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.12) !important;
+}
+
+/* Cyberpunk Theme: High-Tech Cyan Hairline Accents */
+[data-theme="cyberpunk"] .rounded-2xl {
+  border-color: rgba(0, 240, 255, 0.25) !important;
+}
+
+[data-theme="cyberpunk"] .rounded-2xl:hover {
+  border-color: rgba(0, 240, 255, 0.6) !important;
+  box-shadow: 0 0 15px -3px rgba(0, 240, 255, 0.25);
+}
+
+/* Halal Theme: Elegant Gold-Emerald Hairlines */
+[data-theme="halal"] .rounded-2xl {
+  border-color: #E3DCC8 !important;
+}
+
+[data-theme="halal"] .rounded-2xl:hover {
+  border-color: rgba(217, 119, 6, 0.45) !important;
+  box-shadow: 0 4px 16px -4px rgba(4, 120, 87, 0.08);
+}
+

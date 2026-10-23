@@ -20,6 +20,28 @@ export type ThemeCategory =
   | 'nature_cozy'
   | 'focus_studio';
 
+export type ScenicArtworkType = 
+  | 'mosque_skyline' 
+  | 'sakura_garden' 
+  | 'toybox_valley' 
+  | 'mecha_skyline' 
+  | 'manga_screentone_burst' 
+  | 'ghibli_meadow' 
+  | 'monolith_circuits' 
+  | 'lunar_stars' 
+  | 'editorial_blueprint';
+
+export type LogoEmblemType = 
+  | 'halal_minaret' 
+  | 'sakura_bloom' 
+  | 'toybox_brick' 
+  | 'mecha_hud' 
+  | 'manga_stamp' 
+  | 'ghibli_acorn' 
+  | 'obsidian_core' 
+  | 'oled_ring' 
+  | 'editorial_quill';
+
 export interface ThemeDefinition {
   id: ThemeId;
   name: string;
@@ -43,6 +65,8 @@ export interface ThemeDefinition {
   borderRadiusMode: 'bubbly' | 'rounded' | 'sharp' | 'pebble' | 'standard';
   patternType: 'arabesque' | 'petals' | 'confetti' | 'grid' | 'screentone' | 'botanical' | 'dots' | 'none';
   loaderType: 'star8' | 'blossom' | 'blocks' | 'radar' | 'speedline' | 'leaf' | 'orbit';
+  scenicArtwork: ScenicArtworkType;
+  logoEmblem: LogoEmblemType;
   badgeLabel: string;
 }
 
@@ -70,6 +94,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'standard',
     patternType: 'dots',
     loaderType: 'orbit',
+    scenicArtwork: 'monolith_circuits',
+    logoEmblem: 'obsidian_core',
     badgeLabel: 'Default Studio',
   },
   {
@@ -95,6 +121,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'rounded',
     patternType: 'arabesque',
     loaderType: 'star8',
+    scenicArtwork: 'mosque_skyline',
+    logoEmblem: 'halal_minaret',
     badgeLabel: 'Halal Edition',
   },
   {
@@ -120,6 +148,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'bubbly',
     patternType: 'petals',
     loaderType: 'blossom',
+    scenicArtwork: 'sakura_garden',
+    logoEmblem: 'sakura_bloom',
     badgeLabel: 'Kawaii Pastel',
   },
   {
@@ -145,6 +175,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'bubbly',
     patternType: 'confetti',
     loaderType: 'blocks',
+    scenicArtwork: 'toybox_valley',
+    logoEmblem: 'toybox_brick',
     badgeLabel: 'Kids Edition',
   },
   {
@@ -170,6 +202,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'sharp',
     patternType: 'grid',
     loaderType: 'radar',
+    scenicArtwork: 'mecha_skyline',
+    logoEmblem: 'mecha_hud',
     badgeLabel: 'Anime Mecha',
   },
   {
@@ -195,6 +229,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'sharp',
     patternType: 'screentone',
     loaderType: 'speedline',
+    scenicArtwork: 'manga_screentone_burst',
+    logoEmblem: 'manga_stamp',
     badgeLabel: 'Manga Comic',
   },
   {
@@ -220,6 +256,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'pebble',
     patternType: 'botanical',
     loaderType: 'leaf',
+    scenicArtwork: 'ghibli_meadow',
+    logoEmblem: 'ghibli_acorn',
     badgeLabel: 'Ghibli Whimsy',
   },
   {
@@ -245,6 +283,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'standard',
     patternType: 'none',
     loaderType: 'orbit',
+    scenicArtwork: 'lunar_stars',
+    logoEmblem: 'oled_ring',
     badgeLabel: 'OLED Pure Black',
   },
   {
@@ -270,6 +310,8 @@ export const THEMES: ThemeDefinition[] = [
     borderRadiusMode: 'standard',
     patternType: 'none',
     loaderType: 'orbit',
+    scenicArtwork: 'editorial_blueprint',
+    logoEmblem: 'editorial_quill',
     badgeLabel: 'Daylight Mode',
   },
 ];

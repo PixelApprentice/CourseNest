@@ -606,3 +606,47 @@ code, pre, .font-mono {
 .animate-orbit {
   animation: orbit-spin 1.2s linear infinite;
 }
+
+/* =============================================================================
+   TACTILE THEME PERSONALITY STYLES (Zero AI-Slop)
+   ============================================================================= */
+
+/* Manga Theme: Hard Comic Shadows & 2px Ink Borders */
+[data-theme="manga"] .rounded-2xl,
+[data-theme="manga"] .rounded-xl {
+  border-width: 1.5px !important;
+  border-color: #18181B !important;
+  box-shadow: 3px 3px 0px rgba(24, 24, 27, 0.9) !important;
+}
+
+[data-theme="manga"] button:not(:disabled):hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px rgba(24, 24, 27, 0.95);
+}
+
+/* Toybox Theme: Playful Bubbly Curves & Soft Clay Shadows */
+[data-theme="toybox"] .rounded-2xl {
+  border-radius: 24px !important;
+  box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.12) !important;
+}
+
+/* Cyberpunk Theme: High-Tech Cyan Hairline Accents */
+[data-theme="cyberpunk"] .rounded-2xl {
+  border-color: rgba(0, 240, 255, 0.25) !important;
+}
+
+[data-theme="cyberpunk"] .rounded-2xl:hover {
+  border-color: rgba(0, 240, 255, 0.6) !important;
+  box-shadow: 0 0 15px -3px rgba(0, 240, 255, 0.25);
+}
+
+/* Halal Theme: Elegant Gold-Emerald Hairlines */
+[data-theme="halal"] .rounded-2xl {
+  border-color: #E3DCC8 !important;
+}
+
+[data-theme="halal"] .rounded-2xl:hover {
+  border-color: rgba(217, 119, 6, 0.45) !important;
+  box-shadow: 0 4px 16px -4px rgba(4, 120, 87, 0.08);
+}
+

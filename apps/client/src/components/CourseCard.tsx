@@ -6,7 +6,6 @@ import {
   IconPlayerPlay, 
   IconStack2, 
   IconTrash,
-  IconDeviceFloppy,
   IconFileText
 } from '@tabler/icons-react';
 
@@ -84,8 +83,12 @@ export function CourseCard({
           </div>
 
           <div className="text-[10px] font-mono text-[var(--cn-text-muted)] flex items-center gap-1">
-            <IconDeviceFloppy size={12} />
-            <span>Local Vault</span>
+            <IconClock size={12} />
+            <span>
+              {course.estimatedDurationMinutes 
+                ? `${Math.round(course.estimatedDurationMinutes / 60)}h ${course.estimatedDurationMinutes % 60 ? `${course.estimatedDurationMinutes % 60}m` : ''}`.trim()
+                : `${course.sections?.reduce((a, s) => a + (s.lessons?.length || 0), 0) || 0} lessons`}
+            </span>
           </div>
         </div>
       </div>

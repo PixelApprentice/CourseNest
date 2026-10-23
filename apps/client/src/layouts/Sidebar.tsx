@@ -70,7 +70,7 @@ export function Sidebar() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <IconDatabase size={15} className="text-[var(--cn-primary)]" />
-            <span className="text-[11px] font-semibold text-[var(--cn-text-primary)]">Offline Vault</span>
+            <span className="text-[11px] font-semibold text-[var(--cn-text-primary)]">Vault Storage</span>
           </div>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--cn-success-tint)] text-[var(--cn-success)] border border-[var(--cn-success)]/30 font-medium">
             Active
@@ -91,7 +91,7 @@ export function Sidebar() {
         <div className="pt-2 border-t border-[var(--cn-border)]/60 flex items-center justify-between text-[10px] text-[var(--cn-text-muted)]">
           <span className="flex items-center gap-1">
             <IconShieldCheck size={13} className="text-[var(--cn-success)]" />
-            Private & Offline
+            Encrypted Local
           </span>
           <span className="font-mono font-medium text-[var(--cn-text-secondary)]">{analytics.estimatedStorageMB} MB</span>
         </div>

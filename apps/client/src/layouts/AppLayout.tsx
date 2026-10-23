@@ -1,9 +1,9 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { BrandLogo } from '../components/BrandLogo';
 import { NotificationDropdown } from '../components/NotificationDropdown';
-import { ThemeBackdropPattern } from '../components/ThemeBackdropPattern';
+import { ThemeScenicBackdrop } from '../components/ThemeScenicBackdrop';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { useTheme } from '../lib/themeManager';
 import { 
@@ -23,23 +23,9 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
   const { currentTheme, setTheme } = useTheme();
   const location = useLocation();
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   const toggleQuickDark = () => {
     if (currentTheme.isDark) {
@@ -65,8 +51,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased relative">
-      {/* Dynamic Theme Vector Backdrop Pattern */}
-      <ThemeBackdropPattern />
+      {/* Dynamic Theme Atmospheric Scenic Backdrop */}
+      <ThemeScenicBackdrop />
 
       {/* Theme Studio Modal */}
       <ThemeSelectorModal isOpen={isThemeModalOpen} onClose={() => setIsThemeModalOpen(false)} />
@@ -92,21 +78,6 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Offline Vault Indicator */}
-            <div 
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-medium border ${
-                isOnline
-                  ? 'bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] border-[var(--cn-border)]'
-                  : 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40'
-              }`}
-              title="CourseNest runs entirely on your local machine without tracking or internet requirements"
-            >
-              <span className="inline-block h-2 w-2 rounded-full bg-[var(--cn-primary)] shadow-xs" />
-              <span className="text-[11px] font-semibold tracking-wide">
-                LOCAL VAULT {isOnline ? 'READY' : 'OFFLINE'}
-              </span>
-            </div>
-
             {/* Quick search button */}
             <Link
               to="/library"
