@@ -417,8 +417,51 @@ export function SettingsPage() {
                         : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
                     }`}
                   >
-                    <div className="font-bold">Google Gemini (Direct API)</div>
-                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal">Default: gemini-1.5-flash (fast & free tier available)</div>
+                    <div className="font-bold flex items-center justify-between">
+                      <span>Google Gemini Pro</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--cn-primary-tint)] text-[var(--cn-primary)]">Cloud API</span>
+                    </div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">Default: gemini-1.5-flash (fast & free tier available)</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAiProvider('omniroute');
+                      setAiBaseUrl('https://tokenharbor.ai/v1');
+                      setAiModelName('deepseek-v4-flash:free');
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-colors ${
+                      aiProvider === 'omniroute' && aiBaseUrl.includes('tokenharbor')
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center justify-between">
+                      <span>Free Cloud AI (TokenHarbor)</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">100% Free Tier</span>
+                    </div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">DeepSeek V4 Flash / MiMo 2.5 (OpenAI-compatible zero-cost route)</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAiProvider('omniroute');
+                      setAiBaseUrl('http://localhost:11434/v1');
+                      setAiModelName('llama3.2');
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-colors ${
+                      aiProvider === 'omniroute' && aiBaseUrl.includes('11434')
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
+                    }`}
+                  >
+                    <div className="font-bold flex items-center justify-between">
+                      <span>Local Ollama (Offline LLM)</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">Localhost</span>
+                    </div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">http://localhost:11434/v1 with Llama 3, Mistral, or Qwen</div>
                   </button>
 
                   <button
@@ -429,13 +472,16 @@ export function SettingsPage() {
                       setAiModelName('gpt-4o-mini');
                     }}
                     className={`p-3 rounded-xl border text-left transition-colors ${
-                      aiProvider === 'omniroute'
+                      aiProvider === 'omniroute' && aiBaseUrl.includes('8000')
                         ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
                         : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
                     }`}
                   >
-                    <div className="font-bold">Campus Proxy / Local Gateway</div>
-                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal">OpenAI-compatible endpoint or school network proxy</div>
+                    <div className="font-bold flex items-center justify-between">
+                      <span>Campus Gateway / Custom API</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">Custom Proxy</span>
+                    </div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">OpenAI-compatible server or institutional campus relay</div>
                   </button>
                 </div>
               </div>

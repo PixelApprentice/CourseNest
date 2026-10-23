@@ -27,6 +27,13 @@ const MIME_MAP: Record<string, string> = {
   '.epub': 'application/epub+zip',
   '.srt': 'text/vtt',
   '.vtt': 'text/vtt',
+  '.sbv': 'text/vtt',
+  '.sub': 'text/vtt',
+  '.ass': 'text/vtt',
+  '.ssa': 'text/vtt',
+  '.lrc': 'text/vtt',
+  '.ttml': 'application/ttml+xml',
+  '.dfxp': 'application/ttml+xml',
   '.url': 'text/plain',
   '.webloc': 'text/plain',
   '.desktop': 'text/plain',
@@ -75,7 +82,7 @@ export function detectResourceType(filename: string): ResourceType {
   if (ext === '.md' || ext === '.markdown') return ResourceType.Markdown;
   if (ext === '.epub') return ResourceType.Document;
   if (ext === '.ipynb') return ResourceType.SourceCode;
-  if (['.srt', '.vtt'].includes(ext)) return ResourceType.Document;
+  if (['.srt', '.vtt', '.sbv', '.sub', '.ass', '.ssa', '.lrc', '.ttml', '.dfxp'].includes(ext)) return ResourceType.Document;
   if (['.url', '.webloc', '.desktop'].includes(ext)) return ResourceType.Document;
   if ((SUPPORTED_CODE_EXTENSIONS as readonly string[]).includes(ext)) return ResourceType.SourceCode;
   if ((SUPPORTED_ARCHIVE_EXTENSIONS as readonly string[]).includes(ext)) return ResourceType.Archive;

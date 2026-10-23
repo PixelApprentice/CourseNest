@@ -15,6 +15,7 @@ import {
   IconHeadphones
 } from '@tabler/icons-react';
 import { addLog } from '../lib/logger';
+import { anySubtitleToVtt } from '../lib/formatHelpers';
 
 export interface SubtitleTrack {
   id?: string;
@@ -72,6 +73,15 @@ export function VlcMediaViewer({
   const [copiedVlcUrl, setCopiedVlcUrl] = useState(false);
   const [showStatusToast, setShowStatusToast] = useState<string | null>(null);
   const [isCaptionsVisible, setIsCaptionsVisible] = useState(true);
+  const [activeSubtitles, setActiveSubtitles] = useState<SubtitleTrack[]>(subtitles);
+  const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Sync incoming subtitles
+  useEffect(() => {
+    setActiveSubtitles(subtitles);
+    setSelectedTrackIndex(0);
+  }, [subtitles]);
 
   // Toggle Subtitles / Closed Captions
   const toggleCaptions = () => {
@@ -81,10 +91,63 @@ export function VlcMediaViewer({
       const tracks = videoRef.current.textTracks;
       for (let i = 0; i < tracks.length; i++) {
         const t = tracks[i];
-        if (t) t.mode = next ? 'showing' : 'hidden';
+        if (t) t.mode = next && i === selectedTrackIndex ? 'showing' : 'hidden';
       }
     }
     showToast(next ? 'Subtitles / Closed Captions ON' : 'Subtitles OFF');
+  };
+
+  // Select Active Subtitle Language Track
+  const selectSubtitleTrack = (index: number) => {
+    setSelectedTrackIndex(index);
+    setIsCaptionsVisible(true);
+    if (videoRef.current) {
+      const tracks = videoRef.current.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        const tr = tracks[i];
+        if (tr) tr.mode = i === index ? 'showing' : 'hidden';
+      }
+    }
+    showToast(`Active Subtitles: ${activeSubtitles[index]?.label || 'Track ' + (index + 1)}`);
+  };
+
+  // Upload and Parse Custom Subtitle File
+  const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const vtt = anySubtitleToVtt(text, file.name);
+      const blobUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
+      const newTrack: SubtitleTrack = {
+        id: `custom-sub-${Date.now()}`,
+        label: file.name.replace(/\.[^/.]+$/, '').replace(/^[0-9\s._-]+/, '') || 'Custom Subtitles',
+        language: 'custom',
+        src: blobUrl,
+        isDefault: true,
+      };
+      const nextList = [...activeSubtitles, newTrack];
+      setActiveSubtitles(nextList);
+      const newIdx = nextList.length - 1;
+      setSelectedTrackIndex(newIdx);
+      setIsCaptionsVisible(true);
+      if (videoRef.current) {
+        setTimeout(() => {
+          const tracks = videoRef.current?.textTracks;
+          if (tracks) {
+            for (let i = 0; i < tracks.length; i++) {
+              const tr = tracks[i];
+              if (tr) tr.mode = i === newIdx ? 'showing' : 'hidden';
+            }
+          }
+        }, 100);
+      }
+      showToast(`Loaded Subtitle: ${file.name}`);
+      addLog('INFO', 'PLAYER', `Loaded custom subtitle: ${file.name}`);
+    } catch (err: any) {
+      showToast(`Failed to parse subtitle: ${err.message}`);
+    }
   };
 
   // Reset tracking on source change
@@ -462,14 +525,14 @@ export function VlcMediaViewer({
         onPause={() => setIsPlaying(false)}
         onEnded={onEnded}
       >
-        {subtitles.map((sub, idx) => (
+        {activeSubtitles.map((sub, idx) => (
           <track
             key={sub.id || idx}
             label={sub.label}
             kind="subtitles"
             srcLang={sub.language || 'en'}
             src={sub.src}
-            default={isCaptionsVisible && (sub.isDefault ?? idx === 0)}
+            default={isCaptionsVisible && idx === selectedTrackIndex}
           />
         ))}
       </video>
@@ -738,21 +801,51 @@ export function VlcMediaViewer({
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Subtitles / CC Toggle */}
-            {subtitles && subtitles.length > 0 && (
+            {/* Subtitles / CC Toggle and Language Selector */}
+            <div className="flex items-center gap-1">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".vtt,.srt,.sbv,.ass,.ssa,.sub,.lrc"
+                className="hidden"
+                onChange={handleSubtitleUpload}
+              />
+              {activeSubtitles.length > 0 && (
+                <button
+                  onClick={toggleCaptions}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
+                    isCaptionsVisible
+                      ? 'bg-[var(--cn-brand)] text-black font-bold'
+                      : 'bg-white/10 text-white/80 hover:bg-white/20'
+                  }`}
+                  title={isCaptionsVisible ? 'Turn Off Closed Captions' : 'Turn On Closed Captions'}
+                >
+                  <IconBadgeCc size={16} />
+                  <span className="text-[10px] hidden sm:inline">CC</span>
+                </button>
+              )}
+              {activeSubtitles.length > 1 && (
+                <select
+                  value={selectedTrackIndex}
+                  onChange={(e) => selectSubtitleTrack(parseInt(e.target.value, 10))}
+                  className="bg-white/10 hover:bg-white/20 border border-white/20 rounded px-1.5 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
+                  title="Select Subtitle Track"
+                >
+                  {activeSubtitles.map((track, i) => (
+                    <option key={track.id || i} value={i} className="bg-[#121316] text-white">
+                      {track.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
-                onClick={toggleCaptions}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
-                  isCaptionsVisible
-                    ? 'bg-[var(--cn-brand)] text-black font-bold'
-                    : 'bg-white/10 text-white/80 hover:bg-white/20'
-                }`}
-                title={isCaptionsVisible ? 'Turn Off Closed Captions' : 'Turn On Closed Captions'}
+                onClick={() => fileInputRef.current?.click()}
+                className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-[11px] font-mono transition-colors"
+                title="Load External Subtitle File (.srt, .vtt, .sbv, .ass, .lrc)"
               >
-                <IconBadgeCc size={16} />
-                <span className="text-[10px] hidden sm:inline">{subtitles.length > 1 ? `${subtitles.length} CC` : 'CC'}</span>
+                +CC
               </button>
-            )}
+            </div>
 
             {/* Speed Selector */}
             <div className="flex items-center gap-1">

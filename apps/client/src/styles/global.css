@@ -714,3 +714,16 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/* High-Legibility Video Subtitle Styling */
+video::cue {
+  background-color: rgba(10, 11, 14, 0.88) !important;
+  color: #F8FAFC !important;
+  font-family: var(--font-body, system-ui, sans-serif) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.5 !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95) !important;
+}
+

@@ -80,6 +80,64 @@ export const DEMO_COURSES: FixtureCourseData[] = [
                   title: 'Lecture: Hardware Foundations & The Memory Wall',
                   durationSeconds: 1240,
                   src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                  subtitles: [
+                    {
+                      id: 'sub-cs101-en',
+                      label: 'English (Lecture CC)',
+                      language: 'en',
+                      src: '',
+                      filename: '01_hardware_foundations.vtt',
+                      isDefault: true,
+                      vttContent: `WEBVTT
+
+00:00:00.500 --> 00:00:04.000
+Welcome to CS 101: Systems Programming and Operating Principles.
+
+00:00:04.500 --> 00:00:08.800
+In this lecture, we examine hardware foundations, clock speeds, and the memory wall.
+
+00:00:09.200 --> 00:00:14.200
+Accessing CPU registers takes less than 1 cycle, roughly 0.5 nanoseconds.
+
+00:00:14.800 --> 00:00:19.500
+L1 cache references take roughly 1 nanosecond (4 cycles).
+
+00:00:20.000 --> 00:00:25.500
+In contrast, retrieving data from main RAM requires 60 to 100 nanoseconds.
+
+00:00:26.000 --> 00:00:32.000
+Understanding these latency cliffs is fundamental for designing high-throughput memory-aware algorithms.
+`,
+                    },
+                    {
+                      id: 'sub-cs101-es',
+                      label: 'Español (Subtítulos)',
+                      language: 'es',
+                      src: '',
+                      filename: '01_fundamentos_hardware.vtt',
+                      isDefault: false,
+                      vttContent: `WEBVTT
+
+00:00:00.500 --> 00:00:04.000
+Bienvenidos a CS 101: Programación de Sistemas y Principios Operativos.
+
+00:00:04.500 --> 00:00:08.800
+En esta clase examinamos los fundamentos de hardware y la barrera de memoria.
+
+00:00:09.200 --> 00:00:14.200
+El acceso a los registros de CPU toma menos de 1 ciclo, aproximadamente 0.5 nanosegundos.
+
+00:00:14.800 --> 00:00:19.500
+La referencia a la memoria caché L1 toma aproximadamente 1 nanosegundo.
+
+00:00:20.000 --> 00:00:25.500
+En contraste, recuperar datos de la memoria RAM principal requiere de 60 a 100 nanosegundos.
+
+00:00:26.000 --> 00:00:32.000
+Comprender estas diferencias de latencia es fundamental para optimizar algoritmos modernos.
+`,
+                    },
+                  ],
                 },
                 isRequired: true,
                 schemaVersion: '1.0.0',

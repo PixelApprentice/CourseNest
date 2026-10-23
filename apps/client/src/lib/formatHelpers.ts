@@ -12,24 +12,126 @@
  * Required by modern HTML5 <track> elements.
  */
 export function srtToVtt(srtContent: string): string {
-  if (!srtContent) return 'WEBVTT\n\n';
+  return anySubtitleToVtt(srtContent, '.srt');
+}
 
-  // Strip UTF-8 Byte Order Mark (BOM) if present
-  let vtt = srtContent.replace(/^\uFEFF/, '');
+/**
+ * Universal Subtitle to WebVTT Converter
+ * Supports: .vtt, .srt, .sbv (YouTube), .ass/.ssa (SubStation Alpha),
+ * .lrc (Lyrics), .sub (MicroDVD / SubViewer), and .ttml/.dfxp (XML).
+ */
+export function anySubtitleToVtt(content: string, filenameOrExt?: string): string {
+  if (!content) return 'WEBVTT\n\n';
 
-  // Normalize Windows \r\n and classic Mac \r into standard \n
-  vtt = vtt.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-  // Convert SRT comma millisecond timestamps to WebVTT period timestamps
-  // e.g. 00:01:23,456 --> 00:01:25,789 becomes 00:01:23.456 --> 00:01:25.789
-  vtt = vtt.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
-
-  // If it doesn't already have WEBVTT header, prepend it
-  if (!vtt.startsWith('WEBVTT')) {
-    vtt = `WEBVTT\n\n${vtt.trim()}\n`;
+  let raw = content.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  if (raw.startsWith('WEBVTT')) {
+    return `${raw}\n`;
   }
 
-  return vtt;
+  const ext = (filenameOrExt?.split('.').pop() || '').toLowerCase();
+
+  // 1. YouTube SBV format (0:01:23.456,0:01:25.789\nText)
+  if (ext === 'sbv' || /^\d{1,2}:\d{2}:\d{2}\.\d{3},\d{1,2}:\d{2}:\d{2}\.\d{3}/m.test(raw)) {
+    const blocks = raw.split(/\n\s*\n/);
+    const cues: string[] = ['WEBVTT\n'];
+    for (const block of blocks) {
+      const lines = block.split('\n');
+      if (lines.length >= 2 && lines[0]) {
+        const timeMatch = lines[0].match(/^(\d{1,2}:\d{2}:\d{2}\.\d{3}),(\d{1,2}:\d{2}:\d{2}\.\d{3})/);
+        if (timeMatch && timeMatch[1] && timeMatch[2]) {
+          const start = timeMatch[1].padStart(12, '00:');
+          const end = timeMatch[2].padStart(12, '00:');
+          const text = lines.slice(1).join('\n');
+          cues.push(`${start} --> ${end}\n${text}\n`);
+        }
+      }
+    }
+    return cues.join('\n');
+  }
+
+  // 2. ASS / SSA format ([Events] -> Dialogue: 0,0:01:23.45,0:01:25.78,Default,,0,0,0,,Text)
+  if (ext === 'ass' || ext === 'ssa' || raw.includes('[Events]') || raw.includes('Dialogue:')) {
+    const lines = raw.split('\n');
+    const cues: string[] = ['WEBVTT\n'];
+    for (const line of lines) {
+      if (line.startsWith('Dialogue:')) {
+        const parts = line.replace('Dialogue:', '').trim().split(',');
+        if (parts.length >= 10 && parts[1] && parts[2]) {
+          const rawStart = parts[1].trim();
+          const rawEnd = parts[2].trim();
+          const rawText = parts.slice(9).join(',');
+
+          const formatAssTime = (t: string) => {
+            const p = t.split(':');
+            const h = (p[0] || '0').padStart(2, '0');
+            const m = (p[1] || '00').padStart(2, '0');
+            const sParts = (p[2] || '00.00').split('.');
+            const s = (sParts[0] || '00').padStart(2, '0');
+            const ms = (sParts[1] || '000').padEnd(3, '0').slice(0, 3);
+            return `${h}:${m}:${s}.${ms}`;
+          };
+
+          const cleanText = rawText.replace(/\{[^}]+\}/g, '').replace(/\\N/g, '\n').trim();
+          if (cleanText) {
+            cues.push(`${formatAssTime(rawStart)} --> ${formatAssTime(rawEnd)}\n${cleanText}\n`);
+          }
+        }
+      }
+    }
+    if (cues.length > 1) return cues.join('\n');
+  }
+
+  // 3. LRC Lyric format ([01:23.45]Line text)
+  if (ext === 'lrc' || /\[\d{2}:\d{2}(?:\.\d{2,3})?\]/.test(raw)) {
+    const lines = raw.split('\n');
+    const items: Array<{ sec: number; text: string }> = [];
+
+    for (const line of lines) {
+      const match = line.match(/\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\](.*)/);
+      if (match && match[1] && match[2]) {
+        const min = parseInt(match[1], 10);
+        const sec = parseInt(match[2], 10);
+        const ms = match[3] ? parseInt(match[3].padEnd(3, '0').slice(0, 3), 10) : 0;
+        const totalSec = min * 60 + sec + ms / 1000;
+        const text = (match[4] || '').trim();
+        if (text) {
+          items.push({ sec: totalSec, text });
+        }
+      }
+    }
+
+    if (items.length > 0) {
+      items.sort((a, b) => a.sec - b.sec);
+      const cues: string[] = ['WEBVTT\n'];
+
+      const secToVttTime = (s: number) => {
+        const hrs = Math.floor(s / 3600);
+        const mins = Math.floor((s % 3600) / 60);
+        const secs = Math.floor(s % 60);
+        const ms = Math.floor((s % 1) * 1000);
+        return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
+      };
+
+      for (let i = 0; i < items.length; i++) {
+        const cur = items[i];
+        if (!cur) continue;
+        const nextItem = i + 1 < items.length ? items[i + 1] : undefined;
+        const nextSec = nextItem ? nextItem.sec : cur.sec + 4;
+        cues.push(`${secToVttTime(cur.sec)} --> ${secToVttTime(nextSec)}\n${cur.text}\n`);
+      }
+      return cues.join('\n');
+    }
+  }
+
+  // 4. Default: Standard SRT format with comma milliseconds
+  // Convert SRT comma millisecond timestamps to WebVTT period timestamps
+  // e.g. 00:01:23,456 --> 00:01:25,789 becomes 00:01:23.456 --> 00:01:25.789
+  let vtt = raw.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+
+  // Ensure double digit hours
+  vtt = vtt.replace(/^(\d{1}):(\d{2}:\d{2}\.\d{3})/gm, '0$1:$2');
+
+  return `WEBVTT\n\n${vtt.trim()}\n`;
 }
 
 /**

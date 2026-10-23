@@ -1,8 +1,8 @@
 import JSZip from 'jszip';
 import { addLog } from './logger';
 import { saveMediaFile } from './mediaVault';
-import { addCourseToVault, type CourseData, type SectionData, type LessonData, type ContentBlockData, type SubtitleTrackData } from './courseStore';
-import { srtToVtt, extractUrlFromShortcutText, parseJupyterNotebook, sanitizeLectureHtml } from './formatHelpers';
+import { addCourseToVault, appendSectionsToCourse, getCourseById, type CourseData, type SectionData, type LessonData, type ContentBlockData, type SubtitleTrackData } from './courseStore';
+import { anySubtitleToVtt, extractUrlFromShortcutText, parseJupyterNotebook, sanitizeLectureHtml } from './formatHelpers';
 
 export interface DiscoveredArchiveFile {
   originalPath: string;
@@ -84,8 +84,10 @@ function detectFileType(ext: string): {
     return { type: 'audio', mimeType: e === '.wav' ? 'audio/wav' : e === '.flac' ? 'audio/flac' : 'audio/mpeg' };
   }
 
-  // Subtitles
-  if (['.srt', '.vtt', '.sub', '.sbv'].includes(e)) return { type: 'subtitle', mimeType: 'text/vtt' };
+  // Subtitles (WebVTT, SubRip, YouTube SBV, SubStation Alpha, Lyrics, TTML)
+  if (['.srt', '.vtt', '.sub', '.sbv', '.ass', '.ssa', '.lrc', '.ttml', '.dfxp'].includes(e)) {
+    return { type: 'subtitle', mimeType: 'text/vtt' };
+  }
 
   // Links & Shortcuts
   if (['.url', '.webloc', '.desktop'].includes(e)) return { type: 'link', mimeType: 'text/plain' };
@@ -415,6 +417,7 @@ export async function commitImportedCourse(params: {
   courseDescription: string;
   targetStorage: 'internal' | 'external';
   sections: ProposalSection[];
+  appendToCourseId?: string;
   onProgress?: (percent: number, status: string) => void;
 }): Promise<CourseData> {
   const {
@@ -424,6 +427,7 @@ export async function commitImportedCourse(params: {
     instructorName,
     courseDescription,
     sections,
+    appendToCourseId,
     onProgress,
   } = params;
 
@@ -574,8 +578,8 @@ export async function commitImportedCourse(params: {
             }
 
             if (srtOrVttText) {
-              // Convert SRT to standard WebVTT
-              const vttText = srtToVtt(srtOrVttText);
+              // Convert any subtitle format (SRT, SBV, ASS, LRC) to standard WebVTT
+              const vttText = anySubtitleToVtt(srtOrVttText, subItem.filename);
               const vttBlob = new Blob([vttText], { type: 'text/vtt' });
               const subPath = `subtitles/${les.id}_sub_${subIdx}.vtt`;
               await saveMediaFile(courseId, subPath, vttBlob, 'text/vtt');
@@ -631,6 +635,20 @@ export async function commitImportedCourse(params: {
       estimatedDurationMinutes: finalLessons.reduce((acc, l) => acc + l.estimatedDurationMinutes, 0),
       lessons: finalLessons,
     });
+  }
+
+  // If appending to an existing course, merge sections and return
+  if (appendToCourseId) {
+    const existing = getCourseById(appendToCourseId);
+    appendSectionsToCourse(appendToCourseId, finalSections);
+    if (onProgress) onProgress(100, 'Materials appended successfully!');
+    addLog(
+      'INFO',
+      'IMPORTER',
+      `Appended supplementary chapters to: ${existing?.title || appendToCourseId}`,
+      `${finalSections.length} sections merged, ${totalFiles} new media files`
+    );
+    return getCourseById(appendToCourseId)!;
   }
 
   const courseData: CourseData = {

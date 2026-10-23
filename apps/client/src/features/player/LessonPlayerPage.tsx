@@ -510,13 +510,19 @@ export function LessonPlayerPage() {
                 );
               }
 
-              const blockSubs = (block.subtitles || []).map((sub) => ({
-                id: sub.id,
-                label: sub.label,
-                language: sub.language,
-                src: resolvedMediaUrls[sub.id] || sub.src,
-                isDefault: sub.isDefault,
-              }));
+              const blockSubs = (block.subtitles || []).map((sub) => {
+                let subSrc = resolvedMediaUrls[sub.id] || sub.src;
+                if (sub.vttContent && (!subSrc || subSrc.startsWith('vault-media:'))) {
+                  subSrc = `data:text/vtt;charset=utf-8,${encodeURIComponent(sub.vttContent)}`;
+                }
+                return {
+                  id: sub.id,
+                  label: sub.label,
+                  language: sub.language,
+                  src: subSrc || '',
+                  isDefault: sub.isDefault,
+                };
+              });
 
               return (
                 <div key={block.id} className="space-y-3">

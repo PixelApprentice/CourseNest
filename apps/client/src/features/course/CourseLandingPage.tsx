@@ -31,6 +31,7 @@ import {
   IconList,
   IconPencil,
   IconTrash,
+  IconFolderPlus,
   IconX,
   IconAlertTriangle
 } from '@tabler/icons-react';
@@ -174,6 +175,14 @@ export function CourseLandingPage() {
                   {course.title}
                 </h1>
                 <div className="flex items-center gap-1.5 shrink-0 pt-1">
+                  <Link
+                    to={`/import?courseId=${course.id}`}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-primary)] hover:border-[var(--cn-primary)]/50 text-xs font-mono font-medium transition-colors"
+                    title="Append supplementary chapters, ZIP packages, or folders to this course"
+                  >
+                    <IconFolderPlus size={15} className="text-[var(--cn-primary)]" />
+                    <span className="hidden sm:inline">Add Materials</span>
+                  </Link>
                   <button
                     onClick={handleStartEdit}
                     className="p-1.5 rounded-lg border border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] hover:border-[var(--cn-border-highlight)] transition-colors"

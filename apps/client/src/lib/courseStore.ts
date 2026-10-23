@@ -183,6 +183,7 @@ export function transformManifest(manifest: any): CourseData {
                 mimeType: b.mimeType ?? b.displayMetadata?.mimeType,
                 language: b.language ?? b.displayMetadata?.language,
                 code: b.code ?? b.content ?? b.displayMetadata?.content,
+                subtitles: b.subtitles ?? b.displayMetadata?.subtitles,
               };
             }),
             quiz: act && act.type === 'quiz' ? {
@@ -245,6 +246,63 @@ export function addCourseToVault(course: CourseData): void {
   const current = getVaultCourses().filter((c) => c.id !== course.id);
   current.unshift({ ...course, isImported: true, addedAt: new Date().toISOString() });
   saveVaultCourses(current);
+}
+
+/**
+ * Appends new chapters, supplementary sections, or lessons to an existing course.
+ * Preserves all previously completed lessons, user notes, and quiz submissions.
+ */
+export function appendSectionsToCourse(courseId: string, newSections: SectionData[]): boolean {
+  const courses = getVaultCourses();
+  const targetCourseIndex = courses.findIndex((c) => c.id === courseId);
+  if (targetCourseIndex === -1) return false;
+
+  const targetCourse = { ...courses[targetCourseIndex]! };
+  const existingSections = [...targetCourse.sections];
+  const maxSecPos = existingSections.reduce((max, s) => Math.max(max, s.position || 0), 0);
+
+  for (let sIdx = 0; sIdx < newSections.length; sIdx++) {
+    const incomingSec = newSections[sIdx]!;
+    const existingSec = existingSections.find(
+      (s) => s.title.trim().toLowerCase() === incomingSec.title.trim().toLowerCase()
+    );
+
+    if (existingSec) {
+      // Merge lessons into existing section
+      const maxLesPos = existingSec.lessons.reduce((max, l) => Math.max(max, l.position || 0), 0);
+      for (let lIdx = 0; lIdx < incomingSec.lessons.length; lIdx++) {
+        const incomingLes = incomingSec.lessons[lIdx]!;
+        const existingLes = existingSec.lessons.find(
+          (l) => l.title.trim().toLowerCase() === incomingLes.title.trim().toLowerCase()
+        );
+        if (existingLes) {
+          // Merge blocks into existing lesson
+          existingLes.blocks = [...existingLes.blocks, ...incomingLes.blocks];
+        } else {
+          existingSec.lessons.push({
+            ...incomingLes,
+            id: `les-${existingSec.id}-${maxLesPos + lIdx + 1}`,
+            position: maxLesPos + lIdx + 1,
+          });
+        }
+      }
+    } else {
+      // Append as new section with incremented position
+      const newPos = maxSecPos + sIdx + 1;
+      existingSections.push({
+        ...incomingSec,
+        id: `sec-${courseId}-${newPos}`,
+        position: newPos,
+      });
+    }
+  }
+
+  targetCourse.sections = existingSections;
+  targetCourse.estimatedDurationMinutes = existingSections.reduce((acc, s) => acc + s.estimatedDurationMinutes, 0);
+  targetCourse.updatedAt = new Date().toISOString();
+  courses[targetCourseIndex] = targetCourse;
+  saveVaultCourses(courses);
+  return true;
 }
 
 export function updateCourseTitle(courseId: string, newTitle: string): void {

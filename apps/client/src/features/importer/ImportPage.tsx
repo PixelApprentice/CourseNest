@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useStorageConfig } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { 
@@ -9,10 +9,11 @@ import {
   type ProposalSection,
   type DiscoveredArchiveFile 
 } from '../../lib/zipImporter';
-import { transformManifest } from '../../lib/courseStore';
+import { transformManifest, getCourseById } from '../../lib/courseStore';
 import { 
   IconArchive, 
   IconFolder,
+  IconFolderPlus,
   IconCircleCheck, 
   IconLoader2, 
   IconArrowRight, 
@@ -39,6 +40,10 @@ interface ArchiveMeta {
 
 export function ImportPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const appendToCourseId = searchParams.get('courseId') || searchParams.get('appendTo') || null;
+  const targetExistingCourse = appendToCourseId ? getCourseById(appendToCourseId) : null;
+
   const zipInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const { config: storageConfig } = useStorageConfig();
@@ -59,12 +64,22 @@ export function ImportPage() {
   const [targetStorage, setTargetStorage] = useState<'internal' | 'external'>('internal');
 
   // Course metadata state
-  const [courseTitle, setCourseTitle] = useState('');
-  const [courseSubject, setCourseSubject] = useState('General');
-  const [instructorName, setInstructorName] = useState('');
-  const [courseDescription, setCourseDescription] = useState('');
+  const [courseTitle, setCourseTitle] = useState(targetExistingCourse?.title || '');
+  const [courseSubject, setCourseSubject] = useState(targetExistingCourse?.subject || 'General');
+  const [instructorName, setInstructorName] = useState(targetExistingCourse?.instructorName || '');
+  const [courseDescription, setCourseDescription] = useState(targetExistingCourse?.description || '');
   const [rawJsonInput, setRawJsonInput] = useState('');
   const [importMode, setImportMode] = useState<'file' | 'json'>('file');
+
+  // Sync title if target course changes
+  useEffect(() => {
+    if (targetExistingCourse) {
+      setCourseTitle(targetExistingCourse.title);
+      setCourseSubject(targetExistingCourse.subject || 'General');
+      setInstructorName(targetExistingCourse.instructorName || '');
+      setCourseDescription(targetExistingCourse.description || '');
+    }
+  }, [targetExistingCourse?.id]);
 
   // Curriculum proposal state
   const [proposedSections, setProposedSections] = useState<ProposalSection[]>([]);
@@ -334,24 +349,25 @@ export function ImportPage() {
     setImportProgress(5);
     setStatusMessage('Extracting course files and saving to local vault...');
 
-    const newCourseId = `course-${Date.now()}`;
+    const targetCourseId = appendToCourseId || `course-${Date.now()}`;
 
     try {
       await commitImportedCourse({
-        courseId: newCourseId,
-        courseTitle: courseTitle.trim(),
-        courseSubject: courseSubject.trim() || 'General',
-        instructorName: instructorName.trim() || 'Course Instructor',
-        courseDescription: courseDescription.trim() || `Course with ${proposedSections.length} chapter(s).`,
+        courseId: targetCourseId,
+        courseTitle: courseTitle.trim() || targetExistingCourse?.title || 'Course',
+        courseSubject: courseSubject.trim() || targetExistingCourse?.subject || 'General',
+        instructorName: instructorName.trim() || targetExistingCourse?.instructorName || 'Course Instructor',
+        courseDescription: courseDescription.trim() || targetExistingCourse?.description || `Course with ${proposedSections.length} chapter(s).`,
         targetStorage,
         sections: proposedSections,
+        appendToCourseId: appendToCourseId || undefined,
         onProgress: (percent, msg) => {
           setImportProgress(percent);
           setStatusMessage(msg);
         },
       });
 
-      setSavedCourseId(newCourseId);
+      setSavedCourseId(targetCourseId);
       setStep('complete');
     } catch (err: any) {
       console.error('Final import failed:', err);
@@ -371,6 +387,31 @@ export function ImportPage() {
 
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
+      {/* Existing Course Append Notice */}
+      {targetExistingCourse && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-xs shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] font-bold shrink-0">
+              <IconFolderPlus size={18} />
+            </div>
+            <div>
+              <p className="font-bold text-[var(--cn-text-primary)] text-sm">
+                Appending Materials to: {targetExistingCourse.title}
+              </p>
+              <p className="text-[var(--cn-text-muted)] text-[11px] pt-0.5">
+                New chapters, slides, code, and videos will merge into your active curriculum. Existing notes and lesson progress are fully preserved.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/import')}
+            className="self-start sm:self-center px-3 py-1.5 rounded-lg border border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] font-mono text-[11px] transition-colors"
+          >
+            Switch to New Course
+          </button>
+        </div>
+      )}
+
       {/* Modern Responsive Step Progress Tracker */}
       <nav aria-label="Import Progress" className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-4 sm:p-5 shadow-xs">
         <ol className="flex items-center w-full">
