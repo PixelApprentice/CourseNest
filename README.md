@@ -1,16 +1,21 @@
 # CourseNest 🎓
-> **Open-Source, Local-First, Multi-Audience Educational Studio & Course Player**
+> **Open-Source, Local-First, Multi-Audience Educational Studio, Course Creator & Video Player**
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Release: v1.1.0](https://img.shields.io/badge/Release-v1.1.0-emerald.svg)](https://github.com/PixelApprentice/Korse/releases)
 [![Node.js](https://img.shields.io/badge/Node.js-20_LTS-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://python.org/)
+[![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)](https://python.org/)
 [![Electron](https://img.shields.io/badge/Electron-33-47848F.svg)](https://www.electronjs.org/)
 [![Capacitor](https://img.shields.io/badge/Capacitor-Android_7-119EFF.svg)](https://capacitorjs.com/)
 [![pnpm](https://img.shields.io/badge/pnpm-10.34-orange.svg)](https://pnpm.io/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-CourseNest is a modern, privacy-first, **air-gapped educational platform** designed for students, educators, and institutions. It ingests unorganized course folders, PDFs, slide decks, video lectures, and partitioned multi-archive ZIP packages, structuring them into an interactive self-contained learning curriculum inspired by Coursera, Udemy, and Nuzz.space.
+**Keywords:** `local-first lms` • `offline course player` • `custom course creator` • `youtube course embed` • `pptx presentation reader` • `vlc web player` • `air-gapped learning` • `educational studio` • `desktop electron` • `android learning`
+
+---
+
+CourseNest is a modern, privacy-first, **air-gapped educational studio and curriculum player** designed for students, educators, and institutions. It lets you create custom courses, ingest course folders, view PowerPoint presentations, watch video lectures with VLC-grade audio controls, embed YouTube tutorials, and study offline with private local AI.
 
 ---
 
@@ -30,7 +35,7 @@ CourseNest features a **built-in 9-theme design studio** with bespoke typography
 | 🌑 **OLED Midnight** | 0% true black battery saver | Celestial orbital ring & emerald hairlines | JetBrains Mono |
 | 📰 **Clean Editorial** | Daylight academic paper | Swiss drafting grid & minimalist layout | Inter / DM Sans |
 
-> **Reusable Engine**: The entire theme engine is packaged as a standalone, turnkey skill at [`.agents/skills/theme-customization-studio/`](.agents/skills/theme-customization-studio/).
+> **Reusable Engine**: The entire theme engine is built modularly with open-source typography, SVG scenic backdrops, and theme-adaptive vector emblems inside [`packages/ui`](packages/ui) and [`packages/config`](packages/config).
 
 ---
 
@@ -137,6 +142,23 @@ CourseNest operates with an **air-gapped, zero-cloud architecture**. Decompresse
 ### 6. Interactive Developer & Reference Suite
 * **Syntax-Highlighted Code Block Viewer**: Built-in dark terminal chrome with line numbers, regex-based keyword/string/comment syntax highlighting, and tactile 1-click "Copy Code" with checkmark verification. Automatically parses inline code blocks (` ```lang ... ``` `) within course lecture notes.
 * **In-App Mini Window Documentation Viewer**: Sandboxed browser iframe modal with traffic light controls, address bar, reload button, URL copy, and expand/minimize options. Allows students to read official documentation, MDN references, and course links without switching browser tabs or desktop applications.
+
+### 7. Custom Course Studio & Visual Authoring Engine
+* **Visual Course Creation & Editing (`#/studio` & `#/create`)**: Educators and self-learners can create custom courses from scratch or edit existing curricula directly in the browser or desktop app.
+* **Multi-Format Content Blocks**:
+  - **YouTube Video Embeds**: Instant YouTube URL parsing (`youtube.com/watch`, `youtu.be/`, `youtube.com/embed/`) with privacy-enhanced embed playback (`youtube-nocookie.com`), custom play controls, and automated lesson completion.
+  - **Direct Video Streams & Local Media**: Support for MP4, WebM, and local filesystem/media vault video assets.
+  - **PowerPoint Slide Decks**: Embed `.pptx` and `.ppt` presentations directly into course curriculum lessons.
+  - **PDF & Document Readers**: Embed local textbooks, scientific papers, and supplementary study guides.
+  - **Code Labs & Markdown Notes**: Rich syntax-highlighted code blocks, lecture summaries, and markdown instructions.
+* **One-Click Vault Persistence & Export**: Save directly to the local IndexedDB/localStorage vault (`coursenest_custom_courses_v1`) or export a standardized course JSON manifest to share with peers.
+
+### 8. Native PowerPoint (.pptx) Slide Presentation Reader
+* **Client-Side Slide Parser**: Zero cloud conversion or external server required—extracts and renders PowerPoint slides, shapes, bullet lists, formatting, and speaker notes directly in the browser via Web APIs and `jszip`.
+* **16:9 Responsive Stage & Fullscreen Mode**: Presentation-grade widescreen viewport with slide thumbnail rail, previous/next controls, keyboard hotkeys (Arrow Left/Right, Space), and fullscreen toggle.
+* **Integrated Speaker Notes Drawer**: Collapsible presenter notes panel for reading detailed lecture commentary alongside slides.
+* **Web Speech TTS Slide Narration**: In-slide text-to-speech audio narration reads slide titles, body bullets, and speaker notes aloud.
+* **AI Study Buddy Integration**: One-click prompt transfer sends current slide content and speaker notes directly to the AI Study Buddy for instant comprehension Q&A and concept breakdowns.
 
 ---
 
@@ -282,45 +304,11 @@ pnpm --filter @coursenest/desktop build
 # Build Windows NSIS executable installer & portable .exe
 cd apps/desktop
 pnpm dist:win
-# Output located in: apps/desktop/release/CourseNest-Setup-0.1.0.exe
+# Output located in: apps/desktop/release/CourseNest-Setup-1.1.0.exe
 ```
 
-#### 🛡️ Windows Code-Signing & SmartScreen Bypass (EV / OV & Free Lab Trust)
-By default, the installer runs in user-mode (`requestedExecutionLevel: asInvoker`) without needing administrator rights. On fresh unsigned or self-signed downloads, Windows Defender SmartScreen asks for confirmation (*"More info" -> "Run anyway"*).
-
-CourseNest includes an automated **Windows Authenticode Code-Signing Suite** supporting three workflows:
-
-1. **Free Air-Gapped / University Lab Trust (Zero SmartScreen Warnings)**:
-   Generate an air-gapped 4096-bit Code-Signing certificate:
-   ```bash
-   ./scripts/generate_windows_cert.sh coursenest123
-   ```
-   Build the signed installer:
-   ```bash
-   CSC_LINK="certs/coursenest_codesign.pfx" CSC_KEY_PASSWORD="coursenest123" pnpm --filter @coursenest/desktop dist:win
-   ```
-   Install trust on target Windows machines with one click (imports to `Cert:\LocalMachine\Root` and `Cert:\LocalMachine\TrustedPublisher`):
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\install_windows_cert.ps1
-   ```
-   *Once installed, Windows SmartScreen will recognize CourseNest as a verified trusted publisher with zero warning prompts!*
-
-2. **Modern Cloud EV Signing (Microsoft Azure Trusted Signing)**:
-   Microsoft's official replacement for physical hardware tokens ($9.99/mo). Provides instant SmartScreen reputation from day one:
-   ```bash
-   export AZURE_TRUSTED_SIGNING_ENDPOINT="https://eus.codesigning.azure.net"
-   export AZURE_TRUSTED_SIGNING_PROFILE="CourseNestReleaseProfile"
-   pnpm --filter @coursenest/desktop dist:win
-   ```
-
-3. **Commercial OV Certificate (.pfx / .p12)**:
-   For certificates from DigiCert, Sectigo, or GlobalSign:
-   ```bash
-   export CSC_LINK="/path/to/certificate.pfx"
-   export CSC_KEY_PASSWORD="YourPassword"
-   pnpm --filter @coursenest/desktop dist:win
-   ```
-   *See [apps/desktop/README.md](apps/desktop/README.md) for full architecture details.*
+#### 🛡️ Zero-Certificate Standalone Operation
+CourseNest runs completely out-of-the-box in standard user-mode (`requestedExecutionLevel: asInvoker`) without needing administrator rights or any external code-signing certificate keys. Simply run the generated executable or portable `.exe` on any Windows 10/11 system. Optional Authenticode signing environment variables (`CSC_LINK` / `CSC_KEY_PASSWORD`) can still be provided if custom enterprise PKI or cloud signing is configured.
 
 ### 📱 Android Tablet & Mobile (`.apk`)
 CourseNest uses Capacitor 7 to embed the React client into a native Android application:
@@ -366,16 +354,12 @@ cd apps/server && .venv/bin/pytest -v
 node scripts/test_all_scenarios.cjs
 ```
 
-### 🧠 Reusable Gemini & Antigravity Agent Skills
-All architectural patterns, debugging methodologies, and design systems are modularized as standard agent skills in [`.agents/skills/`](.agents/skills/):
-* `web-artifacts-builder` — Standalone modern UI artifact compilation
-* `systematic-debugging` — Root-cause tracing & condition-based waiting
-* `webapp-testing` — Playwright browser automation & screen verification
-* `find-bugs` — Pre-commit flaw scanning & edge case verification
-* `security-best-practices` — Sanitization, sandbox isolation & path security
-* `audit-website` — Performance, accessibility & semantic integrity
-* `theme-customization-studio` — 9 bespoke multi-audience design themes
-* `desktop-mobile-integration` — Electron IPC & Capacitor Android bridge patterns
+### 🛡️ Quality Assurance & Security Engineering
+CourseNest is built with strict adherence to production-grade engineering principles:
+* **Playwright E2E Automation**: Comprehensive 50-scenario test matrix verifying all 9 themes, video player, mini-window, slide presentation viewer, course studio, notes, and progress persistence.
+* **Zip Slip & Path Traversal Guards**: Canonical boundary checks prevent unauthorized file writing or sandbox escaping.
+* **Content Sandboxing**: Strict inert text extraction for untrusted code, HTML, and script files.
+* **Zero Main-Thread Blocking**: All media processing, decompression, and IndexedDB transactions execute asynchronously without hitching the UI render loop.
 
 ---
 

@@ -47,10 +47,17 @@ data/
 storage/
 uploads/
 
-# IDE
-.vscode/*
-!.vscode/extensions.json
-!.vscode/launch.json
+# Developer AI Agent Skills & Tooling (Local Only)
+.agents/
+.codex/
+.impeccable/
+skills-lock.json
+.github/skills/
+.github/agents/
+.github/hooks/
+
+# IDE & Editor
+.vscode/
 .idea/
 *.swp
 *.swo

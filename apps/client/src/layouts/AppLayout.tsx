@@ -40,6 +40,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (path === '/') return { section: 'Home', title: 'Learning Overview' };
     if (path === '/welcome' || path === '/landing') return { section: 'About', title: 'Platform Showcase' };
     if (path.startsWith('/library')) return { section: 'Courses', title: 'My Library' };
+    if (path.startsWith('/studio') || path.startsWith('/create')) return { section: 'Authoring', title: 'Course Studio' };
     if (path.startsWith('/import')) return { section: 'Materials', title: 'Add Courses' };
     if (path.startsWith('/course/')) return { section: 'Courses', title: 'Course Details' };
     if (path.startsWith('/settings')) return { section: 'Preferences', title: 'Settings & Logs' };

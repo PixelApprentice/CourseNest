@@ -3,7 +3,7 @@
  * Ensures the web application shell and learning assets function offline without network.
  */
 
-const CACHE_NAME = 'coursenest-shell-v1.0.4';
+const CACHE_NAME = 'coursenest-shell-v1.1.0';
 const PRECACHE_URLS = [
   './',
   './index.html',

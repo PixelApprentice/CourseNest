@@ -12,7 +12,8 @@ import {
   IconDeviceFloppy,
   IconNote,
   IconAward,
-  IconBolt
+  IconBolt,
+  IconSparkles
 } from '@tabler/icons-react';
 import { APP_NAME } from '@coursenest/config';
 
@@ -58,11 +59,19 @@ export function HomePage() {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
-              to="/import"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-bold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
+              to="/studio"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-bold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
             >
-              <IconUpload size={15} />
-              <span>Add Course Materials</span>
+              <IconSparkles size={15} />
+              <span>+ Create Course</span>
+            </Link>
+
+            <Link
+              to="/import"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] text-xs font-semibold transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+            >
+              <IconUpload size={14} />
+              <span>Import Materials</span>
             </Link>
             <Link
               to="/library"

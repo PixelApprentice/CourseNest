@@ -21,7 +21,7 @@ export interface SubtitleTrackData {
 
 export interface ContentBlockData {
   id: string;
-  type: 'video' | 'rich_text' | 'document' | 'downloadable_asset' | 'code_snippet' | 'quiz';
+  type: 'video' | 'rich_text' | 'document' | 'downloadable_asset' | 'code_snippet' | 'quiz' | 'presentation';
   position: number;
   title?: string;
   content?: string;

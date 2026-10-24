@@ -12,6 +12,7 @@ export enum ContentBlockType {
   Quiz = 'quiz',
   Assignment = 'assignment',
   Interactive = 'interactive',
+  Presentation = 'presentation',
 }
 
 export enum PublicationState {

@@ -24,7 +24,10 @@ import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { getMediaBlobUrl } from '../../lib/mediaVault';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
+import { PptxPresentationViewer } from '../../components/PptxPresentationViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
+import { YouTubePlayer } from '../../components/YouTubePlayer';
+import { extractYouTubeVideoId } from '../../lib/youtubeHelper';
 import { AiReadingCompanion } from '../../components/AiReadingCompanion';
 import { CodeSnippetViewer } from '../../components/CodeSnippetViewer';
 import { MiniWindowLinkModal } from '../../components/MiniWindowLinkModal';
@@ -53,7 +56,8 @@ import {
   IconExternalLink,
   IconBrain,
   IconFileCode,
-  IconLink
+  IconLink,
+  IconPresentation
 } from '@tabler/icons-react';
 
 export function LessonPlayerPage() {
@@ -89,6 +93,13 @@ export function LessonPlayerPage() {
     fileSizeBytes?: number;
     description?: string;
     snippet?: string;
+    fileUrl?: string;
+  } | null>(null);
+
+  // PowerPoint Presentation Reader Modal state
+  const [activePptxViewer, setActivePptxViewer] = useState<{
+    filename: string;
+    fileSizeBytes?: number;
     fileUrl?: string;
   } | null>(null);
 
@@ -553,6 +564,32 @@ export function LessonPlayerPage() {
                 };
               });
 
+              const isYouTube = Boolean(extractYouTubeVideoId(block.src || ''));
+
+              if (isYouTube && block.src) {
+                return (
+                  <div key={block.id} className="space-y-3">
+                    <YouTubePlayer
+                      urlOrId={block.src}
+                      title={activeLesson.title}
+                      onEnded={() => {
+                        setIsCompleted(true);
+                        setLessonProgress(courseData.id, activeLesson.id, { completed: true });
+                        addLog('INFO', 'PLAYER', `Lesson completed via YouTube finish: ${activeLesson.title}`);
+                      }}
+                    />
+
+                    {/* Audible TTS Lecture Narration Bar */}
+                    {lessonTextContent && (
+                      <AudibleLectureBar
+                        title={activeLesson.title}
+                        textToRead={lessonTextContent}
+                      />
+                    )}
+                  </div>
+                );
+              }
+
               return (
                 <div key={block.id} className="space-y-3">
                   <VlcMediaViewer
@@ -644,49 +681,84 @@ export function LessonPlayerPage() {
             }
 
             // 4. DOCUMENT VIEWER / SLIDE DECK BLOCK (DIRECTLY UNDER VIDEO)
-            if (block.type === 'document') {
-              const filename = block.filename || 'Document.pdf';
-              const size = block.fileSizeBytes || 1024000;
+            if (block.type === 'document' || block.type === 'presentation') {
+              const filename = block.filename || (block.type === 'presentation' ? 'Presentation_Slides.pptx' : 'Document.pdf');
+              const size = block.fileSizeBytes || 2400000;
+              const isPptx = Boolean(
+                (block.filename && /\.(pptx|ppt)$/i.test(block.filename)) ||
+                block.type === 'presentation'
+              );
+
               return (
                 <div key={block.id} className="p-5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-lg bg-[var(--cn-info-tint)] text-[var(--cn-info)] flex items-center justify-center shrink-0">
-                      <IconFileText size={20} />
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                      isPptx 
+                        ? 'bg-orange-500/15 text-orange-400' 
+                        : 'bg-[var(--cn-info-tint)] text-[var(--cn-info)]'
+                    }`}>
+                      {isPptx ? <IconPresentation size={20} /> : <IconFileText size={20} />}
                     </div>
                     <div>
                       <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">{filename}</h4>
                       <p className="text-xs text-[var(--cn-text-muted)] mt-0.5 font-mono">
-                        Course Handout & Slide Deck • {(size / 1024 / 1024).toFixed(1)} MB
+                        {isPptx ? 'PowerPoint Presentation Deck' : 'Course Handout & Document'} • {(size / 1024 / 1024).toFixed(1)} MB
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        let fileUrl = resolvedMediaUrls[block.id];
-                        if (!fileUrl && block.src?.startsWith('vault-media://')) {
-                          const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
-                          if (match && match[1] && match[2]) {
-                            const vCourseId = match[1];
-                            const relPath = match[2];
-                            const resolved = await getMediaBlobUrl(vCourseId, relPath);
-                            if (resolved) fileUrl = resolved;
+                    {isPptx ? (
+                      <button
+                        onClick={async () => {
+                          let fileUrl = resolvedMediaUrls[block.id];
+                          if (!fileUrl && block.src?.startsWith('vault-media://')) {
+                            const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
+                            if (match && match[1] && match[2]) {
+                              const vCourseId = match[1];
+                              const relPath = match[2];
+                              const resolved = await getMediaBlobUrl(vCourseId, relPath);
+                              if (resolved) fileUrl = resolved;
+                            }
                           }
-                        }
-                        setActiveDocViewer({
-                          filename,
-                          fileSizeBytes: size,
-                          description: 'Course Lecture Handout & Study Material',
-                          snippet: block.content,
-                          fileUrl,
-                        });
-                      }}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
-                    >
-                      <IconEye size={14} />
-                      <span>Read Document</span>
-                    </button>
+                          setActivePptxViewer({
+                            filename,
+                            fileSizeBytes: size,
+                            fileUrl,
+                          });
+                        }}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-mono font-semibold transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+                      >
+                        <IconPresentation size={14} />
+                        <span>View Slide Deck</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          let fileUrl = resolvedMediaUrls[block.id];
+                          if (!fileUrl && block.src?.startsWith('vault-media://')) {
+                            const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
+                            if (match && match[1] && match[2]) {
+                              const vCourseId = match[1];
+                              const relPath = match[2];
+                              const resolved = await getMediaBlobUrl(vCourseId, relPath);
+                              if (resolved) fileUrl = resolved;
+                            }
+                          }
+                          setActiveDocViewer({
+                            filename,
+                            fileSizeBytes: size,
+                            description: 'Course Lecture Handout & Study Material',
+                            snippet: block.content,
+                            fileUrl,
+                          });
+                        }}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+                      >
+                        <IconEye size={14} />
+                        <span>Read Document</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -1119,6 +1191,22 @@ export function LessonPlayerPage() {
           onAskAi={(excerpt) => {
             setAiDocContext(excerpt);
             setActiveDocViewer(null);
+            setActiveSidePanel('ai-tutor');
+          }}
+        />
+      )}
+
+      {/* PowerPoint Presentation Reader Modal */}
+      {activePptxViewer && (
+        <PptxPresentationViewer
+          filename={activePptxViewer.filename}
+          fileSizeBytes={activePptxViewer.fileSizeBytes}
+          fileBlob={activePptxViewer.fileUrl}
+          onClose={() => setActivePptxViewer(null)}
+          isModal={true}
+          onAskAi={(slideSummary) => {
+            setAiDocContext(slideSummary);
+            setActivePptxViewer(null);
             setActiveSidePanel('ai-tutor');
           }}
         />

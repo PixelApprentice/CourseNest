@@ -1,5 +1,5 @@
 export const APP_NAME = 'CourseNest';
-export const APP_VERSION = '1.0.4';
+export const APP_VERSION = '1.1.0';
 
 export const SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'] as const;
 export const SUPPORTED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a'] as const;

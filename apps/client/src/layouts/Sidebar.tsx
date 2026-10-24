@@ -5,7 +5,8 @@ import {
   IconUpload, 
   IconSettings, 
   IconShieldCheck, 
-  IconDatabase 
+  IconDatabase,
+  IconSparkles 
 } from '@tabler/icons-react';
 import { BrandLogo } from '../components/BrandLogo';
 import { useVaultCourses, getVaultAnalytics } from '../lib/courseStore';
@@ -13,6 +14,7 @@ import { useVaultCourses, getVaultAnalytics } from '../lib/courseStore';
 const navItems = [
   { to: '/', icon: IconLayoutDashboard, label: 'Overview' },
   { to: '/library', icon: IconBooks, label: 'My Courses' },
+  { to: '/studio', icon: IconSparkles, label: 'Course Studio' },
   { to: '/import', icon: IconUpload, label: 'Add Materials' },
   { to: '/settings', icon: IconSettings, label: 'Settings & Logs' },
 ] as const;

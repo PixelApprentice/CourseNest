@@ -3,6 +3,7 @@ import { HomePage } from './features/home/HomePage';
 import { LandingPage } from './features/landing/LandingPage';
 import { LibraryPage } from './features/library/LibraryPage';
 import { ImportPage } from './features/importer/ImportPage';
+import { CourseStudioPage } from './features/studio/CourseStudioPage';
 import { CourseLandingPage } from './features/course/CourseLandingPage';
 import { LessonPlayerPage } from './features/player/LessonPlayerPage';
 import { SettingsPage } from './features/settings/SettingsPage';
@@ -17,6 +18,8 @@ export function AppRouter() {
         <Route path="/welcome" element={<LandingPage />} />
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/library" element={<LibraryPage />} />
+        <Route path="/studio" element={<CourseStudioPage />} />
+        <Route path="/create" element={<Navigate to="/studio" replace />} />
         <Route path="/import" element={<ImportPage />} />
         <Route path="/course/:courseId" element={<CourseLandingPage />} />
         <Route path="/course/:courseId/lesson/:lessonId" element={<LessonPlayerPage />} />
