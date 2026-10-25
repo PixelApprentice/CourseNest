@@ -28,12 +28,13 @@ interface PptxPresentationViewerProps {
   fileSizeBytes?: number;
   fileBlob?: Blob | ArrayBuffer | string;
   initialSlides?: PptxSlide[];
+  activeSlideNumber?: number;
   onClose?: () => void;
   isModal?: boolean;
   onAskAi?: (slideContent: string) => void;
 }
 
-const DEFAULT_DEMO_SLIDES: PptxSlide[] = [
+export const DEFAULT_DEMO_SLIDES: PptxSlide[] = [
   {
     slideNumber: 1,
     title: 'CS 101: Systems Programming & Memory Architectures',
@@ -99,6 +100,7 @@ export function PptxPresentationViewer({
   fileSizeBytes = 3500000,
   fileBlob,
   initialSlides,
+  activeSlideNumber,
   onClose,
   isModal = true,
   onAskAi,
@@ -111,6 +113,12 @@ export function PptxPresentationViewer({
   const [isReadingAloud, setIsReadingAloud] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  useEffect(() => {
+    if (activeSlideNumber && activeSlideNumber >= 1 && activeSlideNumber <= slides.length) {
+      setCurrentSlideIndex(activeSlideNumber - 1);
+    }
+  }, [activeSlideNumber, slides.length]);
 
   // Parse real PPTX ZIP file if provided
   useEffect(() => {

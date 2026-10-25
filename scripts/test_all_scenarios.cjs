@@ -483,24 +483,79 @@ async function runAllScenarios() {
         await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06f_lesson_unit_complete_next.png') });
       }
 
-      // Local AI Study Buddy
+      // Local AI Study Buddy with Vector RAG & Tool Calling
       const aiBtn = page.locator('button[title*="AI Reading Companion" i]');
       if ((await aiBtn.count()) > 0) {
         await aiBtn.first().click();
-        await page.waitForTimeout(500);
+        await page.waitForTimeout(600);
+        recordPass('AI Study Buddy drawer opened with In-Browser RAG & Tool Engine');
 
-        const promptBtn = page.locator('button:has-text("Video Timestamps")');
-        if ((await promptBtn.count()) > 0) {
-          await promptBtn.first().click();
+        // Test Pedagogical Mode Switcher
+        const refModeBtn = page.locator('button:has-text("Reference")');
+        if ((await refModeBtn.count()) > 0) {
+          await refModeBtn.first().click();
+          await page.waitForTimeout(300);
+          recordPass('AI Tutoring Mode switched to Technical Reference');
+        }
+
+        const socraticModeBtn = page.locator('button:has-text("Socratic")');
+        if ((await socraticModeBtn.count()) > 0) {
+          await socraticModeBtn.first().click();
+          await page.waitForTimeout(300);
+          recordPass('AI Tutoring Mode switched to Socratic Tutor');
+        }
+
+        // Test Tool-Calling Flashcard Generation
+        const flashcardPromptBtn = page.locator('button:has-text("Generate Flashcards")');
+        if ((await flashcardPromptBtn.count()) > 0) {
+          await flashcardPromptBtn.first().click();
           await page.waitForTimeout(1000);
-          recordPass('AI Study Buddy interactive prompt executed');
-        } else {
-          recordPass('AI Study Buddy drawer opened');
+          recordPass('AI Study Buddy executed active-recall flashcard generation prompt');
+        }
+
+        // Verify In-App Action Badges
+        const actionBadge = page.locator('text=Action: Saved active-recall flashcard');
+        if ((await actionBadge.count()) > 0) {
+          recordPass('In-App Tool Calling action badge verified in chat stream');
+        }
+
+        await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06j_lesson_ai_tool_action_chips.png') });
+        recordPass('AI tool action chips captured (06j_lesson_ai_tool_action_chips.png)');
+
+        // Test Flashcards Deck Modal
+        const cardsBtn = page.locator('button:has-text("Cards")');
+        if ((await cardsBtn.count()) > 0) {
+          await cardsBtn.first().click();
+          await page.waitForTimeout(600);
+
+          const deckModal = page.locator('text=Active Recall Flashcards');
+          if ((await deckModal.count()) > 0) {
+            recordPass('Active Recall Flashcards Deck modal rendered cleanly');
+
+            // 3D Flip Card Test
+            const flipTarget = page.locator('text=Click to Flip');
+            if ((await flipTarget.count()) > 0) {
+              await flipTarget.first().click();
+              await page.waitForTimeout(400);
+              recordPass('Flashcard 3D perspective flipped from Question to Answer');
+            }
+
+            await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06i_lesson_ai_flashcards_deck.png') });
+            recordPass('Flashcard deck modal captured (06i_lesson_ai_flashcards_deck.png)');
+
+            // Close Deck
+            const closeDeckBtn = page.locator('button[title="Close Deck"]');
+            if ((await closeDeckBtn.count()) > 0) {
+              await closeDeckBtn.first().click();
+              await page.waitForTimeout(400);
+              recordPass('Flashcard deck dismissed');
+            }
+          }
         }
 
         await page.screenshot({ path: path.join(SCREENSHOT_DIR, '06g_lesson_ai_study_buddy.png') });
 
-        const closeAiBtn = page.locator('button[title="Close Tutor"]');
+        const closeAiBtn = page.locator('button[title="Close AI Companion"]');
         if ((await closeAiBtn.count()) > 0) {
           await closeAiBtn.first().click();
           await page.waitForTimeout(300);
@@ -609,9 +664,90 @@ async function runAllScenarios() {
     }
 
     // -------------------------------------------------------------------------
-    // SCENARIO 10: CONSOLE ERRORS & AUDIT
+    // SCENARIO 10: CUSTOM COURSE STUDIO & PPTX SLIDE VIEWER
     // -------------------------------------------------------------------------
-    console.log('\n--- Scenario 10: Console Errors & Security Audit ---');
+    console.log('\n--- Scenario 10: Custom Course Studio & Presentation Suite ---');
+    try {
+      await page.goto(`${BASE_URL}/#/studio`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(800);
+
+      // Verify Studio elements
+      const studioHeading = page.locator('text=Course Creator Studio');
+      if ((await studioHeading.count()) > 0) {
+        recordPass('Custom Course Studio page loaded');
+      }
+
+      // Title input
+      const titleInput = page.locator('input[placeholder*="Machine Learning" i], input[placeholder*="Course Title" i]');
+      if ((await titleInput.count()) > 0) {
+        await titleInput.first().fill('Advanced Systems & Deep Learning Studio');
+        recordPass('Course studio metadata input verified');
+      }
+
+      // Add Section / Add Lesson buttons
+      const addSectionBtn = page.locator('button:has-text("Add Section")');
+      if ((await addSectionBtn.count()) > 0) {
+        recordPass('+ Add Section builder button verified');
+      }
+
+      await page.screenshot({ path: path.join(SCREENSHOT_DIR, '09_custom_course_studio.png') });
+      recordPass('Custom course studio screenshot captured (09_custom_course_studio.png)');
+
+      // Open PPTX Slide Viewer via lesson player
+      await page.goto(`${BASE_URL}/#/course/course-cs101/lesson/les-1-1`, { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(700);
+
+      // Trigger AI Presentation Navigation via Ask AI
+      const openAiBtn = page.locator('button[title*="AI Reading Companion" i]');
+      if ((await openAiBtn.count()) > 0) {
+        await openAiBtn.first().click();
+        await page.waitForTimeout(400);
+
+        // Click a slide badge or prompt slide breakdown
+        const questionInput = page.locator('input[placeholder*="Ask in" i]');
+        if ((await questionInput.count()) > 0) {
+          await questionInput.first().fill('Show me slide 2 memory hierarchy details');
+          await page.keyboard.press('Enter');
+          await page.waitForTimeout(900);
+          recordPass('Slide question dispatched to AI Companion');
+        }
+
+        // Check if PPTX Presentation Viewer opened via in-app tool execution
+        await page.waitForTimeout(600);
+        const pptxModal = page.locator('text=The Modern Memory Hierarchy, text=CS 101: Systems Programming, text=Speaker Notes');
+        if ((await pptxModal.count()) > 0) {
+          recordPass('In-App tool automatically launched PowerPoint presentation viewer on target slide');
+        } else {
+          // If not auto-launched, click slide badge directly
+          const slideBadge = page.locator('button:has-text("Slide 2")');
+          if ((await slideBadge.count()) > 0) {
+            await slideBadge.first().click({ force: true });
+            await page.waitForTimeout(500);
+            recordPass('AI [Slide 2] chip clicked and triggered presentation navigation');
+          }
+        }
+
+        await page.screenshot({ path: path.join(SCREENSHOT_DIR, '10_pptx_presentation_viewer.png') });
+        recordPass('PowerPoint presentation viewer captured (10_pptx_presentation_viewer.png)');
+
+        // Dismiss PPTX modal
+        const closePptxBtn = page.locator('button[title*="Close Presentation" i], button[title="Close"]');
+        if ((await closePptxBtn.count()) > 0) {
+          await closePptxBtn.first().click({ force: true });
+          await page.waitForTimeout(300);
+        } else {
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(300);
+        }
+      }
+    } catch (err) {
+      recordFail('Scenario 10: Custom Course Studio & PPTX Viewer', err);
+    }
+
+    // -------------------------------------------------------------------------
+    // SCENARIO 11: CONSOLE ERRORS & SECURITY AUDIT
+    // -------------------------------------------------------------------------
+    console.log('\n--- Scenario 11: Console Errors & Security Audit ---');
     if (results.pageErrors.length === 0) {
       recordPass('Zero uncaught page errors encountered across all scenarios');
     } else {

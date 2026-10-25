@@ -65,6 +65,14 @@ CourseNest features a **built-in 9-theme design studio** with bespoke typography
 | :---: | :---: |
 | ![Settings AI](docs/screenshots/07d_settings_ai_byo_tokenharbor.png) | ![System Logs](docs/screenshots/07e_settings_system_logs.png) |
 
+| Custom Course Studio & Authoring Engine | Native PowerPoint (.pptx) Slide Presentation Reader |
+| :---: | :---: |
+| ![Course Studio](docs/screenshots/09_custom_course_studio.png) | ![PPTX Presentation Viewer](docs/screenshots/10_pptx_presentation_viewer.png) |
+
+| Active Recall Flashcards Deck (3D Flip) | In-App AI Tool Actions & Temporal Grounding |
+| :---: | :---: |
+| ![Flashcards Deck](docs/screenshots/06i_lesson_ai_flashcards_deck.png) | ![AI Tool Actions](docs/screenshots/06j_lesson_ai_tool_action_chips.png) |
+
 | 🕌 Halal Edition Wallpaper | 🌸 Sakura Bloom Garden |
 | :---: | :---: |
 | ![Halal Edition](docs/screenshots/theme_halal_mosque.png) | ![Sakura Bloom](docs/screenshots/theme_sakura_bloom.png) |
@@ -132,12 +140,22 @@ CourseNest operates with an **air-gapped, zero-cloud architecture**. Decompresse
 * **Atomic Staging & Rollback**: Ingestion executes inside a temporary staging sandbox. If any validation fails, partial state is automatically rolled back to prevent corrupting the local vault.
 * **Untrusted Code Sandboxing**: Ingested `.html`, `.js`, `.py`, or `.sh` files are parsed strictly as plain text within an inert preview pane—preventing arbitrary local code execution.
 
-### 5. Local AI Study Buddy & Optional BYO-API Companion
-* **The "Offline-First + AI" Hybrid Model**: CourseNest bridges local privacy and AI assistance without requiring cloud lock-in:
-  - **100% Offline Heuristics Engine**: Operates completely offline with **zero API keys and zero internet connection**. It extracts lecture transcripts, parses speech timestamps `[mm:ss]`, generates structured topic summaries, captures key definitions, and generates self-test comprehension questions directly from local course content.
-  - **Local Ollama Integration**: Connects directly to local offline LLMs running on your machine (e.g. `http://localhost:11434` / `127.0.0.1` with Llama 3, Mistral, or Qwen) with zero telemetry and automatic loopback exemption.
-  - **Bring-Your-Own-API (BYO-API)**: When connected to campus or home internet, students can connect **Google Gemini Pro** or any **OpenAI-compatible / OmniRoute** gateway.
-* **Air-Gap Resilience**: If disconnected or if no API key is present, the app gracefully switches to the Offline Heuristic Companion—never throwing modal errors or blocking study progress.
+### 5. In-Browser Vector RAG, Tool-Calling Agent & Active Recall Suite
+* **In-Browser Semantic Vector Store**: Sub-millisecond client-side vector search and BM25 term scoring engine that indexes video transcripts, PPTX slides, and reading materials completely offline with **zero cloud dependencies and zero API costs**.
+* **In-App Tool Calling & Temporal Provenance**:
+  - `seek_video_player(timestampSeconds, reason)`: Directly navigates the video player to exact moments referenced in lecture discussions.
+  - `navigate_to_slide(slideNumber, reason)`: Automatically jumps the presentation viewer to referenced slide diagrams and presenter notes.
+  - `create_flashcard(question, answer, hint)`: Generates high-yield study cards saved directly to the student's review vault.
+  - `save_study_note(title, content)`: Automatically appends key takeaways and lecture checkpoints to student notes.
+* **Pedagogical Tutoring Modes**:
+  - 🧑‍🏫 **Socratic Tutor**: Guides the student with conceptual hints and thought-provoking questions rather than dumping raw answers.
+  - ⚡ **Technical Reference**: Dense bullet takeaways, mathematical formulas, and exact temporal citations.
+  - 🃏 **Active Recall Quiz**: Generates adaptive self-test questions.
+* **Interactive Active Recall Flashcards Deck**:
+  - 3D perspective flip cards with spaced repetition ratings (`Hard`, `Good`, `Easy`).
+  - Lesson and whole-course filtering.
+  - 1-click Anki TSV and JSON export for cross-platform review.
+* **Local Ollama & Bring-Your-Own-API**: Seamlessly connects to local offline Ollama models (`llama3.2`, `qwen2.5-coder`, `mistral`) or remote cloud gateways (**Gemini Pro**, **DeepSeek**, **TokenHarbor**) with automatic tool calling and offline heuristic fallback.
 
 ### 6. Interactive Developer & Reference Suite
 * **Syntax-Highlighted Code Block Viewer**: Built-in dark terminal chrome with line numbers, regex-based keyword/string/comment syntax highlighting, and tactile 1-click "Copy Code" with checkmark verification. Automatically parses inline code blocks (` ```lang ... ``` `) within course lecture notes.

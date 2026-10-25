@@ -24,11 +24,12 @@ import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { getMediaBlobUrl } from '../../lib/mediaVault';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
-import { PptxPresentationViewer } from '../../components/PptxPresentationViewer';
+import { PptxPresentationViewer, DEFAULT_DEMO_SLIDES } from '../../components/PptxPresentationViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { YouTubePlayer } from '../../components/YouTubePlayer';
 import { extractYouTubeVideoId } from '../../lib/youtubeHelper';
 import { AiReadingCompanion } from '../../components/AiReadingCompanion';
+import { FlashcardDeckModal } from '../../components/FlashcardDeckModal';
 import { CodeSnippetViewer } from '../../components/CodeSnippetViewer';
 import { MiniWindowLinkModal } from '../../components/MiniWindowLinkModal';
 import { AudibleLectureBar } from '../../components/AudibleLectureBar';
@@ -57,7 +58,8 @@ import {
   IconBrain,
   IconFileCode,
   IconLink,
-  IconPresentation
+  IconPresentation,
+  IconCards
 } from '@tabler/icons-react';
 
 export function LessonPlayerPage() {
@@ -102,6 +104,10 @@ export function LessonPlayerPage() {
     fileSizeBytes?: number;
     fileUrl?: string;
   } | null>(null);
+
+  // Active PPTX slide jump state and Flashcard Modal
+  const [activeSlideNumber, setActiveSlideNumber] = useState<number | undefined>(undefined);
+  const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
 
   // Resolved media URLs from IndexedDB vault
   const [resolvedMediaUrls, setResolvedMediaUrls] = useState<Record<string, string>>({});
@@ -460,6 +466,16 @@ export function LessonPlayerPage() {
           >
             <IconNote size={14} />
             <span className="hidden md:inline">Notes</span>
+          </button>
+
+          {/* Flashcards Toggle */}
+          <button
+            onClick={() => setShowFlashcardsModal(true)}
+            title="Active Recall Flashcards"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-primary)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95"
+          >
+            <IconCards size={14} className="text-[var(--cn-primary)]" />
+            <span className="hidden md:inline">Flashcards</span>
           </button>
 
           {/* AI Reading Companion Toggle */}
@@ -1166,11 +1182,22 @@ export function LessonPlayerPage() {
             <div className="flex-1 overflow-hidden">
               <AiReadingCompanion
                 courseTitle={courseData.title}
+                courseId={courseData.id}
                 lessonTitle={activeLesson.title}
                 lessonId={activeLesson.id}
                 activeDocumentText={aiDocContext || activeLesson.description}
                 subtitleTranscript={activeLessonSubtitleTranscript}
+                slidesData={DEFAULT_DEMO_SLIDES}
                 onSeekTo={(sec) => seekTo(sec)}
+                onNavigateSlide={(slideNum) => {
+                  setActiveSlideNumber(slideNum);
+                  if (!activePptxViewer) {
+                    setActivePptxViewer({
+                      filename: 'Lecture_Presentation_Slides.pptx',
+                      fileSizeBytes: 3500000,
+                    });
+                  }
+                }}
                 onAppendNote={(note) => setNotesContent(note)}
               />
             </div>
@@ -1202,13 +1229,29 @@ export function LessonPlayerPage() {
           filename={activePptxViewer.filename}
           fileSizeBytes={activePptxViewer.fileSizeBytes}
           fileBlob={activePptxViewer.fileUrl}
-          onClose={() => setActivePptxViewer(null)}
+          activeSlideNumber={activeSlideNumber}
+          onClose={() => {
+            setActivePptxViewer(null);
+            setActiveSlideNumber(undefined);
+          }}
           isModal={true}
           onAskAi={(slideSummary) => {
             setAiDocContext(slideSummary);
             setActivePptxViewer(null);
             setActiveSidePanel('ai-tutor');
           }}
+        />
+      )}
+
+      {/* Active Recall Flashcard Deck Modal */}
+      {showFlashcardsModal && (
+        <FlashcardDeckModal
+          courseId={courseData.id}
+          lessonId={activeLesson.id}
+          courseTitle={courseData.title}
+          lessonTitle={activeLesson.title}
+          onClose={() => setShowFlashcardsModal(false)}
+          onSeekTo={(sec) => seekTo(sec)}
         />
       )}
 

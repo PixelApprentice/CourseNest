@@ -25,7 +25,7 @@ import {
   IconSettings,
   IconTrash
 } from '@tabler/icons-react';
-import { useAiConfig, saveAiConfig, askAiAssistant, type AiProvider } from '../../lib/aiConfig';
+import { useAiConfig, saveAiConfig, askAiAssistant, type AiProvider, type PedagogicalMode } from '../../lib/aiConfig';
 import { StatusBadge } from '../../components/StatusBadge';
 import { LogsPage } from '../logs/LogsPage';
 import { ThemeSelectorGrid } from '../../components/ThemeSelectorGrid';
@@ -51,6 +51,7 @@ export function SettingsPage() {
   const [aiApiKey, setAiApiKey] = useState(aiConfig.apiKey);
   const [aiBaseUrl, setAiBaseUrl] = useState(aiConfig.baseUrl);
   const [aiModelName, setAiModelName] = useState(aiConfig.modelName);
+  const [aiPedagogicalMode, setAiPedagogicalMode] = useState<PedagogicalMode>(aiConfig.pedagogicalMode || 'socratic');
   const [showAiKey, setShowAiKey] = useState(false);
   const [aiTestStatus, setAiTestStatus] = useState<{ testing: boolean; message?: string; success?: boolean } | null>(null);
   const [aiSavedNotice, setAiSavedNotice] = useState(false);
@@ -66,6 +67,7 @@ export function SettingsPage() {
     setAiApiKey(aiConfig.apiKey);
     setAiBaseUrl(aiConfig.baseUrl);
     setAiModelName(aiConfig.modelName);
+    setAiPedagogicalMode(aiConfig.pedagogicalMode || 'socratic');
   }, [aiConfig]);
 
   const handleSaveAiConfig = (e?: React.FormEvent) => {
@@ -76,6 +78,7 @@ export function SettingsPage() {
       apiKey: aiApiKey.trim(),
       baseUrl: aiBaseUrl.trim(),
       modelName: aiModelName.trim(),
+      pedagogicalMode: aiPedagogicalMode,
     });
     setAiSavedNotice(true);
     setTimeout(() => setAiSavedNotice(false), 3000);
@@ -580,6 +583,51 @@ export function SettingsPage() {
                     placeholder="e.g. gemini-1.5-flash or gpt-4o-mini"
                     className="w-full px-3 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)]"
                   />
+                </div>
+              </div>
+
+              {/* Default Tutoring Mode */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--cn-text-secondary)]">
+                  Default Pedagogical Tutoring Mode
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAiPedagogicalMode('socratic')}
+                    className={`p-2.5 rounded-xl border text-left transition-colors ${
+                      aiPedagogicalMode === 'socratic'
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
+                    }`}
+                  >
+                    <div className="font-bold text-xs">🧑‍🏫 Socratic Tutor</div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] mt-0.5">Guides with hints & questions</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiPedagogicalMode('reference')}
+                    className={`p-2.5 rounded-xl border text-left transition-colors ${
+                      aiPedagogicalMode === 'reference'
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
+                    }`}
+                  >
+                    <div className="font-bold text-xs">⚡ Technical Reference</div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] mt-0.5">Concise bullet facts & citations</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAiPedagogicalMode('quiz')}
+                    className={`p-2.5 rounded-xl border text-left transition-colors ${
+                      aiPedagogicalMode === 'quiz'
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
+                        : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
+                    }`}
+                  >
+                    <div className="font-bold text-xs">🃏 Active Recall Quiz</div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] mt-0.5">Generates practice test cards</div>
+                  </button>
                 </div>
               </div>
 
