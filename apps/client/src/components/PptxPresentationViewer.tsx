@@ -281,24 +281,24 @@ export function PptxPresentationViewer({
   };
 
   const containerClasses = isFullscreen
-    ? 'fixed inset-0 z-50 bg-[#0B0E14] text-white flex flex-col'
+    ? 'fixed inset-0 z-50 bg-[var(--cn-bg)] text-[var(--cn-text-primary)] flex flex-col'
     : isModal
-    ? 'fixed inset-4 sm:inset-10 z-50 rounded-2xl bg-[#0E131F] text-white border border-white/10 shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl'
-    : 'w-full rounded-2xl bg-[#0E131F] text-white border border-white/10 shadow-xl flex flex-col overflow-hidden';
+    ? 'fixed inset-4 sm:inset-10 z-50 rounded-2xl bg-[var(--cn-surface)] text-[var(--cn-text-primary)] border border-[var(--cn-border)] shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl'
+    : 'w-full rounded-2xl bg-[var(--cn-surface)] text-[var(--cn-text-primary)] border border-[var(--cn-border)] shadow-xl flex flex-col overflow-hidden';
 
   return (
     <div className={containerClasses}>
       {/* Top Header Bar */}
-      <header className="h-14 px-5 border-b border-white/10 bg-[#121826] flex items-center justify-between shrink-0">
+      <header className="h-14 px-5 border-b border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3 truncate">
-          <div className="w-8 h-8 rounded-lg bg-orange-600/20 text-orange-400 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[var(--cn-primary)]/15 text-[var(--cn-primary)] flex items-center justify-center shrink-0">
             <IconPresentation size={18} />
           </div>
           <div>
-            <h2 className="text-xs font-semibold tracking-wide text-white truncate max-w-sm sm:max-w-md">
+            <h2 className="text-xs font-semibold tracking-wide text-[var(--cn-text-primary)] truncate max-w-sm sm:max-w-md">
               {filename}
             </h2>
-            <p className="text-[10px] text-white/50">
+            <p className="text-[11px] text-[var(--cn-text-muted)]">
               PowerPoint Slide Deck • {slides.length} Slides • {(fileSizeBytes / (1024 * 1024)).toFixed(1)} MB {isLoading ? '• Parsing Slides...' : ''}
             </p>
           </div>
@@ -312,7 +312,7 @@ export function PptxPresentationViewer({
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               isReadingAloud 
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
-                : 'text-white/70 hover:text-white hover:bg-white/10 border border-white/10'
+                : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] border border-[var(--cn-border)]'
             }`}
             title="Read Current Slide Aloud"
           >
@@ -324,7 +324,7 @@ export function PptxPresentationViewer({
           {onAskAi && (
             <button
               onClick={handleAskAi}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--cn-primary)] text-[var(--cn-primary-text)] hover:bg-[var(--cn-primary-hover)] transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--cn-primary)] text-[var(--cn-primary-text)] hover:brightness-110 transition-colors shadow-sm"
               title="Explain This Slide with AI Study Buddy"
             >
               <IconBrain size={14} />
@@ -335,8 +335,8 @@ export function PptxPresentationViewer({
           {/* Toggle Grid Overview */}
           <button
             onClick={() => setShowGrid(!showGrid)}
-            className={`p-2 rounded-lg text-xs border border-white/10 transition-colors ${
-              showGrid ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'
+            className={`p-2 rounded-lg text-xs border border-[var(--cn-border)] transition-colors ${
+              showGrid ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)]' : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)]'
             }`}
             title="Grid Overview"
           >
@@ -346,8 +346,8 @@ export function PptxPresentationViewer({
           {/* Toggle Notes */}
           <button
             onClick={() => setShowNotes(!showNotes)}
-            className={`p-2 rounded-lg text-xs border border-white/10 transition-colors ${
-              showNotes ? 'bg-white/20 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'
+            className={`p-2 rounded-lg text-xs border border-[var(--cn-border)] transition-colors ${
+              showNotes ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)]' : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)]'
             }`}
             title="Toggle Presenter Notes"
           >
@@ -357,7 +357,7 @@ export function PptxPresentationViewer({
           {/* Fullscreen Toggle */}
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-2 rounded-lg text-xs text-white/70 hover:text-white hover:bg-white/10 border border-white/10 transition-colors"
+            className="p-2 rounded-lg text-xs text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] border border-[var(--cn-border)] transition-colors"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Slideshow'}
           >
             {isFullscreen ? <IconMinimize size={15} /> : <IconMaximize size={15} />}
@@ -367,7 +367,7 @@ export function PptxPresentationViewer({
           {onClose && (
             <button
               onClick={onClose}
-              className="p-2 rounded-lg text-xs text-white/70 hover:text-white hover:bg-red-500/20 transition-colors"
+              className="p-2 rounded-lg text-xs text-[var(--cn-text-secondary)] hover:text-red-400 hover:bg-red-500/20 border border-[var(--cn-border)] transition-colors"
               title="Close Presentation"
             >
               <IconX size={16} />
@@ -380,8 +380,8 @@ export function PptxPresentationViewer({
       <div className="flex-1 flex overflow-hidden relative">
         {/* Left Slide Thumbnails Rail (Collapsible in grid mode) */}
         {!showGrid && (
-          <aside className="w-48 sm:w-56 border-r border-white/10 bg-[#0C101A] overflow-y-auto p-3 space-y-2.5 shrink-0 hidden md:block">
-            <div className="text-[10px] uppercase font-bold tracking-wider text-white/40 px-1 mb-2">
+          <aside className="w-48 sm:w-56 border-r border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/70 overflow-y-auto p-3 space-y-2.5 shrink-0 hidden md:block">
+            <div className="text-[11px] uppercase font-bold tracking-wider text-[var(--cn-text-muted)] px-1 mb-2">
               Slides ({slides.length})
             </div>
             {slides.map((slide, idx) => {
@@ -396,15 +396,15 @@ export function PptxPresentationViewer({
                   }}
                   className={`w-full text-left p-2.5 rounded-xl border transition-all duration-150 ${
                     isSelected
-                      ? 'border-orange-500/80 bg-orange-500/10 shadow-md ring-1 ring-orange-500/30'
-                      : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/20'
+                      ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)] shadow-md ring-1 ring-[var(--cn-primary)]/30'
+                      : 'border-[var(--cn-border)] bg-[var(--cn-surface)] hover:bg-[var(--cn-surface-hover)]'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-[10px] text-white/50 mb-1">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] mb-1">
                     <span className="font-mono font-bold">#{slide.slideNumber}</span>
-                    {slide.notes && <IconNotes size={11} className="text-amber-400/80" />}
+                    {slide.notes && <IconNotes size={11} className="text-amber-400" />}
                   </div>
-                  <h4 className="text-xs font-semibold text-white/90 line-clamp-2 leading-tight">
+                  <h4 className="text-xs font-semibold text-[var(--cn-text-primary)] line-clamp-2 leading-tight">
                     {slide.title}
                   </h4>
                 </button>
@@ -416,7 +416,7 @@ export function PptxPresentationViewer({
         {/* Center Presentation Viewport */}
         {showGrid ? (
           /* Grid View Mode */
-          <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-[#0A0D14]">
+          <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-[var(--cn-bg)]">
             {slides.map((slide, idx) => (
               <div
                 key={slide.slideNumber}
@@ -424,41 +424,41 @@ export function PptxPresentationViewer({
                   setCurrentSlideIndex(idx);
                   setShowGrid(false);
                 }}
-                className="aspect-video p-4 rounded-xl border border-white/10 bg-[#131927] hover:border-orange-500/80 hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between shadow-lg group"
+                className="aspect-video p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-primary)] hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between shadow-lg group"
               >
                 <div>
-                  <div className="text-[10px] font-mono text-white/40 mb-1">Slide {slide.slideNumber}</div>
-                  <h3 className="text-xs font-bold text-white group-hover:text-orange-400 line-clamp-2">
+                  <div className="text-[11px] font-mono text-[var(--cn-text-muted)] mb-1">Slide {slide.slideNumber}</div>
+                  <h3 className="text-xs font-bold text-[var(--cn-text-primary)] group-hover:text-[var(--cn-primary)] line-clamp-2">
                     {slide.title}
                   </h3>
-                  <p className="text-[11px] text-white/60 mt-2 line-clamp-3">
+                  <p className="text-[11px] text-[var(--cn-text-secondary)] mt-2 line-clamp-3">
                     {slide.bullets[0]}
                   </p>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-white/40 pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] pt-2 border-t border-[var(--cn-border)]">
                   <span>{slide.bullets.length} items</span>
-                  {slide.notes && <span className="text-amber-400/80 font-mono">Notes attached</span>}
+                  {slide.notes && <span className="text-amber-400 font-mono">Notes attached</span>}
                 </div>
               </div>
             ))}
           </div>
         ) : (
           /* Single Slide Presentation Canvas */
-          <div className="flex-1 flex flex-col overflow-y-auto p-4 sm:p-8 items-center justify-center bg-[#070A10]">
+          <div className="flex-1 flex flex-col overflow-y-auto p-4 sm:p-8 items-center justify-center bg-[var(--cn-bg)]">
             {/* 16:9 Slide Canvas */}
-            <div className="w-full max-w-4xl aspect-video rounded-2xl border border-white/15 bg-gradient-to-br from-[#141B2D] via-[#101624] to-[#0A0E17] shadow-2xl p-6 sm:p-10 flex flex-col justify-between relative overflow-hidden select-text">
+            <div className="w-full max-w-4xl aspect-video rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] shadow-2xl p-6 sm:p-10 flex flex-col justify-between relative overflow-hidden select-text">
               {/* Subtle slide watermark background */}
-              <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-orange-500/5 blur-3xl pointer-events-none" />
+              <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-[var(--cn-primary)]/5 blur-3xl pointer-events-none" />
 
               {/* Slide Header */}
               <div>
-                <div className="flex items-center justify-between text-[11px] text-white/40 uppercase font-mono tracking-wider mb-3">
+                <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] uppercase font-mono tracking-wider mb-3">
                   <span>{filename}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 font-bold text-orange-400">
+                  <span className="px-2 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-border)] font-bold text-[var(--cn-primary)]">
                     Slide {activeSlide.slideNumber} / {slides.length}
                   </span>
                 </div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white border-b border-white/10 pb-4">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--cn-text-primary)] border-b border-[var(--cn-border)] pb-4">
                   {activeSlide.title}
                 </h1>
               </div>
@@ -468,7 +468,7 @@ export function PptxPresentationViewer({
                 {activeSlide.bullets.map((bullet, bIdx) => (
                   <div key={bIdx} className="flex items-start gap-3">
                     <span className="w-2 h-2 rounded-full bg-orange-400 mt-2 shrink-0 shadow-sm" />
-                    <p className="text-sm sm:text-base text-white/90 leading-relaxed font-normal">
+                    <p className="text-sm sm:text-base text-[var(--cn-text-secondary)] leading-relaxed font-normal">
                       {bullet}
                     </p>
                   </div>
@@ -476,10 +476,10 @@ export function PptxPresentationViewer({
 
                 {/* Optional Embedded Code Snippet */}
                 {activeSlide.codeSnippet && (
-                  <div className="mt-4 rounded-xl border border-white/10 bg-black/60 p-3 font-mono text-xs text-emerald-400 relative group">
+                  <div className="mt-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] p-3 font-mono text-xs text-emerald-400 relative group">
                     <button
                       onClick={() => handleCopyCode(activeSlide.codeSnippet!)}
-                      className="absolute top-2 right-2 px-2 py-1 rounded bg-white/10 text-white/80 hover:text-white text-[10px] flex items-center gap-1"
+                      className="absolute top-2 right-2 px-2 py-1 rounded bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] text-[11px] border border-[var(--cn-border)] flex items-center gap-1"
                     >
                       {copiedCode ? <IconCheck size={12} className="text-emerald-400" /> : null}
                       <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
@@ -490,7 +490,7 @@ export function PptxPresentationViewer({
               </div>
 
               {/* Slide Footer */}
-              <div className="flex items-center justify-between text-[11px] text-white/40 pt-3 border-t border-white/5">
+              <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] pt-3 border-t border-[var(--cn-border)]">
                 <span>CourseNest Slide Deck Reader</span>
                 <span className="font-mono">Page {activeSlide.slideNumber}</span>
               </div>
@@ -498,8 +498,8 @@ export function PptxPresentationViewer({
 
             {/* Expandable Presenter Notes Drawer */}
             {showNotes && activeSlide.notes && (
-              <div className="w-full max-w-4xl mt-4 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-200/90 text-xs">
-                <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-[10px] text-amber-400 mb-1">
+              <div className="w-full max-w-4xl mt-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[var(--cn-text-primary)] text-xs">
+                <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-[11px] text-amber-500 mb-1">
                   <IconNotes size={13} />
                   <span>Speaker Notes</span>
                 </div>
@@ -511,33 +511,33 @@ export function PptxPresentationViewer({
       </div>
 
       {/* Bottom Sticky Presentation Control Bar */}
-      <footer className="h-16 px-6 border-t border-white/10 bg-[#121826] flex items-center justify-between shrink-0">
+      <footer className="h-16 px-6 border-t border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={goToPrev}
             disabled={currentSlideIndex === 0}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-xs font-semibold text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-semibold text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
           >
             <IconChevronLeft size={16} />
             <span className="hidden sm:inline">Previous Slide</span>
           </button>
 
-          <span className="text-xs font-mono text-white/60">
+          <span className="text-xs font-mono text-[var(--cn-text-muted)]">
             {currentSlideIndex + 1} / {slides.length}
           </span>
 
           <button
             onClick={goToNext}
             disabled={currentSlideIndex === slides.length - 1}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-xs font-semibold text-white disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary)] hover:brightness-110 text-xs font-semibold text-[var(--cn-primary-text)] disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-sm"
           >
             <span className="hidden sm:inline">Next Slide</span>
             <IconChevronRight size={16} />
           </button>
         </div>
 
-        <div className="text-[11px] text-white/40 hidden md:block">
-          Use <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/10 text-white/80">Space</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/10 text-white/80">Arrows</kbd> to advance
+        <div className="text-[11px] text-[var(--cn-text-muted)] hidden md:block">
+          Use <kbd className="px-1.5 py-0.5 rounded bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-text-secondary)]">Space</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-text-secondary)]">Arrows</kbd> to advance
         </div>
       </footer>
     </div>

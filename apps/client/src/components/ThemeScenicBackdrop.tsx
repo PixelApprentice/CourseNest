@@ -336,6 +336,8 @@ export const ThemeScenicBackdrop: React.FC = () => {
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               preserveAspectRatio="xMaxYMax meet"
+              aria-hidden="true"
+              role="presentation"
             >
               <path d="M100,240 L200,140 L350,140 L400,90 L600,90" stroke="currentColor" strokeWidth="1.5" strokeDasharray="6 4" />
               <circle cx="200" cy="140" r="4" fill="currentColor" />

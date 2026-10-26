@@ -77,7 +77,7 @@ export function NotificationDropdown() {
       >
         <IconBell size={16} />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--cn-primary)] text-[9px] font-bold text-white shadow-xs">
+          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--cn-primary)] text-[10px] font-bold text-[var(--cn-primary-text)] shadow-xs">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}

@@ -29,9 +29,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   const toggleQuickDark = () => {
     if (currentTheme.isDark) {
-      setTheme('paper');
+      const lastLight = (localStorage.getItem('cn_last_light_theme') as any) || 'paper';
+      setTheme(lastLight);
     } else {
-      setTheme('obsidian');
+      const lastDark = (localStorage.getItem('cn_last_dark_theme') as any) || 'obsidian';
+      setTheme(lastDark);
     }
   };
 

@@ -73,6 +73,8 @@ export interface CourseData {
   estimatedDurationMinutes: number;
   learningObjectives: string[];
   version: string;
+  thumbnailUrl?: string;
+  coverImageUrl?: string;
   contentFingerprint: string;
   sections: SectionData[];
   isImported?: boolean;

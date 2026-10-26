@@ -341,6 +341,11 @@ export function applyTheme(themeId: ThemeId): void {
     const theme = getThemeById(themeId);
     localStorage.setItem(THEME_STORAGE_KEY, themeId);
     localStorage.setItem('cn-theme', theme.isDark ? 'dark' : 'light');
+    if (theme.isDark) {
+      localStorage.setItem('cn_last_dark_theme', themeId);
+    } else {
+      localStorage.setItem('cn_last_light_theme', themeId);
+    }
 
     document.documentElement.setAttribute('data-theme', themeId);
     if (theme.isDark) {

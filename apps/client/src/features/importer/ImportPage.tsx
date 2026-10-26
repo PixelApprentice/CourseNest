@@ -96,9 +96,13 @@ export function ImportPage() {
       let combinedSections: ProposalSection[] = [];
       let detectedTitle = courseTitle;
 
-      // 1. Process ZIP archives
+      // 1. Process ZIP archives with real-time progress
       if (zips.length > 0) {
-        const zipResult = await parseCourseArchives(zips);
+        setImportProgress(10);
+        const zipResult = await parseCourseArchives(zips, (pct, msg) => {
+          setImportProgress(pct);
+          setStatusMessage(msg);
+        });
         allDiscovered.push(...zipResult.discoveredFiles);
         combinedSections.push(...zipResult.sections);
         if (!detectedTitle) detectedTitle = zipResult.suggestedTitle;
@@ -115,9 +119,13 @@ export function ImportPage() {
         }
       }
 
-      // 2. Process Folder files (webkitdirectory)
+      // 2. Process Folder files (webkitdirectory) with real-time progress
       if (folders.length > 0) {
-        const folderResult = await parseCourseFolder(folders);
+        setImportProgress(10);
+        const folderResult = await parseCourseFolder(folders, (pct, msg) => {
+          setImportProgress(pct);
+          setStatusMessage(msg);
+        });
         allDiscovered.push(...folderResult.discoveredFiles);
         
         // Merge sections
@@ -531,14 +539,28 @@ export function ImportPage() {
           </div>
 
           {isProcessing ? (
-            <div className="py-16 text-center space-y-4">
+            <div className="py-12 text-center space-y-5 max-w-md mx-auto">
               <IconLoader2 size={36} className="animate-spin text-[var(--cn-primary)] mx-auto" />
-              <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
-                Inspecting Course Materials...
-              </h3>
-              <p className="text-xs text-[var(--cn-text-muted)] font-mono">
-                {statusMessage || 'Reading directory structure and detecting chapters...'}
-              </p>
+              <div className="space-y-1">
+                <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
+                  Inspecting Course Materials...
+                </h3>
+                <p className="text-xs text-[var(--cn-text-secondary)] font-mono">
+                  {statusMessage || 'Reading directory structure and detecting chapters...'}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="w-full bg-[var(--cn-surface-subtle)] h-2.5 rounded-full overflow-hidden border border-[var(--cn-border)]">
+                  <div
+                    className="bg-[var(--cn-primary)] h-full transition-[width] duration-150 ease-out"
+                    style={{ width: `${importProgress}%` }}
+                  />
+                </div>
+                <p className="text-[11px] font-mono text-[var(--cn-text-muted)] text-right">
+                  {importProgress}%
+                </p>
+              </div>
             </div>
           ) : importMode === 'file' ? (
             /* Upload Action Cards */

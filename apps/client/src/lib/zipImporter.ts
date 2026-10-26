@@ -132,11 +132,21 @@ function parsePositionAndTitle(raw: string, defaultPos: number): { position: num
 /**
  * Parse one or multiple ZIP files
  */
-export async function parseCourseArchives(files: File[]): Promise<ParsedArchiveResult> {
+export async function parseCourseArchives(
+  files: File[],
+  onProgress?: (percent: number, status: string) => void
+): Promise<ParsedArchiveResult> {
   const discoveredFiles: DiscoveredArchiveFile[] = [];
 
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]!;
     addLog('INFO', 'IMPORTER', `Reading course archive: ${file.name}`, `Size: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
+    
+    if (onProgress) {
+      const pct = Math.min(85, Math.round((i / files.length) * 85));
+      onProgress(pct, `Reading archive: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)...`);
+    }
+
     const zip = await JSZip.loadAsync(file);
     const archiveBaseName = file.name.replace(/\.[^/.]+$/, '');
 
@@ -166,16 +176,28 @@ export async function parseCourseArchives(files: File[]): Promise<ParsedArchiveR
     });
   }
 
-  return processDiscoveredFiles(discoveredFiles, files[0]?.name || 'Imported Course');
+  if (onProgress) onProgress(95, 'Structuring lesson modules and chapters...');
+  const result = processDiscoveredFiles(discoveredFiles, files[0]?.name || 'Imported Course');
+  if (onProgress) onProgress(100, 'Analysis complete!');
+  return result;
 }
 
 /**
  * Parse an extracted course folder uploaded via webkitdirectory
  */
-export async function parseCourseFolder(files: File[]): Promise<ParsedArchiveResult> {
+export async function parseCourseFolder(
+  files: File[],
+  onProgress?: (percent: number, status: string) => void
+): Promise<ParsedArchiveResult> {
   const discoveredFiles: DiscoveredArchiveFile[] = [];
 
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]!;
+    if (onProgress && (i % 10 === 0 || i === files.length - 1)) {
+      const pct = Math.min(95, Math.round((i / Math.max(1, files.length)) * 90));
+      onProgress(pct, `Scanning folder: ${file.name} (${i + 1}/${files.length})...`);
+    }
+
     const relPath = file.webkitRelativePath || file.name;
     if (isIgnored(relPath)) continue;
 
@@ -467,10 +489,17 @@ export async function commitImportedCourse(params: {
         const normalizedPath = fileItem.path.replace(/\\/g, '/');
 
         if (fileItem.type === 'video' || fileItem.type === 'audio') {
-          // Get blob from zipEntry or rawFile
+          // Get blob from zipEntry or rawFile with smooth real-time progress
           let blob: Blob;
           if (fileItem.zipEntry) {
-            blob = await fileItem.zipEntry.async('blob');
+            blob = await fileItem.zipEntry.async('blob', (metadata) => {
+              if (onProgress) {
+                const base = ((processedFiles - 1) / Math.max(1, totalFiles)) * 90;
+                const span = (1 / Math.max(1, totalFiles)) * 90;
+                const current = Math.min(95, Math.round(base + (metadata.percent / 100) * span));
+                onProgress(current, `Extracting ${fileItem.filename} (${Math.round(metadata.percent)}%)...`);
+              }
+            });
           } else if (fileItem.rawFile) {
             blob = fileItem.rawFile;
           } else {
@@ -492,7 +521,14 @@ export async function commitImportedCourse(params: {
         } else if (fileItem.type === 'document') {
           let blob: Blob;
           if (fileItem.zipEntry) {
-            blob = await fileItem.zipEntry.async('blob');
+            blob = await fileItem.zipEntry.async('blob', (metadata) => {
+              if (onProgress) {
+                const base = ((processedFiles - 1) / Math.max(1, totalFiles)) * 90;
+                const span = (1 / Math.max(1, totalFiles)) * 90;
+                const current = Math.min(95, Math.round(base + (metadata.percent / 100) * span));
+                onProgress(current, `Extracting ${fileItem.filename} (${Math.round(metadata.percent)}%)...`);
+              }
+            });
           } else if (fileItem.rawFile) {
             blob = fileItem.rawFile;
           } else {

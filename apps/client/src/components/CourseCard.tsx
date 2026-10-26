@@ -51,8 +51,18 @@ export function CourseCard({
             : 'w-full h-36'
         } relative overflow-hidden bg-[var(--cn-surface-subtle)] border-b border-[var(--cn-border)] flex flex-col justify-between p-4`}
       >
+        {course.thumbnailUrl && (
+          <img
+            src={course.thumbnailUrl}
+            alt={course.title}
+            className="absolute inset-0 w-full h-full object-cover z-0"
+          />
+        )}
+        {course.thumbnailUrl && (
+          <div className="absolute inset-0 bg-black/45 z-[1] backdrop-blur-[0.5px]" />
+        )}
         <div 
-          className="absolute inset-0 opacity-15 pointer-events-none"
+          className="absolute inset-0 opacity-15 pointer-events-none z-[2]"
           style={{
             backgroundImage: `radial-gradient(var(--cn-border) 1px, transparent 1px)`,
             backgroundSize: '16px 16px',

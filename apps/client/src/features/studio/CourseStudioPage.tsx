@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   IconPlus, 
@@ -17,7 +17,9 @@ import {
   IconUser,
   IconTag,
   IconFolderPlus,
-  IconBooks
+  IconBooks,
+  IconPhoto,
+  IconUpload
 } from '@tabler/icons-react';
 import { 
   addCourseToVault, 
@@ -71,6 +73,124 @@ export function CourseStudioPage() {
   const [description, setDescription] = useState('A hands-on curriculum built with custom video lectures, slide decks, and code exercises.');
   const [tagsInput, setTagsInput] = useState('Systems, Distributed, Performance');
   const [selectedCover, setSelectedCover] = useState('obsidian');
+
+  // Course Cover / Title Image State
+  const [customCoverImage, setCustomCoverImage] = useState<string>('');
+  const [coverUrlInput, setCoverUrlInput] = useState<string>('');
+  const [isGeneratingTitleCard, setIsGeneratingTitleCard] = useState<boolean>(false);
+  const imageFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Auto-generate title card graphic on HTML5 Canvas
+  const handleGenerateTitleImage = () => {
+    setIsGeneratingTitleCard(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const coverObj = PRESET_COVERS.find((c) => c.id === selectedCover) || PRESET_COVERS[0]!;
+      
+      // 1. Sleek Background gradient
+      const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+      grad.addColorStop(0, '#090B0E');
+      grad.addColorStop(0.5, '#121620');
+      grad.addColorStop(1, '#080A0D');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1280, 720);
+
+      // Accent color glow
+      const radial = ctx.createRadialGradient(960, 220, 20, 960, 220, 600);
+      radial.addColorStop(0, `${coverObj.color}35`);
+      radial.addColorStop(1, 'transparent');
+      ctx.fillStyle = radial;
+      ctx.fillRect(0, 0, 1280, 720);
+
+      // Geometric grid lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.lineWidth = 1.5;
+      for (let x = 0; x < 1280; x += 60) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 720);
+        ctx.stroke();
+      }
+      for (let y = 0; y < 720; y += 60) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(1280, y);
+        ctx.stroke();
+      }
+
+      // 2. Subject Badge
+      ctx.fillStyle = coverObj.color;
+      const badgeText = (subject || 'COURSE').toUpperCase();
+      ctx.font = 'bold 18px sans-serif';
+      const badgeWidth = Math.max(160, ctx.measureText(badgeText).width + 36);
+      ctx.beginPath();
+      ctx.roundRect(80, 100, badgeWidth, 42, 10);
+      ctx.fill();
+
+      ctx.fillStyle = '#050709';
+      ctx.fillText(badgeText, 98, 127);
+
+      // 3. Course Title (Word-wrapped)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 54px sans-serif';
+      const words = (courseTitle || 'Masterclass Title').split(' ');
+      let line = '';
+      let y = 240;
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > 920 && n > 0) {
+          ctx.fillText(line.trim(), 80, y);
+          line = words[n] + ' ';
+          y += 68;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line.trim(), 80, y);
+
+      // 4. Instructor & Meta
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '22px sans-serif';
+      ctx.fillText(`Instructor: ${instructorName || 'Course Author'} • ${difficulty} Level`, 80, Math.min(y + 80, 560));
+
+      // 5. CourseNest Offline Logo Stamp
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.font = 'bold 18px monospace';
+      ctx.fillText('COURSENEST MASTERCLASS • PRIVATE OFFLINE VAULT', 80, 640);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      setCustomCoverImage(dataUrl);
+    } catch (e) {
+      console.error('Failed to generate title image:', e);
+    } finally {
+      setIsGeneratingTitleCard(false);
+    }
+  };
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (typeof event.target?.result === 'string') {
+        setCustomCoverImage(event.target.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleApplyUrlImage = () => {
+    if (coverUrlInput.trim()) {
+      setCustomCoverImage(coverUrlInput.trim());
+      setCoverUrlInput('');
+    }
+  };
 
   // Curriculum Sections State
   const [sections, setSections] = useState<DraftSection[]>([
@@ -366,6 +486,8 @@ export function CourseStudioPage() {
       subject,
       tags,
       estimatedDurationMinutes: totalMinutes,
+      thumbnailUrl: customCoverImage || undefined,
+      coverImageUrl: customCoverImage || undefined,
       learningObjectives: [
         'Master the foundational and advanced principles outlined in this curriculum',
         'Analyze code snippets, slide presentations, and video lectures',
@@ -394,6 +516,7 @@ export function CourseStudioPage() {
       subject,
       instructorName,
       description,
+      thumbnailUrl: customCoverImage || undefined,
       tags: tagsInput.split(',').map((t) => t.trim()),
       sections,
       exportedAt: new Date().toISOString(),
@@ -545,55 +668,164 @@ export function CourseStudioPage() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-[var(--cn-text-secondary)] mb-1.5">
-            Course Description & Overview
-          </label>
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3.5 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] focus:outline-none focus:border-[var(--cn-primary)] resize-none"
-            placeholder="Comprehensive description of the topics covered in this masterclass..."
-          />
-        </div>
+        {/* Two-Column Details Area: Description & Tags on Left, Title Page Image Studio on Right */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
+          {/* Left Column: Description & Tags & Palette */}
+          <div className="lg:col-span-7 space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-[var(--cn-text-secondary)] mb-1.5">
+                Course Description & Overview
+              </label>
+              <textarea
+                rows={4}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] focus:outline-none focus:border-[var(--cn-primary)] resize-none"
+                placeholder="Comprehensive description of the topics covered in this masterclass..."
+              />
+            </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-[var(--cn-text-secondary)] mb-1.5">
-            Keywords & Tags (Comma-separated)
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] focus:outline-none focus:border-[var(--cn-primary)]"
-              placeholder="e.g. Systems, C++, Operating Systems, Algorithms"
-            />
-            <IconTag size={15} className="absolute left-3 top-2.5 text-[var(--cn-text-muted)]" />
+            <div>
+              <label className="block text-xs font-semibold text-[var(--cn-text-secondary)] mb-1.5">
+                Keywords & Tags (Comma-separated)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs text-[var(--cn-text-primary)] focus:outline-none focus:border-[var(--cn-primary)]"
+                  placeholder="e.g. Systems, C++, Operating Systems, Algorithms"
+                />
+                <IconTag size={15} className="absolute left-3 top-2.5 text-[var(--cn-text-muted)]" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[var(--cn-text-secondary)] mb-1.5">
+                Preset Palette Style
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                {PRESET_COVERS.map((cov) => (
+                  <button
+                    key={cov.id}
+                    type="button"
+                    onClick={() => setSelectedCover(cov.id)}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-2 transition-all ${
+                      selectedCover === cov.id
+                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-bold shadow-xs'
+                        : 'border-[var(--cn-border)] bg-[var(--cn-bg)] text-[var(--cn-text-secondary)] hover:border-[var(--cn-border-highlight)]'
+                    }`}
+                  >
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cov.color }} />
+                    <span>{cov.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-[var(--cn-text-secondary)] mb-1.5">
-            Course Palette & Cover Art
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            {PRESET_COVERS.map((cov) => (
+          {/* Right Column: Title Page Image & Custom Picture Studio */}
+          <div className="lg:col-span-5 p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] space-y-3.5 flex flex-col justify-between">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-[var(--cn-text-primary)] flex items-center gap-1.5">
+                  <IconPhoto size={15} className="text-[var(--cn-primary)]" />
+                  <span>Course Title Page & Cover Image</span>
+                </label>
+                {customCoverImage && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomCoverImage('')}
+                    className="text-[11px] text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+
+              {/* 16:9 Live Preview Frame */}
+              <div className="relative aspect-video w-full rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] overflow-hidden shadow-inner group flex items-center justify-center">
+                {customCoverImage ? (
+                  <img
+                    src={customCoverImage}
+                    alt="Course Title Cover"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="p-4 text-center space-y-1.5 select-none">
+                    <span className="inline-block px-2 py-0.5 rounded bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] text-[10px] font-mono font-bold">
+                      {(subject || 'COURSE').toUpperCase()}
+                    </span>
+                    <h4 className="text-xs font-bold text-[var(--cn-text-primary)] line-clamp-2 px-2">
+                      {courseTitle || 'Masterclass Title'}
+                    </h4>
+                    <p className="text-[10px] text-[var(--cn-text-muted)] font-mono">
+                      {instructorName || 'Instructor'} • {difficulty}
+                    </p>
+                  </div>
+                )}
+
+                <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-xs text-[9px] font-mono text-white/80">
+                  {customCoverImage ? 'Custom Cover Active' : 'Default Title Preview'}
+                </div>
+              </div>
+            </div>
+
+            {/* Image Input Options */}
+            <div className="space-y-2 pt-1">
+              {/* Option A: Auto-generate title card graphic */}
               <button
-                key={cov.id}
                 type="button"
-                onClick={() => setSelectedCover(cov.id)}
-                className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-2 transition-all ${
-                  selectedCover === cov.id
-                    ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-bold shadow-xs'
-                    : 'border-[var(--cn-border)] bg-[var(--cn-bg)] text-[var(--cn-text-secondary)] hover:border-[var(--cn-border-highlight)]'
-                }`}
+                onClick={handleGenerateTitleImage}
+                disabled={isGeneratingTitleCard}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] text-xs font-semibold hover:bg-[var(--cn-primary)]/20 transition-[background-color,transform] duration-150 active:scale-95 shadow-xs disabled:opacity-50"
               >
-                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cov.color }} />
-                <span>{cov.label}</span>
+                <IconSparkles size={14} className={isGeneratingTitleCard ? 'animate-spin' : ''} />
+                <span>{isGeneratingTitleCard ? 'Generating Graphic...' : 'Detect & Generate Title Graphic'}</span>
               </button>
-            ))}
+
+              {/* Option B: Upload local picture file */}
+              <input
+                ref={imageFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageFileUpload}
+                className="hidden"
+              />
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => imageFileInputRef.current?.click()}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] text-xs font-medium hover:bg-[var(--cn-surface-hover)] transition-colors active:scale-95"
+                >
+                  <IconUpload size={13} />
+                  <span>Upload Picture</span>
+                </button>
+
+                {/* Option C: Image URL Input */}
+                <div className="flex-1 flex items-center gap-1">
+                  <input
+                    type="url"
+                    value={coverUrlInput}
+                    onChange={(e) => setCoverUrlInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleApplyUrlImage())}
+                    placeholder="Or paste image URL"
+                    className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[11px] text-[var(--cn-text-primary)] focus:outline-none focus:border-[var(--cn-primary)]"
+                  />
+                  {coverUrlInput && (
+                    <button
+                      type="button"
+                      onClick={handleApplyUrlImage}
+                      className="px-2 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-[11px] font-bold"
+                    >
+                      Set
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
