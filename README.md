@@ -2,7 +2,7 @@
 > **Open-Source, Local-First, Multi-Audience Educational Studio, Course Creator & Video Player**
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Release: v1.1.0](https://img.shields.io/badge/Release-v1.1.0-emerald.svg)](https://github.com/PixelApprentice/Korse/releases)
+[![Release: v2.0.0](https://img.shields.io/badge/Release-v2.0.0-emerald.svg)](https://github.com/PixelApprentice/Korse/releases)
 [![Node.js](https://img.shields.io/badge/Node.js-20_LTS-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)](https://python.org/)

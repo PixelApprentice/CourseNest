@@ -30,6 +30,7 @@ import {
 } from '../../lib/courseStore';
 import { getYouTubeThumbnailUrl } from '../../lib/youtubeHelper';
 import { addLog } from '../../lib/logger';
+import { APP_VERSION } from '@coursenest/config';
 
 interface DraftLesson {
   id: string;
@@ -521,7 +522,7 @@ export function CourseStudioPage() {
         'Analyze code snippets, slide presentations, and video lectures',
         'Complete self-paced exercises stored in private local vault'
       ],
-      version: '1.1.0',
+      version: APP_VERSION,
       contentFingerprint: `sha256-custom-${Date.now()}`,
       sections: transformedSections,
       isImported: true,
@@ -548,7 +549,7 @@ export function CourseStudioPage() {
       tags: tagsInput.split(',').map((t) => t.trim()),
       sections,
       exportedAt: new Date().toISOString(),
-      generator: 'CourseNest Course Studio v1.1.0'
+      generator: `CourseNest Course Studio v${APP_VERSION}`
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

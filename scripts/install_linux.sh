@@ -22,7 +22,7 @@ mkdir -p "$ICON_DIR"
 
 # 2. Check if build artifacts exist; if not, build them
 UNPACKED_SRC="$REPO_ROOT/apps/desktop/release/linux-unpacked"
-APPIMAGE_SRC="$REPO_ROOT/apps/desktop/release/CourseNest-Setup-1.1.0.AppImage"
+APPIMAGE_SRC=$(find "$REPO_ROOT/apps/desktop/release" -maxdepth 1 -name "*.AppImage" 2>/dev/null | head -n 1)
 
 if [ ! -d "$UNPACKED_SRC" ]; then
   echo "[-] Building client and desktop bundle..."
