@@ -105,6 +105,9 @@ export function LessonPlayerPage() {
     fileUrl?: string;
   } | null>(null);
 
+  // Split-Screen Layout Workbench mode: 'docked' (side-by-side with video/notes) or 'modal' (full-screen)
+  const [workbenchMode, setWorkbenchMode] = useState<'docked' | 'modal'>('docked');
+
   // Active PPTX slide jump state and Flashcard Modal
   const [activeSlideNumber, setActiveSlideNumber] = useState<number | undefined>(undefined);
   const [showFlashcardsModal, setShowFlashcardsModal] = useState(false);
@@ -594,14 +597,6 @@ export function LessonPlayerPage() {
                         addLog('INFO', 'PLAYER', `Lesson completed via YouTube finish: ${activeLesson.title}`);
                       }}
                     />
-
-                    {/* Audible TTS Lecture Narration Bar */}
-                    {lessonTextContent && (
-                      <AudibleLectureBar
-                        title={activeLesson.title}
-                        textToRead={lessonTextContent}
-                      />
-                    )}
                   </div>
                 );
               }
@@ -639,14 +634,6 @@ export function LessonPlayerPage() {
                     </span>
                     <span className="hidden sm:inline">Shortcuts: Space (play/pause), ←/→ (seek 5s), M (mute), F (fullscreen)</span>
                   </div>
-
-                  {/* Audible TTS Lecture Narration Bar */}
-                  {lessonTextContent && (
-                    <AudibleLectureBar
-                      title={activeLesson.title}
-                      textToRead={lessonTextContent}
-                    />
-                  )}
                 </div>
               );
             }
@@ -1203,10 +1190,54 @@ export function LessonPlayerPage() {
             </div>
           </aside>
         )}
+
+        {/* Docked Side-by-Side Presentation / Handout Workbench Pane */}
+        {workbenchMode === 'docked' && (activePptxViewer || activeDocViewer) && (
+          <aside className="w-full lg:w-1/2 border-l border-[var(--cn-border)] flex flex-col bg-[var(--cn-surface)] z-10 shrink-0 shadow-lg overflow-hidden animate-in fade-in slide-in-from-right-4 duration-200">
+            {activePptxViewer && (
+              <PptxPresentationViewer
+                filename={activePptxViewer.filename}
+                fileSizeBytes={activePptxViewer.fileSizeBytes}
+                fileBlob={activePptxViewer.fileUrl}
+                activeSlideNumber={activeSlideNumber}
+                onClose={() => {
+                  setActivePptxViewer(null);
+                  setActiveSlideNumber(undefined);
+                }}
+                isModal={false}
+                isDocked={true}
+                onToggleDock={() => setWorkbenchMode('modal')}
+                onAskAi={(slideSummary) => {
+                  setAiDocContext(slideSummary);
+                  setActivePptxViewer(null);
+                  setActiveSidePanel('ai-tutor');
+                }}
+              />
+            )}
+            {activeDocViewer && (
+              <EmbeddedDocumentViewer
+                filename={activeDocViewer.filename}
+                fileSizeBytes={activeDocViewer.fileSizeBytes}
+                description={activeDocViewer.description}
+                contentSnippet={activeDocViewer.snippet}
+                fileUrl={activeDocViewer.fileUrl}
+                onClose={() => setActiveDocViewer(null)}
+                isModal={false}
+                isDocked={true}
+                onToggleDock={() => setWorkbenchMode('modal')}
+                onAskAi={(excerpt) => {
+                  setAiDocContext(excerpt);
+                  setActiveDocViewer(null);
+                  setActiveSidePanel('ai-tutor');
+                }}
+              />
+            )}
+          </aside>
+        )}
       </div>
 
-      {/* Embedded Document Reader Modal */}
-      {activeDocViewer && (
+      {/* Embedded Document Reader Modal (Full Screen View) */}
+      {activeDocViewer && workbenchMode === 'modal' && (
         <EmbeddedDocumentViewer
           filename={activeDocViewer.filename}
           fileSizeBytes={activeDocViewer.fileSizeBytes}
@@ -1215,6 +1246,8 @@ export function LessonPlayerPage() {
           fileUrl={activeDocViewer.fileUrl}
           onClose={() => setActiveDocViewer(null)}
           isModal={true}
+          isDocked={false}
+          onToggleDock={() => setWorkbenchMode('docked')}
           onAskAi={(excerpt) => {
             setAiDocContext(excerpt);
             setActiveDocViewer(null);
@@ -1223,8 +1256,8 @@ export function LessonPlayerPage() {
         />
       )}
 
-      {/* PowerPoint Presentation Reader Modal */}
-      {activePptxViewer && (
+      {/* PowerPoint Presentation Reader Modal (Full Screen View) */}
+      {activePptxViewer && workbenchMode === 'modal' && (
         <PptxPresentationViewer
           filename={activePptxViewer.filename}
           fileSizeBytes={activePptxViewer.fileSizeBytes}
@@ -1235,6 +1268,8 @@ export function LessonPlayerPage() {
             setActiveSlideNumber(undefined);
           }}
           isModal={true}
+          isDocked={false}
+          onToggleDock={() => setWorkbenchMode('docked')}
           onAskAi={(slideSummary) => {
             setAiDocContext(slideSummary);
             setActivePptxViewer(null);

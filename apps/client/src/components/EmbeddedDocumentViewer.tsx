@@ -14,7 +14,8 @@ import {
   IconColumns, 
   IconList,
   IconBrain,
-  IconBooks
+  IconBooks,
+  IconLayoutColumns
 } from '@tabler/icons-react';
 
 interface EmbeddedDocumentViewerProps {
@@ -26,6 +27,8 @@ interface EmbeddedDocumentViewerProps {
   onClose?: () => void;
   isModal?: boolean;
   onAskAi?: (pageText: string) => void;
+  onToggleDock?: () => void;
+  isDocked?: boolean;
 }
 
 interface DocumentPage {
@@ -44,6 +47,8 @@ export function EmbeddedDocumentViewer({
   onClose,
   isModal = true,
   onAskAi,
+  onToggleDock,
+  isDocked = false,
 }: EmbeddedDocumentViewerProps) {
   // Navigation & Zoom State
   const [currentPage, setCurrentPage] = useState(1);
@@ -154,13 +159,13 @@ export function EmbeddedDocumentViewer({
 
   const containerClasses = isModal
     ? 'fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-3 md:p-6'
-    : 'border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] overflow-hidden shadow-xl';
+    : 'w-full h-full flex flex-col bg-[var(--cn-surface)] overflow-hidden';
 
   const innerClasses = isModal
     ? `bg-[var(--cn-surface)] border border-[var(--cn-border)] rounded-2xl w-full flex flex-col shadow-2xl overflow-hidden transition-[width,height,border-radius] duration-200 ease-out ${
         isFullscreen ? 'h-screen max-w-none rounded-none' : 'max-w-6xl h-[90vh]'
       }`
-    : 'flex flex-col h-[700px] w-full';
+    : 'flex flex-col h-full w-full';
 
   return (
     <div className={containerClasses}>
@@ -299,6 +304,21 @@ export function EmbeddedDocumentViewer({
             >
               <IconDownload size={15} />
             </button>
+
+            {/* Dock / Undock Workbench Toggle */}
+            {onToggleDock && (
+              <button
+                onClick={onToggleDock}
+                className={`p-1.5 rounded-lg border border-[var(--cn-border)] transition-colors ${
+                  isDocked
+                    ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40 font-bold'
+                    : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)]'
+                }`}
+                title={isDocked ? 'Maximize to Full View' : 'Dock Side-by-Side (Split Workbench)'}
+              >
+                <IconLayoutColumns size={15} />
+              </button>
+            )}
 
             {/* Fullscreen */}
             {isModal && (

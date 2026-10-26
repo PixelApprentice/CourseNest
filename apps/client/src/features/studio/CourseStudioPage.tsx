@@ -19,7 +19,8 @@ import {
   IconFolderPlus,
   IconBooks,
   IconPhoto,
-  IconUpload
+  IconUpload,
+  IconWand
 } from '@tabler/icons-react';
 import { 
   addCourseToVault, 
@@ -220,6 +221,23 @@ export function CourseStudioPage() {
 
   const [isSaved, setIsSaved] = useState(false);
 
+  // Auto-scan curriculum lessons to detect available title cover images (e.g. YouTube thumbnails or presentations)
+  const detectedLessonsWithThumbnails = sections.flatMap((sec) =>
+    sec.lessons
+      .filter((l) => (l.contentType === 'youtube' && l.youtubeUrl) || l.contentType === 'pptx')
+      .map((l) => ({
+        lessonId: l.id,
+        lessonTitle: l.title,
+        contentType: l.contentType,
+        thumbnailUrl: l.contentType === 'youtube' ? getYouTubeThumbnailUrl(l.youtubeUrl) : null,
+      }))
+  );
+  const firstDetectedThumbnail = detectedLessonsWithThumbnails.find((d) => d.thumbnailUrl);
+
+  const handleApplyDetectedThumbnail = (thumbUrl: string) => {
+    setCustomCoverImage(thumbUrl);
+  };
+
   // Add Section
   const handleAddSection = () => {
     const newSec: DraftSection = {
@@ -384,6 +402,16 @@ export function CourseStudioPage() {
 
   // Save to Local Vault
   const handleSaveToVault = () => {
+    if (!courseTitle.trim()) {
+      alert('Please enter a course title before publishing.');
+      return;
+    }
+    const totalLessons = sections.reduce((acc, s) => acc + s.lessons.length, 0);
+    if (totalLessons === 0) {
+      alert('Please add at least one lesson before publishing to the vault.');
+      return;
+    }
+
     const courseId = `custom-course-${Date.now()}`;
     const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
 
@@ -737,9 +765,9 @@ export function CourseStudioPage() {
                   <button
                     type="button"
                     onClick={() => setCustomCoverImage('')}
-                    className="text-[11px] text-red-400 hover:text-red-300 transition-colors"
+                    className="text-[11px] text-red-400 hover:text-red-300 transition-colors font-medium"
                   >
-                    Reset
+                    Reset Cover
                   </button>
                 )}
               </div>
@@ -772,20 +800,38 @@ export function CourseStudioPage() {
               </div>
             </div>
 
-            {/* Image Input Options */}
-            <div className="space-y-2 pt-1">
-              {/* Option A: Auto-generate title card graphic */}
+            {/* Smart Detection & Input Options */}
+            <div className="space-y-2.5 pt-1">
+              {/* Feature A: Auto-Detect from Lesson Materials (e.g. YouTube Video thumbnail or slide deck) */}
+              {firstDetectedThumbnail && firstDetectedThumbnail.thumbnailUrl && (
+                <button
+                  type="button"
+                  onClick={() => handleApplyDetectedThumbnail(firstDetectedThumbnail.thumbnailUrl!)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/20 transition-colors"
+                  title="Extract high-resolution thumbnail from lecture video"
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <IconBrandYoutube size={14} className="shrink-0 text-red-500" />
+                    <span className="truncate">Auto-Detect: Video Thumbnail</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold bg-red-500/20 px-1.5 py-0.5 rounded shrink-0">
+                    Use as Title Card
+                  </span>
+                </button>
+              )}
+
+              {/* Feature B: Auto-generate title card graphic from Title Name */}
               <button
                 type="button"
                 onClick={handleGenerateTitleImage}
                 disabled={isGeneratingTitleCard}
                 className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] text-xs font-semibold hover:bg-[var(--cn-primary)]/20 transition-[background-color,transform] duration-150 active:scale-95 shadow-xs disabled:opacity-50"
               >
-                <IconSparkles size={14} className={isGeneratingTitleCard ? 'animate-spin' : ''} />
-                <span>{isGeneratingTitleCard ? 'Generating Graphic...' : 'Detect & Generate Title Graphic'}</span>
+                <IconWand size={14} className={isGeneratingTitleCard ? 'animate-spin' : ''} />
+                <span>{isGeneratingTitleCard ? 'Generating Graphic...' : 'Detect & Generate Title Graphic from Name'}</span>
               </button>
 
-              {/* Option B: Upload local picture file */}
+              {/* Feature C: User inputs picture exactly as needed (Upload file or URL) */}
               <input
                 ref={imageFileInputRef}
                 type="file"
@@ -798,20 +844,20 @@ export function CourseStudioPage() {
                 <button
                   type="button"
                   onClick={() => imageFileInputRef.current?.click()}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] text-xs font-medium hover:bg-[var(--cn-surface-hover)] transition-colors active:scale-95"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] text-xs font-medium hover:bg-[var(--cn-surface-hover)] transition-colors active:scale-95 shadow-xs"
                 >
                   <IconUpload size={13} />
                   <span>Upload Picture</span>
                 </button>
 
-                {/* Option C: Image URL Input */}
+                {/* Direct Custom Image URL Input */}
                 <div className="flex-1 flex items-center gap-1">
                   <input
                     type="url"
                     value={coverUrlInput}
                     onChange={(e) => setCoverUrlInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleApplyUrlImage())}
-                    placeholder="Or paste image URL"
+                    placeholder="Or paste picture URL"
                     className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[11px] text-[var(--cn-text-primary)] focus:outline-none focus:border-[var(--cn-primary)]"
                   />
                   {coverUrlInput && (

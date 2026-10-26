@@ -247,12 +247,12 @@ export function LibraryPage() {
                 <IconAlertTriangle size={20} />
               </div>
               <h3 className="font-bold text-base text-[var(--cn-text-primary)]">
-                Remove Course from Vault?
+                Remove Course from Library?
               </h3>
             </div>
 
             <p className="text-xs text-[var(--cn-text-secondary)] leading-relaxed">
-              This will remove this course and its media files from your local vault storage.
+              This will remove this course and its media files from your local offline storage.
             </p>
 
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--cn-border)]">

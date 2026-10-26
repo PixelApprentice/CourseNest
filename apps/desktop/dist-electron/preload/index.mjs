@@ -19,6 +19,11 @@ const electronAPI = {
     getResourcesDir: () => ipcRenderer.invoke("app:getResourcesDir"),
     getPlatformInfo: () => ipcRenderer.invoke("app:getPlatformInfo"),
     showNotification: (title, body) => ipcRenderer.invoke("app:showNotification", title, body)
+  },
+  theme: {
+    getTheme: () => ipcRenderer.invoke("theme:getTheme"),
+    setTheme: (themeId) => ipcRenderer.invoke("theme:setTheme", themeId)
   }
 };
 contextBridge.exposeInMainWorld("__ELECTRON__", electronAPI);
+contextBridge.exposeInMainWorld("electronAPI", electronAPI);

@@ -137,17 +137,26 @@ export async function parseCourseArchives(
   onProgress?: (percent: number, status: string) => void
 ): Promise<ParsedArchiveResult> {
   const discoveredFiles: DiscoveredArchiveFile[] = [];
+  let maxReportedPct = 0;
+
+  const reportProgress = (pct: number, status: string) => {
+    maxReportedPct = Math.max(maxReportedPct, Math.min(100, Math.round(pct)));
+    if (onProgress) {
+      onProgress(maxReportedPct, status);
+    }
+  };
+
+  reportProgress(5, `Preparing archive scan for ${files.length} file(s)...`);
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]!;
     addLog('INFO', 'IMPORTER', `Reading course archive: ${file.name}`, `Size: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
     
-    if (onProgress) {
-      const pct = Math.min(85, Math.round((i / files.length) * 85));
-      onProgress(pct, `Reading archive: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)...`);
-    }
+    const fileBase = 10 + (i / files.length) * 75;
+    reportProgress(fileBase, `Reading archive ${i + 1} of ${files.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)...`);
 
     const zip = await JSZip.loadAsync(file);
+    reportProgress(fileBase + (0.7 / files.length) * 75, `Decompressing headers: ${file.name}...`);
     const archiveBaseName = file.name.replace(/\.[^/.]+$/, '');
 
     zip.forEach((relPath, entry) => {
@@ -176,9 +185,9 @@ export async function parseCourseArchives(
     });
   }
 
-  if (onProgress) onProgress(95, 'Structuring lesson modules and chapters...');
+  reportProgress(92, 'Structuring lesson modules and chapters...');
   const result = processDiscoveredFiles(discoveredFiles, files[0]?.name || 'Imported Course');
-  if (onProgress) onProgress(100, 'Analysis complete!');
+  reportProgress(100, 'Archive analysis complete!');
   return result;
 }
 
@@ -190,12 +199,22 @@ export async function parseCourseFolder(
   onProgress?: (percent: number, status: string) => void
 ): Promise<ParsedArchiveResult> {
   const discoveredFiles: DiscoveredArchiveFile[] = [];
+  let maxReportedPct = 0;
+
+  const reportProgress = (pct: number, status: string) => {
+    maxReportedPct = Math.max(maxReportedPct, Math.min(100, Math.round(pct)));
+    if (onProgress) {
+      onProgress(maxReportedPct, status);
+    }
+  };
+
+  reportProgress(5, `Scanning course folder directory (${files.length} items)...`);
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]!;
-    if (onProgress && (i % 10 === 0 || i === files.length - 1)) {
-      const pct = Math.min(95, Math.round((i / Math.max(1, files.length)) * 90));
-      onProgress(pct, `Scanning folder: ${file.name} (${i + 1}/${files.length})...`);
+    if (i % 5 === 0 || i === files.length - 1) {
+      const pct = 10 + (i / Math.max(1, files.length)) * 75;
+      reportProgress(pct, `Scanning folder: ${file.name} (${i + 1}/${files.length})...`);
     }
 
     const relPath = file.webkitRelativePath || file.name;
@@ -463,8 +482,20 @@ export async function commitImportedCourse(params: {
       }
     }
   }
+  totalFiles = Math.max(1, totalFiles);
 
-  let processedFiles = 0;
+  let currentFileIdx = 0;
+  let maxReportedPct = 0;
+
+  const reportProgress = (pct: number, status: string) => {
+    maxReportedPct = Math.max(maxReportedPct, Math.min(100, Math.round(pct)));
+    if (onProgress) {
+      onProgress(maxReportedPct, status);
+    }
+  };
+
+  reportProgress(5, `Starting media extraction (0 of ${totalFiles} items)...`);
+
   const finalSections: SectionData[] = [];
 
   for (let sIdx = 0; sIdx < sections.length; sIdx++) {
@@ -480,11 +511,13 @@ export async function commitImportedCourse(params: {
       let blockPos = 1;
 
       for (const fileItem of les.files) {
-        processedFiles++;
-        if (onProgress) {
-          const percent = Math.min(95, Math.round((processedFiles / Math.max(1, totalFiles)) * 100));
-          onProgress(percent, `Extracting: ${fileItem.filename}`);
-        }
+        const fileSpan = 75 / totalFiles;
+        const fileBase = 5 + (currentFileIdx / totalFiles) * 75;
+
+        reportProgress(
+          fileBase,
+          `Extracting ${currentFileIdx + 1}/${totalFiles}: ${fileItem.filename}`
+        );
 
         const normalizedPath = fileItem.path.replace(/\\/g, '/');
 
@@ -493,20 +526,21 @@ export async function commitImportedCourse(params: {
           let blob: Blob;
           if (fileItem.zipEntry) {
             blob = await fileItem.zipEntry.async('blob', (metadata) => {
-              if (onProgress) {
-                const base = ((processedFiles - 1) / Math.max(1, totalFiles)) * 90;
-                const span = (1 / Math.max(1, totalFiles)) * 90;
-                const current = Math.min(95, Math.round(base + (metadata.percent / 100) * span));
-                onProgress(current, `Extracting ${fileItem.filename} (${Math.round(metadata.percent)}%)...`);
-              }
+              const subPercent = (metadata.percent / 100) * fileSpan;
+              reportProgress(
+                fileBase + subPercent,
+                `Extracting ${fileItem.filename} (${Math.round(metadata.percent)}%)...`
+              );
             });
           } else if (fileItem.rawFile) {
             blob = fileItem.rawFile;
           } else {
+            currentFileIdx++;
             continue;
           }
 
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
+          currentFileIdx++;
 
           blocks.push({
             id: `blk-${Date.now()}-${sIdx}-${lIdx}-${blockPos++}`,
@@ -522,20 +556,21 @@ export async function commitImportedCourse(params: {
           let blob: Blob;
           if (fileItem.zipEntry) {
             blob = await fileItem.zipEntry.async('blob', (metadata) => {
-              if (onProgress) {
-                const base = ((processedFiles - 1) / Math.max(1, totalFiles)) * 90;
-                const span = (1 / Math.max(1, totalFiles)) * 90;
-                const current = Math.min(95, Math.round(base + (metadata.percent / 100) * span));
-                onProgress(current, `Extracting ${fileItem.filename} (${Math.round(metadata.percent)}%)...`);
-              }
+              const subPercent = (metadata.percent / 100) * fileSpan;
+              reportProgress(
+                fileBase + subPercent,
+                `Extracting ${fileItem.filename} (${Math.round(metadata.percent)}%)...`
+              );
             });
           } else if (fileItem.rawFile) {
             blob = fileItem.rawFile;
           } else {
+            currentFileIdx++;
             continue;
           }
 
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
+          currentFileIdx++;
 
           blocks.push({
             id: `blk-${Date.now()}-${sIdx}-${lIdx}-${blockPos++}`,
@@ -548,6 +583,7 @@ export async function commitImportedCourse(params: {
             mimeType: fileItem.mimeType,
           });
         } else if (fileItem.type === 'rich_text') {
+          currentFileIdx++;
           let text = fileItem.content;
           if (!text && fileItem.zipEntry) {
             text = await fileItem.zipEntry.async('text');
@@ -573,6 +609,7 @@ export async function commitImportedCourse(params: {
             fileSizeBytes: fileItem.sizeBytes,
           });
         } else if (fileItem.type === 'link') {
+          currentFileIdx++;
           // Link shortcut: extract URL across .url, .webloc, .desktop, and raw text
           let text = fileItem.content;
           if (!text && fileItem.zipEntry) {
@@ -599,11 +636,9 @@ export async function commitImportedCourse(params: {
 
         for (let subIdx = 0; subIdx < les.subtitleFiles.length; subIdx++) {
           const subItem = les.subtitleFiles[subIdx]!;
-          processedFiles++;
-          if (onProgress) {
-            const percent = Math.min(95, Math.round((processedFiles / Math.max(1, totalFiles)) * 100));
-            onProgress(percent, `Converting subtitles: ${subItem.filename}`);
-          }
+          currentFileIdx++;
+          const subPct = 80 + (currentFileIdx / totalFiles) * 12;
+          reportProgress(subPct, `Converting subtitles: ${subItem.filename}`);
 
           try {
             let srtOrVttText = '';
@@ -676,8 +711,9 @@ export async function commitImportedCourse(params: {
   // If appending to an existing course, merge sections and return
   if (appendToCourseId) {
     const existing = getCourseById(appendToCourseId);
+    reportProgress(95, 'Writing supplementary chapters into course...');
     appendSectionsToCourse(appendToCourseId, finalSections);
-    if (onProgress) onProgress(100, 'Materials appended successfully!');
+    reportProgress(100, 'Materials appended successfully!');
     addLog(
       'INFO',
       'IMPORTER',
@@ -708,9 +744,10 @@ export async function commitImportedCourse(params: {
     addedAt: new Date().toISOString(),
   };
 
+  reportProgress(94, 'Writing course manifest to offline vault...');
   addCourseToVault(courseData);
-
-  if (onProgress) onProgress(100, 'Complete!');
+  reportProgress(98, 'Verifying course integrity...');
+  reportProgress(100, 'Complete! Course saved and ready for offline study.');
   addLog('INFO', 'IMPORTER', `Course saved to offline vault: ${courseTitle}`, `${finalSections.length} sections, ${totalFiles} files`);
 
   return courseData;

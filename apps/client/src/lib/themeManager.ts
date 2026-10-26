@@ -324,7 +324,15 @@ export function getThemeById(id: string): ThemeDefinition {
 
 export function getCurrentThemeId(): ThemeId {
   try {
-    const saved = localStorage.getItem(THEME_STORAGE_KEY) as ThemeId;
+    let saved = (localStorage.getItem(THEME_STORAGE_KEY) ||
+      localStorage.getItem('coursenest_active_theme_id') ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(THEME_STORAGE_KEY) : null)) as ThemeId;
+
+    if (!saved && typeof document !== 'undefined') {
+      const match = document.cookie.match(/(?:^|; )cn_active_theme=([^;]*)/);
+      if (match && match[1]) saved = match[1] as ThemeId;
+    }
+
     if (saved && THEMES.some((t) => t.id === saved)) {
       return saved;
     }
@@ -340,12 +348,31 @@ export function applyTheme(themeId: ThemeId): void {
   try {
     const theme = getThemeById(themeId);
     localStorage.setItem(THEME_STORAGE_KEY, themeId);
+    localStorage.setItem('coursenest_active_theme_id', themeId);
     localStorage.setItem('cn-theme', theme.isDark ? 'dark' : 'light');
     if (theme.isDark) {
       localStorage.setItem('cn_last_dark_theme', themeId);
     } else {
       localStorage.setItem('cn_last_light_theme', themeId);
     }
+
+    try {
+      sessionStorage.setItem(THEME_STORAGE_KEY, themeId);
+    } catch {}
+
+    try {
+      document.cookie = `cn_active_theme=${themeId};path=/;max-age=31536000;SameSite=Lax`;
+    } catch {}
+
+    // Persist to Electron desktop main process preference file if available
+    try {
+      const win = typeof window !== 'undefined' ? (window as any) : null;
+      if (win?.__ELECTRON__?.theme?.setTheme) {
+        win.__ELECTRON__.theme.setTheme(themeId);
+      } else if (win?.electronAPI?.theme?.setTheme) {
+        win.electronAPI.theme.setTheme(themeId);
+      }
+    } catch {}
 
     document.documentElement.setAttribute('data-theme', themeId);
     if (theme.isDark) {
@@ -368,7 +395,7 @@ export function useTheme() {
   const [themeId, setThemeId] = useState<ThemeId>(getCurrentThemeId);
 
   useEffect(() => {
-    // Initial sync
+    // Initial sync from local storage / cookie
     const current = getCurrentThemeId();
     document.documentElement.setAttribute('data-theme', current);
     const def = getThemeById(current);
@@ -376,6 +403,18 @@ export function useTheme() {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+
+    // In Electron desktop environment, verify against native preferences file
+    const win = typeof window !== 'undefined' ? (window as any) : null;
+    const desktopThemeGetter = win?.__ELECTRON__?.theme?.getTheme || win?.electronAPI?.theme?.getTheme;
+    if (desktopThemeGetter) {
+      desktopThemeGetter().then((savedNativeTheme: string | null) => {
+        if (savedNativeTheme && THEMES.some((t) => t.id === savedNativeTheme) && savedNativeTheme !== current) {
+          applyTheme(savedNativeTheme as ThemeId);
+          setThemeId(savedNativeTheme as ThemeId);
+        }
+      }).catch(() => {});
     }
 
     const handleThemeChange = (e: Event) => {

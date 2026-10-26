@@ -1,8 +1,33 @@
 import { app, BrowserWindow, shell } from 'electron';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { registerIpcHandlers } from './ipc-handlers.js';
 import { initializeDatabase } from './database.js';
+
+const THEME_BG_MAP: Record<string, string> = {
+  obsidian: '#0A0A0B',
+  halal: '#F4F9F5',
+  sakura: '#FFF5F7',
+  toybox: '#FFFBEB',
+  cyberpunk: '#05050A',
+  manga: '#FFFFFF',
+  ghibli: '#F5F9F6',
+  oled: '#000000',
+  paper: '#F8F9FA',
+};
+
+function getSavedThemeBg(): string {
+  try {
+    const configPath = join(app.getPath('userData'), 'theme_preference.json');
+    if (existsSync(configPath)) {
+      const data = JSON.parse(readFileSync(configPath, 'utf-8'));
+      if (data?.themeId && THEME_BG_MAP[data.themeId]) {
+        return THEME_BG_MAP[data.themeId];
+      }
+    }
+  } catch {}
+  return '#0A0A0B';
+}
 
 // Hardware acceleration and laptop battery/CPU optimization flags
 app.commandLine.appendSwitch('enable-gpu-rasterization');
@@ -44,7 +69,7 @@ function createWindow(): void {
     minHeight: 600,
     title: 'CourseNest',
     show: false,
-    backgroundColor: '#0D1117',
+    backgroundColor: getSavedThemeBg(),
     webPreferences: {
       preload: preloadFile,
       contextIsolation: true,

@@ -1,7 +1,7 @@
 import { ipcMain, dialog, app, Notification } from 'electron';
 import { join, resolve } from 'path';
-import { readFile, stat, readdir, access } from 'fs/promises';
-import { constants } from 'fs';
+import { readFile, stat, readdir, access, writeFile } from 'fs/promises';
+import { constants, existsSync, readFileSync } from 'fs';
 
 let configuredExternalMountPath: string | null = null;
 
@@ -148,6 +148,32 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('app:showNotification', (_event, title: string, body: string) => {
     if (Notification.isSupported()) {
       new Notification({ title, body }).show();
+    }
+  });
+
+  // ── Theme Preference Persistence Across Desktop Restarts ────────────
+  ipcMain.handle('theme:getTheme', () => {
+    try {
+      const configPath = join(app.getPath('userData'), 'theme_preference.json');
+      if (existsSync(configPath)) {
+        const raw = readFileSync(configPath, 'utf-8');
+        const data = JSON.parse(raw);
+        return data.themeId || null;
+      }
+    } catch (e) {
+      console.warn('Failed to read theme preference file:', e);
+    }
+    return null;
+  });
+
+  ipcMain.handle('theme:setTheme', async (_event, themeId: string) => {
+    try {
+      const configPath = join(app.getPath('userData'), 'theme_preference.json');
+      await writeFile(configPath, JSON.stringify({ themeId, updatedAt: new Date().toISOString() }, null, 2), 'utf-8');
+      return true;
+    } catch (e) {
+      console.warn('Failed to write theme preference file:', e);
+      return false;
     }
   });
 }

@@ -1,7 +1,7 @@
 import { ipcMain, dialog, app, Notification, BrowserWindow, shell } from "electron";
 import { join, resolve } from "path";
-import { constants, existsSync } from "fs";
-import { readFile, stat, readdir, access, mkdir } from "fs/promises";
+import { constants, existsSync, readFileSync } from "fs";
+import { readFile, stat, readdir, access, writeFile, mkdir } from "fs/promises";
 import { createSqliteConnection, initializeSqliteDatabase } from "@coursenest/sqlite-adapter";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
@@ -111,6 +111,29 @@ function registerIpcHandlers() {
       new Notification({ title, body }).show();
     }
   });
+  ipcMain.handle("theme:getTheme", () => {
+    try {
+      const configPath = join(app.getPath("userData"), "theme_preference.json");
+      if (existsSync(configPath)) {
+        const raw = readFileSync(configPath, "utf-8");
+        const data = JSON.parse(raw);
+        return data.themeId || null;
+      }
+    } catch (e) {
+      console.warn("Failed to read theme preference file:", e);
+    }
+    return null;
+  });
+  ipcMain.handle("theme:setTheme", async (_event, themeId) => {
+    try {
+      const configPath = join(app.getPath("userData"), "theme_preference.json");
+      await writeFile(configPath, JSON.stringify({ themeId, updatedAt: (/* @__PURE__ */ new Date()).toISOString() }, null, 2), "utf-8");
+      return true;
+    } catch (e) {
+      console.warn("Failed to write theme preference file:", e);
+      return false;
+    }
+  });
 }
 let dbConnection = null;
 async function initializeDatabase() {
@@ -148,6 +171,30 @@ async function initializeDatabase() {
     return null;
   }
 }
+const THEME_BG_MAP = {
+  obsidian: "#0A0A0B",
+  halal: "#F4F9F5",
+  sakura: "#FFF5F7",
+  toybox: "#FFFBEB",
+  cyberpunk: "#05050A",
+  manga: "#FFFFFF",
+  ghibli: "#F5F9F6",
+  oled: "#000000",
+  paper: "#F8F9FA"
+};
+function getSavedThemeBg() {
+  try {
+    const configPath = join(app.getPath("userData"), "theme_preference.json");
+    if (existsSync(configPath)) {
+      const data = JSON.parse(readFileSync(configPath, "utf-8"));
+      if (data?.themeId && THEME_BG_MAP[data.themeId]) {
+        return THEME_BG_MAP[data.themeId];
+      }
+    }
+  } catch {
+  }
+  return "#0A0A0B";
+}
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
 let mainWindow = null;
@@ -181,7 +228,7 @@ function createWindow() {
     minHeight: 600,
     title: "CourseNest",
     show: false,
-    backgroundColor: "#0D1117",
+    backgroundColor: getSavedThemeBg(),
     webPreferences: {
       preload: preloadFile,
       contextIsolation: true,

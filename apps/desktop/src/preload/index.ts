@@ -72,8 +72,14 @@ const electronAPI = {
     showNotification: (title: string, body: string) =>
       ipcRenderer.invoke('app:showNotification', title, body) as Promise<void>,
   },
+
+  theme: {
+    getTheme: () => ipcRenderer.invoke('theme:getTheme') as Promise<string | null>,
+    setTheme: (themeId: string) => ipcRenderer.invoke('theme:setTheme', themeId) as Promise<boolean>,
+  },
 } as const;
 
 contextBridge.exposeInMainWorld('__ELECTRON__', electronAPI);
+contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 
 export type ElectronAPI = typeof electronAPI;

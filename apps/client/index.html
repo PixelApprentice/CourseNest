@@ -16,7 +16,13 @@
     <script>
       (function() {
         try {
-          var saved = localStorage.getItem('coursenest_active_theme_v3') || localStorage.getItem('coursenest_active_theme_id') || localStorage.getItem('cn-theme');
+          var cookieMatch = document.cookie.match(/(?:^|; )cn_active_theme=([^;]*)/);
+          var cookieVal = cookieMatch ? cookieMatch[1] : null;
+          var saved = localStorage.getItem('coursenest_active_theme_v3')
+                   || localStorage.getItem('coursenest_active_theme_id')
+                   || sessionStorage.getItem('coursenest_active_theme_v3')
+                   || cookieVal
+                   || localStorage.getItem('cn-theme');
           var darkThemes = ['obsidian', 'cyberpunk', 'oled', 'dark'];
           var validThemes = ['obsidian', 'halal', 'sakura', 'toybox', 'cyberpunk', 'manga', 'ghibli', 'oled', 'paper'];
           var theme = 'obsidian';

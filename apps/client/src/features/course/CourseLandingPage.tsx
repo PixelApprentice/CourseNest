@@ -225,6 +225,16 @@ export function CourseLandingPage() {
 
           {/* Call to action panel */}
           <div className="w-full md:w-68 bg-[var(--cn-bg)] border border-[var(--cn-border)] rounded-xl p-5 space-y-4 shrink-0">
+            {(course.thumbnailUrl || course.coverImageUrl) && (
+              <div className="w-full aspect-video rounded-lg overflow-hidden border border-[var(--cn-border)] relative shadow-xs">
+                <img
+                  src={course.thumbnailUrl || course.coverImageUrl}
+                  alt={course.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
             <ProgressBar
               value={progressPercent}
               label="Course Progress"

@@ -461,7 +461,7 @@ export function SettingsPage() {
                     }`}
                   >
                     <div className="font-bold flex items-center justify-between">
-                      <span>Free Cloud AI (TokenHarbor)</span>
+                      <span>Free Cloud AI (Zero-Cost Gateway)</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">100% Free Tier</span>
                     </div>
                     <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">DeepSeek V4 Flash / MiMo 2.5 (OpenAI-compatible zero-cost route)</div>

@@ -96,11 +96,17 @@ export function ImportPage() {
       let combinedSections: ProposalSection[] = [];
       let detectedTitle = courseTitle;
 
-      // 1. Process ZIP archives with real-time progress
-      if (zips.length > 0) {
-        setImportProgress(10);
+      const hasZips = zips.length > 0;
+      const hasFolders = folders.length > 0;
+      const zipWeight = hasZips && hasFolders ? 0.5 : 1.0;
+      const folderWeight = hasZips && hasFolders ? 0.5 : 1.0;
+      const folderOffset = hasZips && hasFolders ? 50 : 0;
+
+      // 1. Process ZIP archives with real-time monotonic progress
+      if (hasZips) {
+        setImportProgress(5);
         const zipResult = await parseCourseArchives(zips, (pct, msg) => {
-          setImportProgress(pct);
+          setImportProgress(Math.min(hasFolders ? 50 : 100, Math.round(pct * zipWeight)));
           setStatusMessage(msg);
         });
         allDiscovered.push(...zipResult.discoveredFiles);
@@ -119,11 +125,10 @@ export function ImportPage() {
         }
       }
 
-      // 2. Process Folder files (webkitdirectory) with real-time progress
-      if (folders.length > 0) {
-        setImportProgress(10);
+      // 2. Process Folder files (webkitdirectory) with real-time monotonic progress
+      if (hasFolders) {
         const folderResult = await parseCourseFolder(folders, (pct, msg) => {
-          setImportProgress(pct);
+          setImportProgress(Math.min(100, Math.round(folderOffset + pct * folderWeight)));
           setStatusMessage(msg);
         });
         allDiscovered.push(...folderResult.discoveredFiles);
@@ -1063,27 +1068,48 @@ export function ImportPage() {
 
       {/* STEP 4: IMPORTING IN PROGRESS */}
       {step === 'importing' && (
-        <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-12 text-center space-y-5">
-          <IconLoader2 size={40} className="animate-spin text-[var(--cn-primary)] mx-auto" />
-          <div className="space-y-1">
+        <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-10 md:p-12 text-center space-y-6">
+          <div className="relative mx-auto w-16 h-16 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full border-4 border-[var(--cn-surface-subtle)] border-t-[var(--cn-primary)] animate-spin" />
+            <IconDeviceFloppy size={24} className="text-[var(--cn-primary)] absolute" />
+          </div>
+
+          <div className="space-y-1.5 max-w-lg mx-auto">
             <h3 className="font-bold text-lg text-[var(--cn-text-primary)]">
-              Saving Course into Offline Storage...
+              Saving Course into Offline Storage
             </h3>
-            <p className="text-xs text-[var(--cn-text-muted)] font-mono">
+            <p className="text-xs text-[var(--cn-text-secondary)] font-mono">
               {statusMessage || 'Extracting files and registering course modules'}
             </p>
           </div>
 
-          <div className="max-w-md mx-auto space-y-1">
-            <div className="w-full bg-[var(--cn-surface-subtle)] h-2 rounded-full overflow-hidden border border-[var(--cn-border)]">
+          {/* Stepped Progress Stages Indicator */}
+          <div className="max-w-md mx-auto grid grid-cols-4 gap-2 text-[10px] font-mono">
+            <div className={`p-1.5 rounded border text-center transition-colors ${importProgress >= 5 ? 'bg-[var(--cn-primary-tint)] border-[var(--cn-primary)]/40 text-[var(--cn-primary)] font-bold' : 'border-[var(--cn-border)] text-[var(--cn-text-muted)]'}`}>
+              1. Scanning
+            </div>
+            <div className={`p-1.5 rounded border text-center transition-colors ${importProgress >= 20 ? 'bg-[var(--cn-primary-tint)] border-[var(--cn-primary)]/40 text-[var(--cn-primary)] font-bold' : 'border-[var(--cn-border)] text-[var(--cn-text-muted)]'}`}>
+              2. Extracting
+            </div>
+            <div className={`p-1.5 rounded border text-center transition-colors ${importProgress >= 80 ? 'bg-[var(--cn-primary-tint)] border-[var(--cn-primary)]/40 text-[var(--cn-primary)] font-bold' : 'border-[var(--cn-border)] text-[var(--cn-text-muted)]'}`}>
+              3. Subtitles
+            </div>
+            <div className={`p-1.5 rounded border text-center transition-colors ${importProgress >= 95 ? 'bg-[var(--cn-primary-tint)] border-[var(--cn-primary)]/40 text-[var(--cn-primary)] font-bold' : 'border-[var(--cn-border)] text-[var(--cn-text-muted)]'}`}>
+              4. Indexing
+            </div>
+          </div>
+
+          <div className="max-w-md mx-auto space-y-1.5">
+            <div className="w-full bg-[var(--cn-surface-subtle)] h-2.5 rounded-full overflow-hidden border border-[var(--cn-border)]">
               <div
-                className="bg-[var(--cn-primary)] h-full transition-[width] duration-300 ease-out"
+                className="bg-[var(--cn-primary)] h-full transition-[width] duration-200 ease-out"
                 style={{ width: `${importProgress}%` }}
               />
             </div>
-            <p className="text-[11px] font-mono text-[var(--cn-text-muted)] text-right">
-              {importProgress}%
-            </p>
+            <div className="flex items-center justify-between text-[11px] font-mono text-[var(--cn-text-muted)]">
+              <span>{importProgress < 100 ? 'Writing to local vault...' : 'Complete!'}</span>
+              <span className="font-bold text-[var(--cn-text-primary)]">{importProgress}%</span>
+            </div>
           </div>
         </div>
       )}

@@ -11,7 +11,8 @@ import {
   IconBrain, 
   IconLayoutGrid, 
   IconNotes,
-  IconCheck
+  IconCheck,
+  IconLayoutColumns
 } from '@tabler/icons-react';
 import { speakNarration, stopNarration } from '../lib/audibleSuite';
 
@@ -32,6 +33,8 @@ interface PptxPresentationViewerProps {
   onClose?: () => void;
   isModal?: boolean;
   onAskAi?: (slideContent: string) => void;
+  onToggleDock?: () => void;
+  isDocked?: boolean;
 }
 
 export const DEFAULT_DEMO_SLIDES: PptxSlide[] = [
@@ -104,6 +107,8 @@ export function PptxPresentationViewer({
   onClose,
   isModal = true,
   onAskAi,
+  onToggleDock,
+  isDocked = false,
 }: PptxPresentationViewerProps) {
   const [slides, setSlides] = useState<PptxSlide[]>(initialSlides || DEFAULT_DEMO_SLIDES);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -284,7 +289,7 @@ export function PptxPresentationViewer({
     ? 'fixed inset-0 z-50 bg-[var(--cn-bg)] text-[var(--cn-text-primary)] flex flex-col'
     : isModal
     ? 'fixed inset-4 sm:inset-10 z-50 rounded-2xl bg-[var(--cn-surface)] text-[var(--cn-text-primary)] border border-[var(--cn-border)] shadow-2xl flex flex-col overflow-hidden backdrop-blur-xl'
-    : 'w-full rounded-2xl bg-[var(--cn-surface)] text-[var(--cn-text-primary)] border border-[var(--cn-border)] shadow-xl flex flex-col overflow-hidden';
+    : 'w-full h-full rounded-none bg-[var(--cn-surface)] text-[var(--cn-text-primary)] border-0 flex flex-col overflow-hidden shadow-none';
 
   return (
     <div className={containerClasses}>
@@ -353,6 +358,21 @@ export function PptxPresentationViewer({
           >
             <IconNotes size={15} />
           </button>
+
+          {/* Dock / Undock Workbench Toggle */}
+          {onToggleDock && (
+            <button
+              onClick={onToggleDock}
+              className={`p-2 rounded-lg text-xs border border-[var(--cn-border)] transition-colors ${
+                isDocked
+                  ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40 font-bold'
+                  : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)]'
+              }`}
+              title={isDocked ? 'Expand to Full Screen Modal' : 'Dock Side-by-Side (Split Workbench)'}
+            >
+              <IconLayoutColumns size={15} />
+            </button>
+          )}
 
           {/* Fullscreen Toggle */}
           <button
