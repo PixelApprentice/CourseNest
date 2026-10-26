@@ -64,7 +64,7 @@ export interface ThemeDefinition {
   };
   borderRadiusMode: 'bubbly' | 'rounded' | 'sharp' | 'pebble' | 'standard';
   patternType: 'arabesque' | 'petals' | 'confetti' | 'grid' | 'screentone' | 'botanical' | 'dots' | 'none';
-  loaderType: 'star8' | 'blossom' | 'blocks' | 'radar' | 'speedline' | 'leaf' | 'orbit';
+  loaderType: 'star8' | 'blossom' | 'blocks' | 'radar' | 'speedline' | 'leaf' | 'orbit' | 'neon_pulse' | 'compass';
   scenicArtwork: ScenicArtworkType;
   logoEmblem: LogoEmblemType;
   badgeLabel: string;
@@ -282,7 +282,7 @@ export const THEMES: ThemeDefinition[] = [
     },
     borderRadiusMode: 'standard',
     patternType: 'none',
-    loaderType: 'orbit',
+    loaderType: 'neon_pulse',
     scenicArtwork: 'lunar_stars',
     logoEmblem: 'oled_ring',
     badgeLabel: 'OLED Pure Black',
@@ -309,7 +309,7 @@ export const THEMES: ThemeDefinition[] = [
     },
     borderRadiusMode: 'standard',
     patternType: 'none',
-    loaderType: 'orbit',
+    loaderType: 'compass',
     scenicArtwork: 'editorial_blueprint',
     logoEmblem: 'editorial_quill',
     badgeLabel: 'Daylight Mode',

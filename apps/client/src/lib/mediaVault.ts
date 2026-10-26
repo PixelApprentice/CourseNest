@@ -109,22 +109,70 @@ export async function getMediaFile(
   });
 }
 
-// In-memory cache for generated object URLs so we don't leak or duplicate
+// Bounded in-memory LRU cache for active object URLs.
+// Enforces a strict limit (3 URLs) so large video/media blobs do not exhaust RAM
+// on Linux systems with 16GB memory and 0 swap space.
+const MAX_CACHED_BLOB_URLS = 3;
 const objectUrlCache = new Map<string, string>();
 
 /**
- * Get a playable/viewable object URL for a vault media asset
+ * Revoke an existing cached object URL to immediately free RAM
+ */
+export function revokeMediaBlobUrl(courseId: string, filePath: string): void {
+  const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+  const key = `${courseId}::${normalizedPath}`;
+  const existing = objectUrlCache.get(key);
+  if (existing) {
+    try {
+      URL.revokeObjectURL(existing);
+    } catch {}
+    objectUrlCache.delete(key);
+  }
+}
+
+/**
+ * Revoke all active object URLs in memory
+ */
+export function revokeAllMediaBlobUrls(): void {
+  for (const url of objectUrlCache.values()) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {}
+  }
+  objectUrlCache.clear();
+}
+
+/**
+ * Get a playable/viewable object URL for a vault media asset with strict LRU bounds
  */
 export async function getMediaBlobUrl(courseId: string, filePath: string): Promise<string | null> {
   const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
   const key = `${courseId}::${normalizedPath}`;
 
   if (objectUrlCache.has(key)) {
-    return objectUrlCache.get(key)!;
+    const existing = objectUrlCache.get(key)!;
+    // Re-insert to mark as most-recently-used in Map iteration order
+    objectUrlCache.delete(key);
+    objectUrlCache.set(key, existing);
+    return existing;
   }
 
   const file = await getMediaFile(courseId, normalizedPath);
   if (!file) return null;
+
+  // Evict least recently used URL if cache limit is exceeded
+  if (objectUrlCache.size >= MAX_CACHED_BLOB_URLS) {
+    const oldestKey = objectUrlCache.keys().next().value;
+    if (oldestKey) {
+      const oldestUrl = objectUrlCache.get(oldestKey);
+      if (oldestUrl) {
+        try {
+          URL.revokeObjectURL(oldestUrl);
+        } catch {}
+      }
+      objectUrlCache.delete(oldestKey);
+    }
+  }
 
   const url = URL.createObjectURL(file.blob);
   objectUrlCache.set(key, url);

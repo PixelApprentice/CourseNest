@@ -35,7 +35,7 @@ function registerIpcHandlers() {
         filters: options?.filters ?? [
           {
             name: "Course Materials",
-            extensions: ["zip", "tar.gz", "tgz", "pdf", "docx", "pptx", "mp4", "webm", "mkv", "json"]
+            extensions: ["zip", "rar", "7z", "7zip", "tar.gz", "tgz", "tar", "pdf", "docx", "pptx", "mp4", "webm", "mkv", "json"]
           },
           { name: "All Files", extensions: ["*"] }
         ]
@@ -197,6 +197,8 @@ function getSavedThemeBg() {
 }
 app.commandLine.appendSwitch("enable-gpu-rasterization");
 app.commandLine.appendSwitch("enable-zero-copy");
+app.commandLine.appendSwitch("js-flags", "--max-old-space-size=2048");
+app.commandLine.appendSwitch("renderer-process-limit", "4");
 let mainWindow = null;
 function resolvePreloadPath() {
   const candidates = [
@@ -266,6 +268,9 @@ function createWindow() {
   mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`Window failed to load: ${validatedURL} (${errorCode}: ${errorDescription})`);
     showWindowSafely();
+  });
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    console.error(`Renderer process gone: reason=${details.reason}, exitCode=${details.exitCode}`);
   });
   setTimeout(showWindowSafely, 750);
   if (process.env["ELECTRON_RENDERER_URL"]) {

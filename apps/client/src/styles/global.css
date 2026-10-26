@@ -628,6 +628,219 @@ button, [role="button"] {
   animation: orbit-spin 1.2s linear infinite;
 }
 
+/* 8. OLED Midnight Emerald Neon Pulse */
+@keyframes oled-pulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+.animate-oled-pulse {
+  animation: oled-pulse 1.6s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+/* 9. Clean Daylight Drafting Compass Sweep */
+@keyframes paper-compass {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-paper-compass {
+  animation: paper-compass 2.2s cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+
+/* =============================================================================
+   TACTILE THEME PERSONALITY & MICRO-INTERACTION STYLES (Zero AI-Slop)
+   ============================================================================= */
+
+/* Universal Tactile Button Base (snappy, composite-only GPU motion) */
+.cn-btn-tactile {
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 120ms cubic-bezier(0.23, 1, 0.32, 1),
+              border-color 120ms ease-out,
+              background-color 120ms ease-out,
+              opacity 120ms ease-out;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cn-btn-tactile:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+/* Universal Interactive Card Base */
+.cn-card-interactive {
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 180ms cubic-bezier(0.23, 1, 0.32, 1),
+              border-color 180ms ease-out;
+}
+
+/* 1. Obsidian Moss: Amber Telemetry Glow & Subtle Depth */
+[data-theme="obsidian"] .cn-btn-tactile:not(:disabled):hover {
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+}
+[data-theme="obsidian"] .cn-card-interactive:hover {
+  border-color: rgba(87, 197, 100, 0.35);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
+}
+
+/* 2. Halal Serenity: Soft Sage & Gold Elevation */
+[data-theme="halal"] .cn-btn-tactile:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(4, 120, 87, 0.12);
+  border-color: rgba(217, 119, 6, 0.4);
+}
+[data-theme="halal"] .cn-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(4, 120, 87, 0.1);
+  border-color: rgba(4, 120, 87, 0.3);
+}
+
+/* 3. Sakura Kawaii: Playful Spring Float */
+[data-theme="sakura"] .cn-btn-tactile:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(244, 63, 94, 0.22);
+}
+[data-theme="sakura"] .cn-btn-tactile:not(:disabled):active {
+  transform: scale(0.96) rotate(-0.8deg);
+}
+[data-theme="sakura"] .cn-card-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -6px rgba(244, 63, 94, 0.18);
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+/* 4. Toybox Playful: Physical 3D Button Drop & Bouncy Blocks */
+[data-theme="toybox"] .cn-btn-tactile {
+  border-bottom-width: 3px !important;
+  border-bottom-color: rgba(217, 119, 6, 0.4) !important;
+}
+[data-theme="toybox"] .cn-btn-tactile:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0px rgba(217, 119, 6, 0.35);
+}
+[data-theme="toybox"] .cn-btn-tactile:not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0px rgba(217, 119, 6, 0.35);
+}
+[data-theme="toybox"] .cn-card-interactive:hover {
+  transform: translateY(-3px) scale(1.005);
+  box-shadow: 0 14px 28px -4px rgba(2, 132, 199, 0.16);
+}
+
+/* 5. Neo-Tokyo Mecha: Cyan Laser Edge Flare & Instant Click */
+[data-theme="cyberpunk"] .cn-btn-tactile:not(:disabled):hover {
+  border-color: rgba(6, 182, 212, 0.85);
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.45);
+}
+[data-theme="cyberpunk"] .cn-btn-tactile:not(:disabled):active {
+  transform: scale(0.98);
+}
+[data-theme="cyberpunk"] .cn-card-interactive:hover {
+  border-color: rgba(6, 182, 212, 0.7);
+  box-shadow: 0 0 20px -2px rgba(6, 182, 212, 0.3);
+}
+
+/* 6. Manga Screentone: Bold Comic Ink Outline & Solid Shadows */
+[data-theme="manga"] .cn-btn-tactile {
+  border: 2px solid #18181B !important;
+  box-shadow: 2px 2px 0px #18181B;
+}
+[data-theme="manga"] .cn-btn-tactile:not(:disabled):hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px #18181B;
+}
+[data-theme="manga"] .cn-btn-tactile:not(:disabled):active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px #18181B;
+}
+[data-theme="manga"] .cn-card-interactive:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 5px 5px 0px #18181B !important;
+}
+
+/* 7. Studio Ghibli: Watercolor Meadow Lift & Organic Softness */
+[data-theme="ghibli"] .cn-btn-tactile:not(:disabled):hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px rgba(59, 122, 87, 0.2);
+  border-color: rgba(59, 122, 87, 0.4);
+}
+[data-theme="ghibli"] .cn-btn-tactile:not(:disabled):active {
+  transform: scale(0.975);
+}
+[data-theme="ghibli"] .cn-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -4px rgba(59, 122, 87, 0.15);
+  border-color: rgba(59, 122, 87, 0.35);
+}
+
+/* 8. OLED Midnight: Pure #000000 Battery Saver with Electric Emerald Rim */
+[data-theme="oled"] .cn-btn-tactile:not(:disabled):hover {
+  border-color: #10B981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+[data-theme="oled"] .cn-btn-tactile:not(:disabled):active {
+  transform: scale(0.99);
+}
+[data-theme="oled"] .cn-card-interactive:hover {
+  border-color: #10B981;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.25);
+}
+
+/* 9. Clean Editorial Paper: Architectural Sepia Precision */
+[data-theme="paper"] .cn-btn-tactile:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-color: #3BA849;
+}
+[data-theme="paper"] .cn-btn-tactile:not(:disabled):active {
+  transform: translateY(1px);
+}
+[data-theme="paper"] .cn-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  border-color: #CBD5E1;
+}
+
+/* Scrubber Bar & Range Slider Tactile Customization */
+.cn-scrubber {
+  position: relative;
+  height: 6px;
+  border-radius: 9999px;
+  transition: height 150ms cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+}
+.cn-scrubber:hover {
+  height: 10px;
+}
+.cn-scrubber-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background-color: var(--cn-primary);
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 120ms ease-out;
+  pointer-events: none;
+}
+.cn-scrubber:hover .cn-scrubber-thumb {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 12px var(--cn-primary);
+}
+
 /* =============================================================================
    TACTILE THEME PERSONALITY STYLES (Zero AI-Slop)
    ============================================================================= */

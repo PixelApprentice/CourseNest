@@ -5,9 +5,10 @@ export interface ThemeLoaderProps {
   size?: 'sm' | 'md' | 'lg';
   text?: string;
   className?: string;
+  fullScreenOverlay?: boolean;
 }
 
-export function ThemeLoader({ size = 'md', text, className }: ThemeLoaderProps) {
+export function ThemeLoader({ size = 'md', text, className, fullScreenOverlay = false }: ThemeLoaderProps) {
   const { currentTheme } = useTheme();
   const loaderType = currentTheme.loaderType;
 
@@ -102,6 +103,32 @@ export function ThemeLoader({ size = 'md', text, className }: ThemeLoaderProps) 
           </div>
         );
 
+      case 'neon_pulse':
+        // OLED Midnight pure black razor-thin emerald neon pulse
+        return (
+          <div className={clsx('relative flex items-center justify-center animate-oled-pulse', sizeDimensions.box)}>
+            <svg viewBox="0 0 48 48" className="w-full h-full fill-none stroke-[#10B981]" strokeWidth="2.5">
+              <circle cx="24" cy="24" r="20" strokeDasharray="8 6" opacity="0.4" />
+              <circle cx="24" cy="24" r="14" strokeWidth="3" opacity="0.9" />
+              <circle cx="24" cy="24" r="4" className="fill-[#10B981]" stroke="none" />
+            </svg>
+          </div>
+        );
+
+      case 'compass':
+        // Clean Editorial Paper Drafting Compass Circle
+        return (
+          <div className={clsx('relative flex items-center justify-center animate-paper-compass', sizeDimensions.box)}>
+            <svg viewBox="0 0 48 48" className="w-full h-full text-[var(--cn-primary)] fill-none stroke-current" strokeWidth="2.5" strokeLinecap="round">
+              <circle cx="24" cy="24" r="19" strokeDasharray="4 3" opacity="0.5" />
+              <line x1="24" y1="5" x2="24" y2="43" opacity="0.3" strokeDasharray="2 2" />
+              <line x1="5" y1="24" x2="43" y2="24" opacity="0.3" strokeDasharray="2 2" />
+              <path d="M 24 5 A 19 19 0 0 1 43 24" strokeWidth="3" className="stroke-[var(--cn-accent)]" />
+              <circle cx="24" cy="24" r="3.5" className="fill-[var(--cn-primary)]" stroke="none" />
+            </svg>
+          </div>
+        );
+
       case 'orbit':
       default:
         // Obsidian dual-ring precision spinner
@@ -115,6 +142,21 @@ export function ThemeLoader({ size = 'md', text, className }: ThemeLoaderProps) 
         );
     }
   };
+
+  if (fullScreenOverlay) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-6 animate-fade-in">
+        <div className="bg-[var(--cn-surface)] border border-[var(--cn-border)] rounded-2xl p-8 flex flex-col items-center justify-center gap-4 shadow-2xl max-w-sm w-full text-center">
+          {renderLoaderAnimation()}
+          {text && (
+            <p className="text-sm font-mono font-medium text-[var(--cn-text)] tracking-wider">
+              {text}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={clsx('flex flex-col items-center justify-center gap-3', className)}>

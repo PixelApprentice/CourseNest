@@ -55,7 +55,7 @@ export function registerIpcHandlers(): void {
         filters: options?.filters ?? [
           {
             name: 'Course Materials',
-            extensions: ['zip', 'tar.gz', 'tgz', 'pdf', 'docx', 'pptx', 'mp4', 'webm', 'mkv', 'json'],
+            extensions: ['zip', 'rar', '7z', '7zip', 'tar.gz', 'tgz', 'tar', 'pdf', 'docx', 'pptx', 'mp4', 'webm', 'mkv', 'json'],
           },
           { name: 'All Files', extensions: ['*'] },
         ],

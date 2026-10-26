@@ -22,7 +22,8 @@ import {
 } from '../../lib/courseStore';
 import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
-import { getMediaBlobUrl } from '../../lib/mediaVault';
+import { getMediaBlobUrl, revokeAllMediaBlobUrls } from '../../lib/mediaVault';
+import { ThemeLoader } from '../../components/ThemeLoader';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
 import { PptxPresentationViewer, DEFAULT_DEMO_SLIDES } from '../../components/PptxPresentationViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
@@ -170,6 +171,10 @@ export function LessonPlayerPage() {
       setCurrentTime(savedTime);
     }
 
+    // Reset resolved URLs for new lesson to prevent unbounded RAM accumulation
+    let isCancelled = false;
+    setResolvedMediaUrls({});
+
     // Resolve offline binary assets and subtitles from IndexedDB media vault
     for (const block of activeLesson.blocks) {
       if (block.src?.startsWith('vault-media://')) {
@@ -178,7 +183,7 @@ export function LessonPlayerPage() {
           const vCourseId = match[1];
           const relPath = match[2];
           getMediaBlobUrl(vCourseId, relPath).then((url) => {
-            if (url) {
+            if (!isCancelled && url) {
               setResolvedMediaUrls((prev) => ({ ...prev, [block.id]: url }));
             }
           });
@@ -194,7 +199,7 @@ export function LessonPlayerPage() {
               const vCourseId = subMatch[1];
               const subRelPath = subMatch[2];
               getMediaBlobUrl(vCourseId, subRelPath).then((url) => {
-                if (url) {
+                if (!isCancelled && url) {
                   setResolvedMediaUrls((prev) => ({ ...prev, [sub.id]: url }));
                 }
               });
@@ -203,7 +208,18 @@ export function LessonPlayerPage() {
         }
       }
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [activeLesson, courseData]);
+
+  // Memory protection: Revoke all cached binary blobs when leaving the player
+  useEffect(() => {
+    return () => {
+      revokeAllMediaBlobUrls();
+    };
+  }, []);
 
   const seekTo = (seconds: number) => {
     setCurrentTime(seconds);
@@ -529,7 +545,16 @@ export function LessonPlayerPage() {
             // 1. VIDEO BLOCK
             if (block.type === 'video') {
               const fallbackSampleUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-              const videoSrc = resolvedMediaUrls[block.id] || (block.src?.startsWith('vault-media://') ? '' : block.src) || fallbackSampleUrl;
+              const isVaultMedia = Boolean(block.src?.startsWith('vault-media://'));
+              const videoSrc = resolvedMediaUrls[block.id] || (isVaultMedia ? '' : block.src) || fallbackSampleUrl;
+
+              if (isVaultMedia && !resolvedMediaUrls[block.id]) {
+                return (
+                  <div key={block.id} className="w-full aspect-video rounded-2xl bg-black/85 flex items-center justify-center p-6 border border-[var(--cn-border)] shadow-2xl">
+                    <ThemeLoader size="lg" text="Accessing Local Vault Media..." />
+                  </div>
+                );
+              }
 
               if (isExternalDisconnected) {
                 return (
@@ -1305,7 +1330,7 @@ export function LessonPlayerPage() {
           {prevLesson ? (
             <Link
               to={`/course/${courseData.id}/lesson/${prevLesson.id}`}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
+              className="cn-btn-tactile flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]"
             >
               <IconChevronLeft size={14} />
               <span>Previous</span>
@@ -1329,7 +1354,7 @@ export function LessonPlayerPage() {
                   setLessonProgress(courseData.id, activeLesson.id, { completed: true });
                 }
               }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+              className="cn-btn-tactile flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] shadow-xs"
             >
               <span>Next Unit</span>
               <IconChevronRight size={14} />
@@ -1343,7 +1368,7 @@ export function LessonPlayerPage() {
                   setLessonProgress(courseData.id, activeLesson.id, { completed: true });
                 }
               }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-success)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-success)]/90 transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+              className="cn-btn-tactile flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--cn-success)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-success)]/90 shadow-xs"
             >
               <span>Complete Course</span>
               <IconCircleCheck size={14} />

@@ -13,6 +13,7 @@ import {
 import { StatusBadge } from '../../components/StatusBadge';
 import { ProgressBar } from '../../components/ProgressBar';
 import { CurriculumRoadmapDiagram } from '../../components/CurriculumRoadmapDiagram';
+import { ThemeLoader } from '../../components/ThemeLoader';
 import { 
   IconArrowLeft, 
   IconPlayerPlay, 
@@ -246,7 +247,7 @@ export function CourseLandingPage() {
             {resumeLesson && (
               <Link
                 to={`/course/${course.id}/lesson/${resumeLesson.id}`}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
+                className="cn-btn-tactile w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] shadow-sm"
               >
                 <IconPlayerPlay size={14} />
                 <span>{progressPercent > 0 ? 'Resume Lesson' : 'Start Course'}</span>
@@ -463,7 +464,7 @@ export function CourseLandingPage() {
               >
                 {isDeleting ? (
                   <>
-                    <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    <ThemeLoader size="sm" />
                     <span>Purging...</span>
                   </>
                 ) : (

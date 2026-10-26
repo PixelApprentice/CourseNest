@@ -64,9 +64,9 @@ APP_EXEC="$APP_DIR/@coursenestdesktop"
 APP_IMAGE="$HOME/.local/share/coursenest/CourseNest.AppImage"
 
 if [ -x "$APP_EXEC" ]; then
-  exec "$APP_EXEC" "$@"
+  exec "$APP_EXEC" --js-flags="--max-old-space-size=2048" "$@"
 elif [ -x "$APP_IMAGE" ]; then
-  exec "$APP_IMAGE" --appimage-extract-and-run "$@"
+  exec "$APP_IMAGE" --appimage-extract-and-run --js-flags="--max-old-space-size=2048" "$@"
 else
   echo "Error: CourseNest desktop binary not found in $APP_DIR." >&2
   exit 1

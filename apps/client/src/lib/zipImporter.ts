@@ -15,6 +15,7 @@ export interface DiscoveredArchiveFile {
   zipEntry?: JSZip.JSZipObject;
   rawFile?: File;
   content?: string;
+  getData?: () => Promise<Blob>;
 }
 
 export interface ProposalLessonFile {
@@ -26,6 +27,7 @@ export interface ProposalLessonFile {
   zipEntry?: JSZip.JSZipObject;
   rawFile?: File;
   content?: string;
+  getData?: () => Promise<Blob>;
 }
 
 export interface ProposalLesson {
@@ -155,9 +157,116 @@ export async function parseCourseArchives(
     const fileBase = 10 + (i / files.length) * 75;
     reportProgress(fileBase, `Reading archive ${i + 1} of ${files.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)...`);
 
+    const lowerName = file.name.toLowerCase();
+    const isRar = lowerName.endsWith('.rar');
+    const is7z = lowerName.endsWith('.7z') || lowerName.endsWith('.7zip');
+    const archiveBaseName = file.name.replace(/\.[^/.]+$/, '');
+
+    // 1. RAR Archives (.rar) via node-unrar-js WASM
+    if (isRar) {
+      reportProgress(fileBase + (0.4 / files.length) * 75, `Decompressing RAR headers: ${file.name}...`);
+      try {
+        const { createExtractorFromData } = await import('node-unrar-js');
+        const arrayBuffer = await file.arrayBuffer();
+        const extractor = await createExtractorFromData({ data: arrayBuffer });
+        const list = extractor.getFileList();
+
+        for (const header of list.fileHeaders) {
+          if (header.flags.directory) continue;
+          const relPath = header.name.replace(/\\/g, '/');
+          if (isIgnored(relPath)) continue;
+          if (relPath.includes('../') || relPath.startsWith('/')) continue;
+
+          const filename = relPath.split('/').pop() || relPath;
+          const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
+          const { type, mimeType } = detectFileType(ext);
+
+          discoveredFiles.push({
+            originalPath: relPath,
+            cleanPath: relPath,
+            filename,
+            sizeBytes: header.unpSize || 0,
+            fileType: type,
+            mimeType,
+            archiveName: archiveBaseName,
+            getData: async () => {
+              const extracted = extractor.extract({ files: [header.name] });
+              for (const f of extracted.files) {
+                if (f.fileHeader.name === header.name && f.extraction) {
+                  return new Blob([f.extraction as any], { type: mimeType });
+                }
+              }
+              throw new Error(`Failed to extract ${header.name} from RAR archive`);
+            },
+          });
+        }
+      } catch (err: any) {
+        addLog('ERROR', 'IMPORTER', `Error processing RAR archive: ${file.name}`, err?.message);
+        throw new Error(`Failed to read RAR archive "${file.name}": ${err?.message || 'Unsupported format'}`);
+      }
+      continue;
+    }
+
+    // 2. 7-Zip Archives (.7z, .7zip) via 7z-wasm
+    if (is7z) {
+      reportProgress(fileBase + (0.4 / files.length) * 75, `Decompressing 7-Zip headers: ${file.name}...`);
+      try {
+        const SevenZip = (await import('7z-wasm')).default;
+        const sz = await SevenZip();
+        const memArchiveName = `archive_${i}.7z`;
+        const buffer = new Uint8Array(await file.arrayBuffer());
+
+        const stream = sz.FS.open(memArchiveName, 'w+');
+        sz.FS.write(stream, buffer, 0, buffer.length);
+        sz.FS.close(stream);
+
+        const outDir = `/extracted_${i}`;
+        try { sz.FS.mkdir(outDir); } catch {}
+        sz.callMain(['x', memArchiveName, `-o${outDir}`, '-y']);
+
+        const traverse7zDir = (dir: string, baseRel: string) => {
+          const entries = sz.FS.readdir(dir);
+          for (const entry of entries) {
+            if (entry === '.' || entry === '..') continue;
+            const fullPath = `${dir}/${entry}`;
+            const relPath = baseRel ? `${baseRel}/${entry}` : entry;
+            const stat = sz.FS.stat(fullPath);
+            if (sz.FS.isDir(stat.mode)) {
+              traverse7zDir(fullPath, relPath);
+            } else {
+              if (isIgnored(relPath)) continue;
+              const filename = entry;
+              const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
+              const { type, mimeType } = detectFileType(ext);
+
+              discoveredFiles.push({
+                originalPath: relPath,
+                cleanPath: relPath,
+                filename,
+                sizeBytes: stat.size || 0,
+                fileType: type,
+                mimeType,
+                archiveName: archiveBaseName,
+                getData: async () => {
+                  const data = sz.FS.readFile(fullPath);
+                  return new Blob([data as any], { type: mimeType });
+                },
+              });
+            }
+          }
+        };
+
+        traverse7zDir(outDir, '');
+      } catch (err: any) {
+        addLog('ERROR', 'IMPORTER', `Error processing 7z archive: ${file.name}`, err?.message);
+        throw new Error(`Failed to read 7-Zip archive "${file.name}": ${err?.message || 'Unsupported format'}`);
+      }
+      continue;
+    }
+
+    // 3. Standard ZIP Archives (.zip, .tar.gz) via JSZip
     const zip = await JSZip.loadAsync(file);
     reportProgress(fileBase + (0.7 / files.length) * 75, `Decompressing headers: ${file.name}...`);
-    const archiveBaseName = file.name.replace(/\.[^/.]+$/, '');
 
     zip.forEach((relPath, entry) => {
       if (entry.dir || relPath.endsWith('/')) return;
@@ -366,6 +475,7 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
         zipEntry: f.zipEntry,
         rawFile: f.rawFile,
         content: f.content,
+        getData: f.getData,
       });
     }
 
@@ -384,6 +494,7 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
             mimeType: sub.mimeType,
             zipEntry: sub.zipEntry,
             rawFile: sub.rawFile,
+            getData: sub.getData,
           });
           matched = true;
           break;
@@ -400,6 +511,7 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
           mimeType: sub.mimeType,
           zipEntry: sub.zipEntry,
           rawFile: sub.rawFile,
+          getData: sub.getData,
         });
       }
     }
@@ -522,9 +634,11 @@ export async function commitImportedCourse(params: {
         const normalizedPath = fileItem.path.replace(/\\/g, '/');
 
         if (fileItem.type === 'video' || fileItem.type === 'audio') {
-          // Get blob from zipEntry or rawFile with smooth real-time progress
+          // Get blob from getData, zipEntry, or rawFile with smooth real-time progress
           let blob: Blob;
-          if (fileItem.zipEntry) {
+          if (fileItem.getData) {
+            blob = await fileItem.getData();
+          } else if (fileItem.zipEntry) {
             blob = await fileItem.zipEntry.async('blob', (metadata) => {
               const subPercent = (metadata.percent / 100) * fileSpan;
               reportProgress(
@@ -540,6 +654,9 @@ export async function commitImportedCourse(params: {
           }
 
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
+          delete (fileItem as any).rawFile;
+          delete (fileItem as any).zipEntry;
+          delete (fileItem as any).getData;
           currentFileIdx++;
 
           blocks.push({
@@ -554,7 +671,9 @@ export async function commitImportedCourse(params: {
           });
         } else if (fileItem.type === 'document') {
           let blob: Blob;
-          if (fileItem.zipEntry) {
+          if (fileItem.getData) {
+            blob = await fileItem.getData();
+          } else if (fileItem.zipEntry) {
             blob = await fileItem.zipEntry.async('blob', (metadata) => {
               const subPercent = (metadata.percent / 100) * fileSpan;
               reportProgress(
@@ -570,6 +689,9 @@ export async function commitImportedCourse(params: {
           }
 
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
+          delete (fileItem as any).rawFile;
+          delete (fileItem as any).zipEntry;
+          delete (fileItem as any).getData;
           currentFileIdx++;
 
           blocks.push({
@@ -585,7 +707,10 @@ export async function commitImportedCourse(params: {
         } else if (fileItem.type === 'rich_text') {
           currentFileIdx++;
           let text = fileItem.content;
-          if (!text && fileItem.zipEntry) {
+          if (!text && fileItem.getData) {
+            const b = await fileItem.getData();
+            text = await b.text();
+          } else if (!text && fileItem.zipEntry) {
             text = await fileItem.zipEntry.async('text');
           } else if (!text && fileItem.rawFile) {
             text = await fileItem.rawFile.text();
@@ -612,7 +737,10 @@ export async function commitImportedCourse(params: {
           currentFileIdx++;
           // Link shortcut: extract URL across .url, .webloc, .desktop, and raw text
           let text = fileItem.content;
-          if (!text && fileItem.zipEntry) {
+          if (!text && fileItem.getData) {
+            const b = await fileItem.getData();
+            text = await b.text();
+          } else if (!text && fileItem.zipEntry) {
             text = await fileItem.zipEntry.async('text');
           } else if (!text && fileItem.rawFile) {
             text = await fileItem.rawFile.text();
@@ -642,7 +770,10 @@ export async function commitImportedCourse(params: {
 
           try {
             let srtOrVttText = '';
-            if (subItem.zipEntry) {
+            if (subItem.getData) {
+              const b = await subItem.getData();
+              srtOrVttText = await b.text();
+            } else if (subItem.zipEntry) {
               srtOrVttText = await subItem.zipEntry.async('text');
             } else if (subItem.rawFile) {
               srtOrVttText = await subItem.rawFile.text();

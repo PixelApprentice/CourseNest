@@ -1,5 +1,5 @@
 export const APP_NAME = 'CourseNest';
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 
 export const SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mkv', '.avi', '.mov'] as const;
 export const SUPPORTED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a'] as const;
@@ -7,7 +7,7 @@ export const SUPPORTED_DOCUMENT_EXTENSIONS = ['.pdf', '.docx', '.doc', '.pptx', 
 export const SUPPORTED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp'] as const;
 export const SUPPORTED_TEXT_EXTENSIONS = ['.md', '.markdown', '.txt', '.html', '.htm', '.csv'] as const;
 export const SUPPORTED_CODE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.c', '.cpp', '.cs', '.go', '.rs', '.rb', '.php', '.swift', '.kt'] as const;
-export const SUPPORTED_ARCHIVE_EXTENSIONS = ['.zip', '.tar', '.gz', '.tar.gz', '.7z', '.rar'] as const;
+export const SUPPORTED_ARCHIVE_EXTENSIONS = ['.zip', '.tar', '.gz', '.tar.gz', '.7z', '.7zip', '.rar'] as const;
 
 export const ALL_SUPPORTED_EXTENSIONS = [
   ...SUPPORTED_VIDEO_EXTENSIONS,

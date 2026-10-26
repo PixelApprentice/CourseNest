@@ -16,6 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { addLog } from '../lib/logger';
 import { anySubtitleToVtt } from '../lib/formatHelpers';
+import { ThemeLoader } from './ThemeLoader';
 
 export interface SubtitleTrack {
   id?: string;
@@ -77,8 +78,10 @@ export function VlcMediaViewer({
   const [isCaptionsVisible, setIsCaptionsVisible] = useState(true);
   const [activeSubtitles, setActiveSubtitles] = useState<SubtitleTrack[]>(subtitles);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
+  const [isBuffering, setIsBuffering] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const prevSubsKeyRef = useRef<string>('');
+  const createdSubtitleBlobUrlsRef = useRef<string[]>([]);
 
   // Sync incoming subtitles only when track identifiers or sources actually change
   useEffect(() => {
@@ -127,6 +130,7 @@ export function VlcMediaViewer({
       const text = await file.text();
       const vtt = anySubtitleToVtt(text, file.name);
       const blobUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
+      createdSubtitleBlobUrlsRef.current.push(blobUrl);
       const newTrack: SubtitleTrack = {
         id: `custom-sub-${Date.now()}`,
         label: file.name.replace(/\.[^/.]+$/, '').replace(/^[0-9\s._-]+/, '') || 'Custom Subtitles',
@@ -157,18 +161,42 @@ export function VlcMediaViewer({
     }
   };
 
-  // Reset tracking on source change
+  // Reset tracking and purge hardware video decode buffers on source change
   useEffect(() => {
     initialTimeAppliedRef.current = null;
     setIsPlaying(false);
     setCurrentTime(0);
+    setIsBuffering(Boolean(src));
+
+    return () => {
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+          videoRef.current.removeAttribute('src');
+          videoRef.current.load();
+        } catch {}
+      }
+    };
   }, [src]);
 
-  // Clean up Web Audio graph on unmount
+  // Clean up Web Audio graph, subtitle blob URLs, and hardware video buffer on unmount
   useEffect(() => {
     return () => {
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close().catch(() => {});
+      }
+      for (const u of createdSubtitleBlobUrlsRef.current) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {}
+      }
+      createdSubtitleBlobUrlsRef.current = [];
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+          videoRef.current.removeAttribute('src');
+          videoRef.current.load();
+        } catch {}
       }
     };
   }, []);
@@ -528,8 +556,19 @@ export function VlcMediaViewer({
         onClick={togglePlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
-        onPlay={() => setIsPlaying(true)}
+        onPlay={() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+        }}
         onPause={() => setIsPlaying(false)}
+        onWaiting={() => setIsBuffering(true)}
+        onPlaying={() => {
+          setIsPlaying(true);
+          setIsBuffering(false);
+        }}
+        onCanPlay={() => setIsBuffering(false)}
+        onLoadStart={() => setIsBuffering(Boolean(src))}
+        onError={() => setIsBuffering(false)}
         onEnded={onEnded}
       >
         {activeSubtitles.map((sub, idx) => (
@@ -543,6 +582,13 @@ export function VlcMediaViewer({
           />
         ))}
       </video>
+
+      {/* Buffering & Storage Access Theme-Distinct Loader Overlay */}
+      {(isBuffering || !src) && (
+        <div className="absolute inset-0 z-25 bg-black/75 backdrop-blur-xs flex items-center justify-center pointer-events-none transition-opacity duration-200 ease-out">
+          <ThemeLoader size="lg" text={!src ? 'Accessing Local Vault...' : 'Buffering Stream...'} />
+        </div>
+      )}
 
       {/* Floating Status Toast */}
       {showStatusToast && (
@@ -709,7 +755,7 @@ export function VlcMediaViewer({
       {/* Control Bar Overlay */}
       <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col gap-2 transition-opacity z-20">
         {/* Scrubber Progress Bar */}
-        <div className="relative w-full group/scrubber cursor-pointer py-1">
+        <div className="relative w-full group/scrubber cursor-pointer py-1.5 cn-scrubber">
           <input
             type="range"
             min={0}
@@ -722,20 +768,20 @@ export function VlcMediaViewer({
               }
               setCurrentTime(newTime);
             }}
-            className="w-full h-1 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-[height] duration-150 ease-out"
+            className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-[height] duration-150 ease-out"
           />
 
           {/* A-B Loop Indicators on Scrubber */}
           {duration > 0 && loopA !== null && (
             <div
-              className="absolute top-1 w-1 h-2 bg-[#F59E0B] rounded-xs pointer-events-none"
+              className="absolute top-1.5 w-1.5 h-2.5 bg-[#F59E0B] rounded-xs pointer-events-none shadow-xs"
               style={{ left: `${(loopA / duration) * 100}%` }}
               title={`Loop Point A: ${formatTime(loopA)}`}
             />
           )}
           {duration > 0 && loopB !== null && (
             <div
-              className="absolute top-1 w-1 h-2 bg-[var(--cn-brand)] rounded-xs pointer-events-none"
+              className="absolute top-1.5 w-1.5 h-2.5 bg-[var(--cn-brand)] rounded-xs pointer-events-none shadow-xs"
               style={{ left: `${(loopB / duration) * 100}%` }}
               title={`Loop Point B: ${formatTime(loopB)}`}
             />
@@ -748,7 +794,7 @@ export function VlcMediaViewer({
             {/* Play/Pause */}
             <button
               onClick={togglePlay}
-              className="p-1.5 rounded-lg bg-[var(--cn-brand)] text-black hover:brightness-110 transition-[transform,filter] duration-150 ease-out active:scale-95 font-bold"
+              className="cn-btn-tactile p-2 rounded-lg bg-[var(--cn-brand)] text-black hover:brightness-110 font-bold shadow-sm"
               title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             >
               {isPlaying ? <IconPlayerPause size={17} /> : <IconPlayerPlay size={17} />}
@@ -757,14 +803,14 @@ export function VlcMediaViewer({
             {/* Frame-by-Frame Steppers */}
             <button
               onClick={() => stepFrame(-1)}
-              className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white transition-colors"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white"
               title="Step -1 Frame (-33ms)"
             >
               ◀|
             </button>
             <button
               onClick={() => stepFrame(1)}
-              className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white transition-colors"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white"
               title="Step +1 Frame (+33ms)"
             >
               |▶
@@ -773,14 +819,14 @@ export function VlcMediaViewer({
             {/* Jump -5s / +5s */}
             <button
               onClick={() => seekRelative(-5)}
-              className="text-[11px] hover:text-[var(--cn-brand)] px-1"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)]"
               title="Rewind 5s"
             >
               -5s
             </button>
             <button
               onClick={() => seekRelative(5)}
-              className="text-[11px] hover:text-[var(--cn-brand)] px-1"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)]"
               title="Forward 5s"
             >
               +5s
@@ -792,7 +838,7 @@ export function VlcMediaViewer({
                 onClick={() => {
                   setIsMuted(!isMuted);
                 }}
-                className="p-1 hover:text-[var(--cn-brand)] transition-colors"
+                className="cn-btn-tactile p-1 hover:text-[var(--cn-brand)]"
               >
                 {isMuted || volumePercent === 0 ? <IconVolumeOff size={17} /> : <IconVolume size={17} />}
               </button>
@@ -820,7 +866,7 @@ export function VlcMediaViewer({
               {activeSubtitles.length > 0 && (
                 <button
                   onClick={toggleCaptions}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors ${
+                  className={`cn-btn-tactile flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
                     isCaptionsVisible
                       ? 'bg-[var(--cn-brand)] text-black font-bold'
                       : 'bg-white/10 text-white/80 hover:bg-white/20'
@@ -835,7 +881,7 @@ export function VlcMediaViewer({
                 <select
                   value={selectedTrackIndex}
                   onChange={(e) => selectSubtitleTrack(parseInt(e.target.value, 10))}
-                  className="bg-white/10 hover:bg-white/20 border border-white/20 rounded px-1.5 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
+                  className="cn-btn-tactile bg-white/10 hover:bg-white/20 border border-white/20 rounded px-1.5 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
                   title="Select Subtitle Track"
                 >
                   {activeSubtitles.map((track, i) => (
@@ -847,7 +893,7 @@ export function VlcMediaViewer({
               )}
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-[11px] font-mono transition-colors"
+                className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white/70 hover:text-white text-[11px] font-mono"
                 title="Load External Subtitle File (.srt, .vtt, .sbv, .ass, .lrc)"
               >
                 +CC
@@ -860,7 +906,7 @@ export function VlcMediaViewer({
               <select
                 value={playbackSpeed}
                 onChange={(e) => changeSpeed(parseFloat(e.target.value))}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 rounded px-2 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
+                className="cn-btn-tactile bg-white/10 hover:bg-white/20 border border-white/20 rounded px-2 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
               >
                 {speedOptions.map((s) => (
                   <option key={s} value={s} className="bg-[#121316] text-white">
@@ -873,7 +919,7 @@ export function VlcMediaViewer({
             {/* Picture-in-Picture */}
             <button
               onClick={togglePiP}
-              className="p-1 text-white/80 hover:text-white transition-colors"
+              className="cn-btn-tactile p-1 text-white/80 hover:text-white"
               title="Picture-in-Picture"
             >
               <IconDeviceTv size={16} />
@@ -882,7 +928,7 @@ export function VlcMediaViewer({
             {/* Fullscreen */}
             <button
               onClick={toggleFullscreen}
-              className="p-1 text-white/80 hover:text-white transition-colors"
+              className="cn-btn-tactile p-1 text-white/80 hover:text-white"
               title="Toggle Fullscreen"
             >
               <IconMaximize size={16} />

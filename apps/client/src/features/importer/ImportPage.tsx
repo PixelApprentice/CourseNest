@@ -489,7 +489,7 @@ export function ImportPage() {
         ref={zipInputRef}
         type="file"
         multiple
-        accept=".zip,.tar.gz,.tgz"
+        accept=".zip,.rar,.7z,.7zip,.tar,.tar.gz,.tgz"
         onChange={handleZipUpload}
         className="hidden"
       />
@@ -580,10 +580,10 @@ export function ImportPage() {
                 </div>
                 <div className="space-y-1">
                   <p className="font-bold text-sm text-[var(--cn-text-primary)]">
-                    Add ZIP Archive(s)
+                    Add Archive(s) (.zip, .rar, .7z, .7zip)
                   </p>
                   <p className="text-xs text-[var(--cn-text-muted)] font-mono leading-relaxed">
-                    Select one or multiple .zip files (e.g. 01. Intro.zip, 02. Basics.zip). You can add more later.
+                    Select one or multiple archives (.zip, .rar, .7z, or .7zip files). You can add more later.
                   </p>
                 </div>
               </div>

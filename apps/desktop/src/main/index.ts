@@ -22,7 +22,7 @@ function getSavedThemeBg(): string {
     if (existsSync(configPath)) {
       const data = JSON.parse(readFileSync(configPath, 'utf-8'));
       if (data?.themeId && THEME_BG_MAP[data.themeId]) {
-        return THEME_BG_MAP[data.themeId];
+        return THEME_BG_MAP[data.themeId]!;
       }
     }
   } catch {}
@@ -32,6 +32,10 @@ function getSavedThemeBg(): string {
 // Hardware acceleration and laptop battery/CPU optimization flags
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
+
+// Memory exhaustion safeguards (protects 16GB RAM Linux environments with 0 swap)
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=2048');
+app.commandLine.appendSwitch('renderer-process-limit', '4');
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -114,6 +118,10 @@ function createWindow(): void {
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`Window failed to load: ${validatedURL} (${errorCode}: ${errorDescription})`);
     showWindowSafely();
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error(`Renderer process gone: reason=${details.reason}, exitCode=${details.exitCode}`);
   });
 
   // Failsafe timer: forces window to show within 750ms so user is never left without a GUI
