@@ -7,6 +7,7 @@
   "type": "module",
   "main": "dist-electron/main/index.js",
   "scripts": {
+    "predev": "node ../../scripts/ensure_electron.cjs",
     "dev": "electron-vite dev",
     "build": "electron-vite build && cp -r ../client/dist/* dist/renderer/",
     "preview": "electron-vite preview",

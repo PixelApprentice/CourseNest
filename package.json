@@ -15,7 +15,8 @@
     "test": "pnpm -r test",
     "clean": "pnpm -r clean",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "postinstall": "node scripts/ensure_electron.cjs"
   },
   "engines": {
     "node": ">=20.0.0",
