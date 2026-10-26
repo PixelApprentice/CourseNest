@@ -16,6 +16,7 @@
     "clean": "pnpm -r clean",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "install:linux": "bash scripts/install_linux.sh",
     "postinstall": "node scripts/ensure_electron.cjs"
   },
   "engines": {
