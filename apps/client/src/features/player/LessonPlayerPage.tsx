@@ -13,6 +13,8 @@ import {
   removeBookmark,
   saveQuizResult,
   getQuizResult,
+  reconcileVaultStorage,
+  addCourseToVault,
   type CourseData,
   type SectionData,
   type LessonData,
@@ -20,7 +22,7 @@ import {
   type QuizQuestion,
   type UserBookmark
 } from '../../lib/courseStore';
-import { useStorageConfig, toggleMountStatus } from '../../lib/storageConfig';
+import { useStorageConfig, toggleMountStatus, setExternalMountPath } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { getMediaBlobUrl, revokeAllMediaBlobUrls } from '../../lib/mediaVault';
 import { ThemeLoader } from '../../components/ThemeLoader';
@@ -175,14 +177,15 @@ export function LessonPlayerPage() {
     let isCancelled = false;
     setResolvedMediaUrls({});
 
-    // Resolve offline binary assets and subtitles from IndexedDB media vault
+    // Resolve offline binary assets and subtitles from physical external disk or IndexedDB media vault
+    const extMount = courseData?.externalMountPath;
     for (const block of activeLesson.blocks) {
       if (block.src?.startsWith('vault-media://')) {
         const match = block.src.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
         if (match && match[1] && match[2]) {
           const vCourseId = match[1];
           const relPath = match[2];
-          getMediaBlobUrl(vCourseId, relPath).then((url) => {
+          getMediaBlobUrl(vCourseId, relPath, extMount).then((url) => {
             if (!isCancelled && url) {
               setResolvedMediaUrls((prev) => ({ ...prev, [block.id]: url }));
             }
@@ -198,7 +201,7 @@ export function LessonPlayerPage() {
             if (subMatch && subMatch[1] && subMatch[2]) {
               const vCourseId = subMatch[1];
               const subRelPath = subMatch[2];
-              getMediaBlobUrl(vCourseId, subRelPath).then((url) => {
+              getMediaBlobUrl(vCourseId, subRelPath, extMount).then((url) => {
                 if (!isCancelled && url) {
                   setResolvedMediaUrls((prev) => ({ ...prev, [sub.id]: url }));
                 }
@@ -368,7 +371,77 @@ export function LessonPlayerPage() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const isExternalDisconnected = storageConfig.volumeType === 'external' && !storageConfig.isMounted;
+  const isExternalDisconnected =
+    (courseData?.storageTier === 'external' && courseData?.isExternalMissing) ||
+    (storageConfig.volumeType === 'external' && !storageConfig.isMounted);
+
+  const [isCheckingVolume, setIsCheckingVolume] = useState(false);
+
+  // Background auto-probe: silently detects reconnected external HDD every 3.5s
+  useEffect(() => {
+    if (!isExternalDisconnected) return;
+    const targetPath = courseData?.externalMountPath || storageConfig.externalMountPath;
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (!electron?.storage || !targetPath) return;
+
+    const timer = setInterval(async () => {
+      try {
+        const res = await electron.storage.checkVolumeAccess(targetPath);
+        if (res.isMounted) {
+          toggleMountStatus(true);
+          await reconcileVaultStorage(targetPath);
+        }
+      } catch {}
+    }, 3500);
+
+    return () => clearInterval(timer);
+  }, [isExternalDisconnected, courseData, storageConfig]);
+
+  const handleVerifyAndReconnect = async () => {
+    setIsCheckingVolume(true);
+    const targetPath = courseData?.externalMountPath || storageConfig.externalMountPath;
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+
+    if (electron?.storage && targetPath) {
+      try {
+        const res = await electron.storage.checkVolumeAccess(targetPath);
+        toggleMountStatus(res.isMounted);
+        if (res.isMounted) {
+          await reconcileVaultStorage(targetPath);
+          addLog('INFO', 'STORAGE', `External storage volume verified and connected: ${targetPath}`);
+        } else {
+          addLog('WARN', 'STORAGE', `External storage volume still inaccessible at: ${targetPath}`);
+        }
+      } catch {
+        toggleMountStatus(false);
+      }
+    } else {
+      toggleMountStatus(true);
+      await reconcileVaultStorage();
+    }
+    setTimeout(() => setIsCheckingVolume(false), 500);
+  };
+
+  const handleRelinkDirectory = async () => {
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.dialog?.openDirectory) {
+      const selectedDir = await electron.dialog.openDirectory();
+      if (selectedDir && courseData) {
+        setExternalMountPath(selectedDir);
+        toggleMountStatus(true);
+        const updatedCourse: CourseData = {
+          ...courseData,
+          storageTier: 'external',
+          externalMountPath: selectedDir,
+          externalCourseDir: `${selectedDir}/coursenest_courses/${courseData.id}`,
+          isExternalMissing: false,
+        };
+        addCourseToVault(updatedCourse);
+        await reconcileVaultStorage(selectedDir);
+        addLog('INFO', 'STORAGE', `Relinked course "${courseData.title}" to storage folder: ${selectedDir}`);
+      }
+    }
+  };
 
   // Sort blocks: Video first, Code blocks second, Rich text/HTML third, Documents fourth, Assets/links fifth
   const typeRank: Record<string, number> = {
@@ -548,14 +621,6 @@ export function LessonPlayerPage() {
               const isVaultMedia = Boolean(block.src?.startsWith('vault-media://'));
               const videoSrc = resolvedMediaUrls[block.id] || (isVaultMedia ? '' : block.src) || fallbackSampleUrl;
 
-              if (isVaultMedia && !resolvedMediaUrls[block.id]) {
-                return (
-                  <div key={block.id} className="w-full aspect-video rounded-2xl bg-black/85 flex items-center justify-center p-6 border border-[var(--cn-border)] shadow-2xl">
-                    <ThemeLoader size="lg" text="Accessing Local Vault Media..." />
-                  </div>
-                );
-              }
-
               if (isExternalDisconnected) {
                 return (
                   <div key={block.id} className="w-full aspect-video rounded-2xl border-2 border-dashed border-[var(--cn-warning)]/40 bg-[var(--cn-surface)] p-8 flex flex-col items-center justify-center text-center space-y-3">
@@ -564,20 +629,27 @@ export function LessonPlayerPage() {
                     </div>
                     <div className="space-y-1">
                       <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">
-                        External Media Drive Disconnected
+                        External Storage Disconnected
                       </h4>
                       <p className="text-xs text-[var(--cn-text-muted)] max-w-md font-mono leading-relaxed">
-                        Course video media is located on: <span className="text-[var(--cn-warning)] font-semibold">{storageConfig.externalMountPath}</span>.
-                        Please reconnect your external USB volume.
+                        Course video media is located on: <span className="text-[var(--cn-warning)] font-semibold">{courseData?.externalMountPath || storageConfig.externalMountPath}</span>.
+                        Please plug in your external drive to resume playback.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3 pt-2">
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                       <button
-                        onClick={() => toggleMountStatus(true)}
-                        className="px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+                        onClick={handleVerifyAndReconnect}
+                        disabled={isCheckingVolume}
+                        className="px-4 py-2 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
                       >
-                        Verify Volume Connection
+                        {isCheckingVolume ? 'Detecting Volume...' : 'Verify Volume Connection'}
+                      </button>
+                      <button
+                        onClick={handleRelinkDirectory}
+                        className="px-4 py-2 rounded-lg border border-[var(--cn-border)] text-xs font-mono text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors"
+                      >
+                        Locate Course Folder...
                       </button>
                       <Link
                         to="/settings"
@@ -588,8 +660,16 @@ export function LessonPlayerPage() {
                     </div>
 
                     <p className="text-[10px] text-[var(--cn-success)] font-mono pt-1">
-                      ✓ Lecture notes, study outlines, and checkpoint quizzes remain fully active and safely preserved.
+                      ✓ Lesson notes, outlines, and checkpoint quizzes remain fully active and safely preserved.
                     </p>
+                  </div>
+                );
+              }
+
+              if (isVaultMedia && !resolvedMediaUrls[block.id]) {
+                return (
+                  <div key={block.id} className="w-full aspect-video rounded-2xl bg-black/85 flex items-center justify-center p-6 border border-[var(--cn-border)] shadow-2xl">
+                    <ThemeLoader size="lg" text="Accessing Local Vault Media..." />
                   </div>
                 );
               }

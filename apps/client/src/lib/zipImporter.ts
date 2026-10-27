@@ -3,6 +3,7 @@ import { addLog } from './logger';
 import { saveMediaFile } from './mediaVault';
 import { addCourseToVault, appendSectionsToCourse, getCourseById, type CourseData, type SectionData, type LessonData, type ContentBlockData, type SubtitleTrackData } from './courseStore';
 import { anySubtitleToVtt, extractUrlFromShortcutText, parseJupyterNotebook, sanitizeLectureHtml } from './formatHelpers';
+import { getStorageConfig } from './storageConfig';
 
 export interface DiscoveredArchiveFile {
   originalPath: string;
@@ -579,12 +580,16 @@ export async function commitImportedCourse(params: {
     courseSubject,
     instructorName,
     courseDescription,
+    targetStorage = 'internal',
     sections,
     appendToCourseId,
     onProgress,
   } = params;
 
-  addLog('INFO', 'IMPORTER', `Committing course: ${courseTitle}`, `Chapters: ${sections.length}`);
+  const storageConfig = getStorageConfig();
+  const targetBaseMountPath = targetStorage === 'external' ? storageConfig.externalMountPath : undefined;
+
+  addLog('INFO', 'IMPORTER', `Committing course: ${courseTitle}`, `Storage: ${targetStorage.toUpperCase()} (${targetBaseMountPath || 'Internal Vault'}) • Chapters: ${sections.length}`);
 
   let totalFiles = 0;
   for (const sec of sections) {
@@ -653,7 +658,7 @@ export async function commitImportedCourse(params: {
             continue;
           }
 
-          await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
+          await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType, targetStorage, targetBaseMountPath);
           delete (fileItem as any).rawFile;
           delete (fileItem as any).zipEntry;
           delete (fileItem as any).getData;
@@ -688,7 +693,7 @@ export async function commitImportedCourse(params: {
             continue;
           }
 
-          await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType);
+          await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType, targetStorage, targetBaseMountPath);
           delete (fileItem as any).rawFile;
           delete (fileItem as any).zipEntry;
           delete (fileItem as any).getData;
@@ -784,7 +789,7 @@ export async function commitImportedCourse(params: {
               const vttText = anySubtitleToVtt(srtOrVttText, subItem.filename);
               const vttBlob = new Blob([vttText], { type: 'text/vtt' });
               const subPath = `subtitles/${les.id}_sub_${subIdx}.vtt`;
-              await saveMediaFile(courseId, subPath, vttBlob, 'text/vtt');
+              await saveMediaFile(courseId, subPath, vttBlob, 'text/vtt', targetStorage, targetBaseMountPath);
 
               subtitleTracks.push({
                 id: `sub-${sIdx}-${lIdx}-${subIdx}`,
@@ -873,13 +878,32 @@ export async function commitImportedCourse(params: {
     sections: finalSections,
     isImported: true,
     addedAt: new Date().toISOString(),
+    storageTier: targetStorage,
+    externalMountPath: targetBaseMountPath,
+    externalCourseDir: targetBaseMountPath ? `${targetBaseMountPath}/coursenest_courses/${courseId}` : undefined,
+    isExternalMissing: false,
   };
 
-  reportProgress(94, 'Writing course manifest to offline vault...');
+  reportProgress(94, targetStorage === 'external' ? 'Writing manifest and structure to external disk...' : 'Writing course manifest to offline vault...');
   addCourseToVault(courseData);
+
+  // If external storage, mirror course manifest to physical external drive
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (targetStorage === 'external' && electron?.storage?.saveCourseToDisk && targetBaseMountPath) {
+    try {
+      await electron.storage.saveCourseToDisk({
+        course: courseData,
+        targetDir: targetBaseMountPath,
+      });
+      addLog('INFO', 'IMPORTER', `Course saved to physical external disk at: ${targetBaseMountPath}/coursenest_courses/${courseId}`);
+    } catch (diskErr: any) {
+      addLog('WARN', 'IMPORTER', `Failed to write course manifest to external drive: ${diskErr.message}`);
+    }
+  }
+
   reportProgress(98, 'Verifying course integrity...');
   reportProgress(100, 'Complete! Course saved and ready for offline study.');
-  addLog('INFO', 'IMPORTER', `Course saved to offline vault: ${courseTitle}`, `${finalSections.length} sections, ${totalFiles} files`);
+  addLog('INFO', 'IMPORTER', `Course saved to ${targetStorage === 'external' ? 'external drive' : 'offline vault'}: ${courseTitle}`, `${finalSections.length} sections, ${totalFiles} files`);
 
   return courseData;
 }

@@ -49,16 +49,35 @@ function getDb(): Promise<IDBDatabase> {
 }
 
 /**
- * Store a binary asset for a course
+ * Store a binary asset for a course (supports both IndexedDB and external disk in Electron)
  */
 export async function saveMediaFile(
   courseId: string,
   filePath: string,
   blob: Blob,
   mimeType: string = 'application/octet-stream',
+  targetStorage: 'internal' | 'external' = 'internal',
+  externalMountPath?: string,
 ): Promise<void> {
-  const db = await getDb();
   const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+
+  // If targeting external storage in Electron desktop, write directly to physical drive!
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (targetStorage === 'external' && electron?.storage?.writeMediaFile) {
+    try {
+      const buffer = await blob.arrayBuffer();
+      await electron.storage.writeMediaFile({
+        courseId,
+        filePath: normalizedPath,
+        buffer,
+        targetDir: externalMountPath,
+      });
+    } catch (diskErr) {
+      console.warn(`Writing to external disk failed, falling back to IndexedDB:`, diskErr);
+    }
+  }
+
+  const db = await getDb();
   const key = `${courseId}::${normalizedPath}`;
 
   const entry: StoredMediaFile = {
@@ -82,14 +101,46 @@ export async function saveMediaFile(
 }
 
 /**
- * Retrieve a binary asset from the media vault
+ * Retrieve a binary asset from physical external disk or IndexedDB media vault
  */
 export async function getMediaFile(
   courseId: string,
   filePath: string,
+  externalMountPath?: string,
 ): Promise<{ blob: Blob; mimeType: string } | null> {
-  const db = await getDb();
   const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+
+  // 1. Try reading directly from external physical disk if running in Electron
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.readMediaFile) {
+    try {
+      const res = await electron.storage.readMediaFile({
+        courseId,
+        filePath: normalizedPath,
+        targetDir: externalMountPath,
+      });
+      if (res?.exists && res.buffer) {
+        // Infer MIME type from file extension
+        let mime = 'application/octet-stream';
+        const lower = normalizedPath.toLowerCase();
+        if (lower.endsWith('.mp4')) mime = 'video/mp4';
+        else if (lower.endsWith('.webm')) mime = 'video/webm';
+        else if (lower.endsWith('.mkv')) mime = 'video/x-matroska';
+        else if (lower.endsWith('.mp3')) mime = 'audio/mpeg';
+        else if (lower.endsWith('.pdf')) mime = 'application/pdf';
+        else if (lower.endsWith('.vtt')) mime = 'text/vtt';
+        else if (lower.endsWith('.srt')) mime = 'text/plain';
+
+        return {
+          blob: new Blob([res.buffer], { type: mime }),
+          mimeType: mime,
+        };
+      }
+    } catch {}
+  }
+
+  // 2. Query sandboxed IndexedDB
+  const db = await getDb();
   const key = `${courseId}::${normalizedPath}`;
 
   return new Promise((resolve, reject) => {
@@ -145,7 +196,11 @@ export function revokeAllMediaBlobUrls(): void {
 /**
  * Get a playable/viewable object URL for a vault media asset with strict LRU bounds
  */
-export async function getMediaBlobUrl(courseId: string, filePath: string): Promise<string | null> {
+export async function getMediaBlobUrl(
+  courseId: string,
+  filePath: string,
+  externalMountPath?: string,
+): Promise<string | null> {
   const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
   const key = `${courseId}::${normalizedPath}`;
 
@@ -157,7 +212,7 @@ export async function getMediaBlobUrl(courseId: string, filePath: string): Promi
     return existing;
   }
 
-  const file = await getMediaFile(courseId, normalizedPath);
+  const file = await getMediaFile(courseId, normalizedPath, externalMountPath);
   if (!file) return null;
 
   // Evict least recently used URL if cache limit is exceeded

@@ -1,9 +1,10 @@
-import { ipcMain, dialog, app, Notification } from 'electron';
-import { join, resolve } from 'path';
-import { readFile, stat, readdir, access, writeFile } from 'fs/promises';
+import { ipcMain, dialog, app, Notification, BrowserWindow } from 'electron';
+import { join, resolve, dirname } from 'path';
+import { readFile, stat, readdir, access, writeFile, mkdir } from 'fs/promises';
 import { constants, existsSync, readFileSync } from 'fs';
 
 let configuredExternalMountPath: string | null = null;
+const allowedUserDirs = new Set<string>();
 
 function validatePathBoundary(targetPath: string): string {
   const resolvedPath = resolve(targetPath);
@@ -11,6 +12,7 @@ function validatePathBoundary(targetPath: string): string {
   const tempDir = resolve(app.getPath('temp'));
   const documentsDir = resolve(app.getPath('documents'));
   const downloadsDir = resolve(app.getPath('downloads'));
+  const homeDir = resolve(app.getPath('home'));
 
   const isAllowedInternal =
     resolvedPath.startsWith(dataDir) ||
@@ -20,20 +22,54 @@ function validatePathBoundary(targetPath: string): string {
   const isAllowedExternal = configuredExternalMountPath
     ? resolvedPath.startsWith(resolve(configuredExternalMountPath))
     : false;
+  const isUserAllowed = Array.from(allowedUserDirs).some((d) => resolvedPath.startsWith(d));
   const isStandardMediaMount =
     resolvedPath.startsWith('/media') ||
     resolvedPath.startsWith('/run/media') ||
     resolvedPath.startsWith('/mnt') ||
     resolvedPath.startsWith('/Volumes') ||
+    resolvedPath.startsWith(join(homeDir, 'Downloads')) ||
+    resolvedPath.startsWith(join(homeDir, 'Documents')) ||
     /^[a-zA-Z]:\\/.test(resolvedPath);
 
-  if (!isAllowedInternal && !isAllowedExternal && !isStandardMediaMount) {
+  if (!isAllowedInternal && !isAllowedExternal && !isUserAllowed && !isStandardMediaMount) {
     throw new Error(`Access denied: path "${targetPath}" is outside authorized storage directories`);
   }
   return resolvedPath;
 }
 
 export function registerIpcHandlers(): void {
+  // ── Frameless Window Controls (VS Code Style) ──────────────────────
+  ipcMain.handle('window:minimize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getAllWindows()[0];
+    win?.minimize();
+    return true;
+  });
+
+  ipcMain.handle('window:maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getAllWindows()[0];
+    if (win) {
+      if (win.isMaximized()) {
+        win.unmaximize();
+      } else {
+        win.maximize();
+      }
+      return win.isMaximized();
+    }
+    return false;
+  });
+
+  ipcMain.handle('window:close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getAllWindows()[0];
+    win?.close();
+    return true;
+  });
+
+  ipcMain.handle('window:isMaximized', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getAllWindows()[0];
+    return win?.isMaximized() ?? false;
+  });
+
   // ── File Dialogs ────────────────────────────────────────────────────
 
   ipcMain.handle(
@@ -61,6 +97,12 @@ export function registerIpcHandlers(): void {
         ],
       });
 
+      if (!result.canceled && result.filePaths.length > 0) {
+        for (const p of result.filePaths) {
+          allowedUserDirs.add(dirname(resolve(p)));
+        }
+      }
+
       return result.canceled ? [] : result.filePaths;
     },
   );
@@ -70,8 +112,10 @@ export function registerIpcHandlers(): void {
       properties: ['openDirectory', 'createDirectory'],
     });
     if (!result.canceled && result.filePaths[0]) {
-      configuredExternalMountPath = result.filePaths[0];
-      return result.filePaths[0];
+      const selected = resolve(result.filePaths[0]);
+      configuredExternalMountPath = selected;
+      allowedUserDirs.add(selected);
+      return selected;
     }
     return null;
   });
@@ -116,8 +160,260 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('storage:setExternalMountPath', (_event, mountPath: string) => {
-    configuredExternalMountPath = mountPath;
-    return { success: true, mountPath };
+    configuredExternalMountPath = resolve(mountPath);
+    allowedUserDirs.add(configuredExternalMountPath);
+    return { success: true, mountPath: configuredExternalMountPath };
+  });
+
+  // ── Persistent Vault Master Catalog (Cross-Restart Guard) ───────────
+  const VAULT_FILE = join(app.getPath('userData'), 'coursenest_vault_courses.json');
+
+  ipcMain.handle('storage:getPersistentCourses', async () => {
+    try {
+      if (existsSync(VAULT_FILE)) {
+        const raw = await readFile(VAULT_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e: any) {
+      console.warn('Could not read persistent vault courses:', e?.message);
+    }
+    return [];
+  });
+
+  ipcMain.handle('storage:savePersistentCourses', async (_event, courses: any[]) => {
+    try {
+      await writeFile(VAULT_FILE, JSON.stringify(courses, null, 2), 'utf-8');
+      return true;
+    } catch (e: any) {
+      console.warn('Could not save persistent vault courses:', e?.message);
+      return false;
+    }
+  });
+
+  // ── External Disk Course Writing & Ingestion ─────────────────────────
+  ipcMain.handle('storage:saveCourseToDisk', async (_event, params: { course: any; targetDir?: string }) => {
+    try {
+      const { course, targetDir } = params;
+      const baseDir = targetDir
+        ? validatePathBoundary(targetDir)
+        : configuredExternalMountPath
+        ? validatePathBoundary(configuredExternalMountPath)
+        : join(app.getPath('userData'), 'courses');
+
+      const courseDir = join(baseDir, 'coursenest_courses', course.id);
+      await mkdir(courseDir, { recursive: true });
+
+      const manifestPath = join(courseDir, 'coursenest-manifest.json');
+      const courseWithDir = {
+        ...course,
+        storageTier: targetDir || configuredExternalMountPath ? 'external' : 'internal',
+        externalMountPath: baseDir,
+        externalCourseDir: courseDir,
+      };
+
+      await writeFile(manifestPath, JSON.stringify(courseWithDir, null, 2), 'utf-8');
+
+      // Update persistent vault catalog
+      let existing: any[] = [];
+      try {
+        if (existsSync(VAULT_FILE)) {
+          existing = JSON.parse(await readFile(VAULT_FILE, 'utf-8'));
+          if (!Array.isArray(existing)) existing = [];
+        }
+      } catch {}
+
+      const filtered = existing.filter((c: any) => c.id !== course.id);
+      filtered.unshift(courseWithDir);
+      await writeFile(VAULT_FILE, JSON.stringify(filtered, null, 2), 'utf-8');
+
+      return { success: true, courseDir, manifestPath };
+    } catch (err: any) {
+      console.error('Failed to save course to disk:', err);
+      throw err;
+    }
+  });
+
+  ipcMain.handle(
+    'storage:writeMediaFile',
+    async (_event, params: { courseId: string; filePath: string; buffer: ArrayBuffer; targetDir?: string }) => {
+      const { courseId, filePath, buffer, targetDir } = params;
+      const baseDir = targetDir
+        ? validatePathBoundary(targetDir)
+        : configuredExternalMountPath
+        ? validatePathBoundary(configuredExternalMountPath)
+        : join(app.getPath('userData'), 'courses');
+
+      const cleanRelative = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+      const fullPath = validatePathBoundary(join(baseDir, 'coursenest_courses', courseId, cleanRelative));
+
+      await mkdir(dirname(fullPath), { recursive: true });
+      await writeFile(fullPath, Buffer.from(buffer));
+      return { success: true, fullPath };
+    },
+  );
+
+  ipcMain.handle(
+    'storage:readMediaFile',
+    async (_event, params: { courseId: string; filePath: string; targetDir?: string }) => {
+      const { courseId, filePath, targetDir } = params;
+      const baseDir = targetDir
+        ? validatePathBoundary(targetDir)
+        : configuredExternalMountPath
+        ? validatePathBoundary(configuredExternalMountPath)
+        : join(app.getPath('userData'), 'courses');
+
+      const cleanRelative = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+      const fullPath = validatePathBoundary(join(baseDir, 'coursenest_courses', courseId, cleanRelative));
+
+      try {
+        await access(fullPath, constants.R_OK);
+        const fileBuf = await readFile(fullPath);
+        return { exists: true, buffer: fileBuf.buffer };
+      } catch (err: any) {
+        return { exists: false, error: err.message };
+      }
+    },
+  );
+
+  // ── Auto-Discovery & Scanning Directory for Courses ──────────────────
+  async function scanDirectoryRecursive(baseDir: string): Promise<any[]> {
+    const discovered: any[] = [];
+    try {
+      const resolved = validatePathBoundary(baseDir);
+      await access(resolved, constants.R_OK);
+
+      const coursesSubdir = join(resolved, 'coursenest_courses');
+      const dirsToCheck: string[] = [];
+
+      if (existsSync(coursesSubdir)) {
+        const subEntries = await readdir(coursesSubdir, { withFileTypes: true });
+        for (const entry of subEntries) {
+          if (entry.isDirectory()) {
+            dirsToCheck.push(join(coursesSubdir, entry.name));
+          }
+        }
+      }
+
+      dirsToCheck.push(resolved);
+
+      for (const d of dirsToCheck) {
+        const candidateFiles = [
+          join(d, 'coursenest-manifest.json'),
+          join(d, 'course.json'),
+          join(d, 'manifest.json'),
+        ];
+        for (const candidate of candidateFiles) {
+          if (existsSync(candidate)) {
+            try {
+              const raw = await readFile(candidate, 'utf-8');
+              const data = JSON.parse(raw);
+              if (data && (data.id || data.title) && Array.isArray(data.sections)) {
+                discovered.push({
+                  ...data,
+                  storageTier: 'external',
+                  externalMountPath: resolved,
+                  externalCourseDir: d,
+                });
+                break;
+              }
+            } catch (err) {
+              console.warn(`Could not parse course manifest at ${candidate}:`, err);
+            }
+          }
+        }
+      }
+    } catch {}
+    return discovered;
+  }
+
+  ipcMain.handle('storage:scanDirectoryForCourses', async (_event, dirPath?: string) => {
+    const target = dirPath || configuredExternalMountPath;
+    if (!target) return [];
+    return await scanDirectoryRecursive(target);
+  });
+
+  ipcMain.handle('storage:listExternalMounts', async () => {
+    const mounts: Array<{
+      path: string;
+      label: string;
+      isMounted: boolean;
+      hasCourses: boolean;
+      courseCount: number;
+    }> = [];
+
+    const rootsToProbe: string[] = [];
+    if (process.platform === 'linux') {
+      const user = process.env.USER || process.env.LOGNAME || '';
+      rootsToProbe.push('/media', '/run/media');
+      if (user) {
+        rootsToProbe.push(`/media/${user}`, `/run/media/${user}`);
+      }
+      rootsToProbe.push('/mnt');
+    } else if (process.platform === 'darwin') {
+      rootsToProbe.push('/Volumes');
+    } else if (process.platform === 'win32') {
+      for (let code = 68; code <= 90; code++) {
+        rootsToProbe.push(`${String.fromCharCode(code)}:\\`);
+      }
+    }
+
+    const checkedPaths = new Set<string>();
+
+    for (const root of rootsToProbe) {
+      try {
+        if (!existsSync(root)) continue;
+        const entries = await readdir(root, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const mountPath = join(root, entry.name);
+            if (checkedPaths.has(mountPath)) continue;
+            checkedPaths.add(mountPath);
+
+            try {
+              await access(mountPath, constants.R_OK);
+              const coursesFolder = join(mountPath, 'coursenest_courses');
+              const hasCourses = existsSync(coursesFolder);
+              let courseCount = 0;
+              if (hasCourses) {
+                const courseDirs = await readdir(coursesFolder, { withFileTypes: true });
+                courseCount = courseDirs.filter((d) => d.isDirectory()).length;
+              }
+
+              mounts.push({
+                path: mountPath,
+                label: entry.name,
+                isMounted: true,
+                hasCourses,
+                courseCount,
+              });
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    if (configuredExternalMountPath && !mounts.some((m) => m.path === configuredExternalMountPath)) {
+      try {
+        await access(configuredExternalMountPath, constants.R_OK);
+        const coursesFolder = join(configuredExternalMountPath, 'coursenest_courses');
+        const hasCourses = existsSync(coursesFolder);
+        let courseCount = 0;
+        if (hasCourses) {
+          const courseDirs = await readdir(coursesFolder, { withFileTypes: true });
+          courseCount = courseDirs.filter((d) => d.isDirectory()).length;
+        }
+        mounts.unshift({
+          path: configuredExternalMountPath,
+          label: configuredExternalMountPath.split(/[/\\]/).pop() || 'Configured External Mount',
+          isMounted: true,
+          hasCourses,
+          courseCount,
+        });
+      } catch {}
+    }
+
+    return mounts;
   });
 
   // ── App Info ────────────────────────────────────────────────────────

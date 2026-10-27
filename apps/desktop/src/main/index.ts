@@ -73,6 +73,7 @@ function createWindow(): void {
     minHeight: 600,
     title: 'CourseNest',
     show: false,
+    frame: false, // Frameless window removes native OS bezel and allows theme integration
     backgroundColor: getSavedThemeBg(),
     webPreferences: {
       preload: preloadFile,
@@ -83,6 +84,14 @@ function createWindow(): void {
       backgroundThrottling: true,
       spellcheck: false,
     },
+  });
+
+  // Track window maximization state for custom VS Code-style titlebar
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('window:maximized-status', true);
+  });
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('window:maximized-status', false);
   });
 
   // Content Security Policy

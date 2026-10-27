@@ -80,6 +80,10 @@ export interface CourseData {
   isImported?: boolean;
   addedAt: string;
   updatedAt?: string;
+  storageTier?: 'internal' | 'external';
+  externalMountPath?: string;
+  externalCourseDir?: string;
+  isExternalMissing?: boolean;
 }
 
 export interface UserNote {
@@ -212,6 +216,68 @@ export function transformManifest(manifest: any): CourseData {
 export const DEFAULT_PREBUNDLED_COURSES: CourseData[] = DEMO_COURSES.map(transformManifest);
 
 // -----------------------------------------------------------------------------
+// IndexedDB Meta Vault Store (Resilient Multi-Megabyte Storage)
+// -----------------------------------------------------------------------------
+const META_DB_NAME = 'coursenest_meta_vault_v1';
+const META_DB_VERSION = 1;
+const META_STORE_NAME = 'courses';
+
+let metaDbPromise: Promise<IDBDatabase> | null = null;
+
+function openMetaDb(): Promise<IDBDatabase> {
+  if (metaDbPromise) return metaDbPromise;
+  metaDbPromise = new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      return reject(new Error('IndexedDB not supported in this runtime.'));
+    }
+    const req = indexedDB.open(META_DB_NAME, META_DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(META_STORE_NAME)) {
+        db.createObjectStore(META_STORE_NAME, { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => {
+      metaDbPromise = null;
+      reject(req.error);
+    };
+  });
+  return metaDbPromise;
+}
+
+async function saveCoursesToIndexedDb(courses: CourseData[]): Promise<void> {
+  if (typeof indexedDB === 'undefined') return;
+  try {
+    const db = await openMetaDb();
+    const tx = db.transaction(META_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(META_STORE_NAME);
+    store.clear();
+    for (const c of courses) {
+      store.put(c);
+    }
+  } catch (err) {
+    console.warn('Could not mirror courses to IndexedDB:', err);
+  }
+}
+
+async function loadCoursesFromIndexedDb(): Promise<CourseData[]> {
+  if (typeof indexedDB === 'undefined') return [];
+  try {
+    const db = await openMetaDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction(META_STORE_NAME, 'readonly');
+      const store = tx.objectStore(META_STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Core Vault Ingestion & Retrieval
 // -----------------------------------------------------------------------------
 export function getVaultCourses(): CourseData[] {
@@ -232,11 +298,127 @@ export function getVaultCourses(): CourseData[] {
 
 export function saveVaultCourses(courses: CourseData[]): void {
   try {
-    localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify(courses));
+    // 1. Resilient localStorage write (strips oversized data URLs if quota is exceeded)
+    try {
+      localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify(courses));
+    } catch (quotaErr) {
+      console.warn('localStorage quota reached, caching lightweight metadata:', quotaErr);
+      const trimmed = courses.map((c) => ({
+        ...c,
+        thumbnailUrl: c.thumbnailUrl?.startsWith('data:') ? undefined : c.thumbnailUrl,
+        coverImageUrl: c.coverImageUrl?.startsWith('data:') ? undefined : c.coverImageUrl,
+      }));
+      try {
+        localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify(trimmed));
+      } catch {}
+    }
+
+    // 2. Persistent IndexedDB mirror (supports gigabytes of course metadata)
+    saveCoursesToIndexedDb(courses);
+
+    // 3. Desktop persistent vault file write
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.storage?.savePersistentCourses) {
+      electron.storage.savePersistentCourses(courses);
+    }
+
+    // 4. Mirror manifest on external disk for external courses
+    if (electron?.storage?.saveCourseToDisk) {
+      for (const course of courses) {
+        if (course.storageTier === 'external' && course.externalMountPath) {
+          electron.storage
+            .saveCourseToDisk({ course, targetDir: course.externalMountPath })
+            .catch((err: any) => console.warn('Could not mirror external manifest:', err));
+        }
+      }
+    }
+
     window.dispatchEvent(new Event('coursenest_vault_updated'));
   } catch (e) {
     console.error('Failed to save courses to local vault:', e);
   }
+}
+
+/**
+ * Reconciles courses across localStorage, IndexedDB, Electron userData vault,
+ * and external storage auto-discovery. Ensures courses never vanish across restarts.
+ */
+export async function reconcileVaultStorage(explicitMountPath?: string): Promise<CourseData[]> {
+  const current = getVaultCourses();
+  const courseMap = new Map<string, CourseData>();
+
+  for (const c of current) {
+    courseMap.set(c.id, c);
+  }
+
+  // 1. Rehydrate from IndexedDB
+  try {
+    const idbCourses = await loadCoursesFromIndexedDb();
+    for (const c of idbCourses) {
+      if (!courseMap.has(c.id)) {
+        courseMap.set(c.id, c);
+      }
+    }
+  } catch {}
+
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage) {
+    // 2. Rehydrate from desktop persistent vault file
+    try {
+      const desktopVault = await electron.storage.getPersistentCourses();
+      if (Array.isArray(desktopVault)) {
+        for (const c of desktopVault) {
+          if (!courseMap.has(c.id)) {
+            courseMap.set(c.id, c);
+          }
+        }
+      }
+    } catch {}
+
+    // 3. Auto-discover courses from external drives
+    try {
+      const scanPath = explicitMountPath;
+      const discovered = await electron.storage.scanDirectoryForCourses(scanPath);
+      if (Array.isArray(discovered) && discovered.length > 0) {
+        for (const c of discovered) {
+          const existing = courseMap.get(c.id);
+          courseMap.set(c.id, {
+            ...c,
+            ...(existing ? { sections: existing.sections || c.sections } : {}),
+            storageTier: 'external',
+            externalMountPath: c.externalMountPath || scanPath,
+            isExternalMissing: false,
+          });
+        }
+      }
+    } catch (scanErr) {
+      console.warn('Auto-discovery of external courses skipped:', scanErr);
+    }
+
+    // 4. Probe accessibility for all registered external courses
+    for (const [id, c] of courseMap.entries()) {
+      if (c.storageTier === 'external' && c.externalMountPath) {
+        try {
+          const status = await electron.storage.checkVolumeAccess(c.externalMountPath);
+          courseMap.set(id, {
+            ...c,
+            isExternalMissing: !status.isMounted,
+          });
+        } catch {
+          courseMap.set(id, {
+            ...c,
+            isExternalMissing: true,
+          });
+        }
+      }
+    }
+  }
+
+  const merged = Array.from(courseMap.values());
+  if (merged.length > 0) {
+    saveVaultCourses(merged);
+  }
+  return merged;
 }
 
 export function getCourseById(id: string): CourseData | null {
@@ -592,15 +774,28 @@ export function getVaultAnalytics() {
 export function useVaultCourses(): { courses: CourseData[]; refresh: () => void } {
   const [courses, setCourses] = useState<CourseData[]>(getVaultCourses);
 
-  const refresh = () => setCourses(getVaultCourses());
+  const refresh = () => {
+    reconcileVaultStorage().then((updated) => {
+      setCourses(updated);
+    }).catch(() => {
+      setCourses(getVaultCourses());
+    });
+  };
 
   useEffect(() => {
+    // Run background reconciliation on mount to detect newly plugged drives
+    reconcileVaultStorage().then((updated) => {
+      setCourses(updated);
+    }).catch(() => {});
+
     const handler = () => setCourses(getVaultCourses());
     window.addEventListener('coursenest_vault_updated', handler);
     window.addEventListener('coursenest_progress_updated', handler);
+    window.addEventListener('coursenest_storage_changed', refresh);
     return () => {
       window.removeEventListener('coursenest_vault_updated', handler);
       window.removeEventListener('coursenest_progress_updated', handler);
+      window.removeEventListener('coursenest_storage_changed', refresh);
     };
   }, []);
 

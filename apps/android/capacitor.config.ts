@@ -15,6 +15,10 @@ const config: CapacitorConfig = {
     Preferences: {
       group: 'coursenest',
     },
+    StatusBar: {
+      overlaysWebView: true,
+      style: 'DARK',
+    },
   },
   android: {
     allowMixedContent: false,

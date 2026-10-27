@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { APP_NAME, APP_VERSION } from '@coursenest/config';
-import { getVaultAnalytics, resetVaultToDefaults } from '../../lib/courseStore';
+import { getVaultAnalytics, resetVaultToDefaults, reconcileVaultStorage } from '../../lib/courseStore';
 import { clearAllMedia } from '../../lib/mediaVault';
 import { 
   useStorageConfig, 
@@ -23,7 +23,9 @@ import {
   IconEye, 
   IconEyeOff, 
   IconSettings,
-  IconTrash
+  IconTrash,
+  IconFolderOpen,
+  IconRefresh
 } from '@tabler/icons-react';
 import { useAiConfig, saveAiConfig, askAiAssistant, type AiProvider, type PedagogicalMode } from '../../lib/aiConfig';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -107,10 +109,42 @@ export function SettingsPage() {
     }
   };
 
+  const [isScanningMount, setIsScanningMount] = useState(false);
+  const [scanMessage, setScanMessage] = useState<string | null>(null);
+
   useEffect(() => {
     setAnalytics(getVaultAnalytics());
     setCustomPathInput(storageConfig.externalMountPath);
   }, [storageConfig.externalMountPath]);
+
+  const handleBrowseDirectory = async () => {
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.dialog?.openDirectory) {
+      const selected = await electron.dialog.openDirectory();
+      if (selected) {
+        setCustomPathInput(selected);
+        setExternalMountPath(selected);
+        toggleMountStatus(true);
+        handleScanDriveCourses(selected);
+      }
+    }
+  };
+
+  const handleScanDriveCourses = async (pathOverride?: string) => {
+    setIsScanningMount(true);
+    setScanMessage(null);
+    const target = pathOverride || customPathInput.trim();
+    try {
+      const updated = await reconcileVaultStorage(target);
+      const count = updated.filter((c) => c.storageTier === 'external').length;
+      setScanMessage(`Scanned external drive: Found & synced ${count} external course(s)!`);
+    } catch {
+      setScanMessage('Scan completed.');
+    } finally {
+      setIsScanningMount(false);
+      setTimeout(() => setScanMessage(null), 4500);
+    }
+  };
 
   // Export personal notes and progress to JSON file
   const handleExportData = () => {
@@ -276,14 +310,39 @@ export function SettingsPage() {
                       type="text"
                       value={customPathInput}
                       onChange={(e) => setCustomPathInput(e.target.value)}
+                      placeholder="/media/usb-drive/coursenest_media"
                       className="flex-1 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono text-[var(--cn-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)]"
                     />
+                    <button
+                      type="button"
+                      onClick={handleBrowseDirectory}
+                      className="px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-mono font-semibold text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-colors flex items-center gap-1.5"
+                    >
+                      <IconFolderOpen size={14} />
+                      Browse...
+                    </button>
                     <button
                       type="submit"
                       className="px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95"
                     >
                       Save Path
                     </button>
+                  </div>
+                  <div className="flex items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      disabled={isScanningMount}
+                      onClick={() => handleScanDriveCourses()}
+                      className="px-3 py-1 rounded-lg border border-[var(--cn-primary)]/40 bg-[var(--cn-primary-tint)]/40 text-[var(--cn-primary)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-tint)] transition-colors flex items-center gap-1.5 shadow-xs"
+                    >
+                      <IconRefresh size={13} className={isScanningMount ? 'animate-spin' : ''} />
+                      {isScanningMount ? 'Scanning External Drive...' : 'Auto-Discover Courses on Drive'}
+                    </button>
+                    {scanMessage && (
+                      <span className="text-[11px] font-mono text-[var(--cn-success)] animate-fade-in">
+                        {scanMessage}
+                      </span>
+                    )}
                   </div>
                 </form>
 

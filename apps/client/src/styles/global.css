@@ -940,3 +940,14 @@ video::cue {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95) !important;
 }
 
+/* Frameless Window Drag Regions (VS Code Integrated Titlebar) */
+.cn-window-drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.cn-window-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+

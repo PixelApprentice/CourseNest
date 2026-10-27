@@ -6,7 +6,9 @@ import {
   IconPlayerPlay, 
   IconStack2, 
   IconTrash,
-  IconFileText
+  IconFileText,
+  IconDeviceFloppy,
+  IconAlertTriangle
 } from '@tabler/icons-react';
 
 interface CourseCardProps {
@@ -75,10 +77,24 @@ export function CourseCard({
             {courseCode}
           </span>
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-success)] shadow-xs">
-            <IconCircleCheck size={12} className="text-[var(--cn-success)]" />
-            <span>OFFLINE VAULT</span>
-          </div>
+          {course.storageTier === 'external' ? (
+            course.isExternalMissing ? (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--cn-warning-tint)] border border-[var(--cn-warning)]/40 text-[var(--cn-warning)] shadow-xs animate-pulse">
+                <IconAlertTriangle size={11} className="text-[var(--cn-warning)]" />
+                <span>HDD UNPLUGGED</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] shadow-xs">
+                <IconDeviceFloppy size={11} className="text-[var(--cn-primary)]" />
+                <span>REMOVABLE HDD</span>
+              </div>
+            )
+          ) : (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-success)] shadow-xs">
+              <IconCircleCheck size={12} className="text-[var(--cn-success)]" />
+              <span>OFFLINE VAULT</span>
+            </div>
+          )}
         </div>
 
         {/* Course Info Preview */}
@@ -113,6 +129,13 @@ export function CourseCard({
           <p className="text-xs text-[var(--cn-text-secondary)] line-clamp-2 leading-relaxed">
             {course.description}
           </p>
+
+          {course.isExternalMissing && (
+            <div className="mt-2.5 p-2 rounded-lg bg-[var(--cn-warning-tint)] border border-[var(--cn-warning)]/30 text-[10.5px] font-mono text-[var(--cn-warning)] flex items-center gap-1.5">
+              <IconAlertTriangle size={13} className="shrink-0" />
+              <span className="truncate">Storage offline ({course.externalMountPath || 'Removable disk'}). Reconnect to play videos. Notes are safe.</span>
+            </div>
+          )}
         </div>
 
         {/* Curriculum Metadata */}

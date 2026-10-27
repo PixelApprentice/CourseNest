@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useStorageConfig } from '../../lib/storageConfig';
+import { useStorageConfig, setExternalMountPath } from '../../lib/storageConfig';
 import { addLog } from '../../lib/logger';
 import { 
   parseCourseArchives, 
@@ -348,6 +348,19 @@ export function ImportPage() {
         };
       })
     );
+  };
+
+  const handleSelectExternalFolder = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.dialog?.openDirectory) {
+      const selected = await electron.dialog.openDirectory();
+      if (selected) {
+        setExternalMountPath(selected);
+        setTargetStorage('external');
+      }
+    }
   };
 
   // Execute Final Commit into Offline Vault
@@ -800,11 +813,18 @@ export function ImportPage() {
                   onChange={() => setTargetStorage('external')}
                   className="accent-[var(--cn-primary)]"
                 />
-                <div>
+                <div className="flex-1 min-w-0">
                   <p>Removable USB / SD Card</p>
                   <p className="text-[10px] text-[var(--cn-text-muted)] font-normal truncate max-w-xs">
                     {storageConfig.externalMountPath || 'Removable media slot'}
                   </p>
+                  <button
+                    type="button"
+                    onClick={handleSelectExternalFolder}
+                    className="mt-1 px-2 py-0.5 rounded text-[10px] font-mono border border-[var(--cn-primary)]/40 bg-[var(--cn-primary-tint)]/40 text-[var(--cn-primary)] hover:bg-[var(--cn-primary-tint)] transition-colors inline-block"
+                  >
+                    Select Folder on External Drive...
+                  </button>
                 </div>
               </label>
             </div>
