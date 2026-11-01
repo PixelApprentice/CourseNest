@@ -60,8 +60,14 @@ export function ImportPage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [importProgress, setImportProgress] = useState(0);
 
-  // Storage Target Selection
-  const [targetStorage, setTargetStorage] = useState<'internal' | 'external'>('internal');
+  // Storage Target Selection (syncs with user preference)
+  const [targetStorage, setTargetStorage] = useState<'internal' | 'external'>(() => storageConfig.volumeType || 'internal');
+
+  useEffect(() => {
+    if (storageConfig.volumeType) {
+      setTargetStorage(storageConfig.volumeType);
+    }
+  }, [storageConfig.volumeType]);
 
   // Course metadata state
   const [courseTitle, setCourseTitle] = useState(targetExistingCourse?.title || '');

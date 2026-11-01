@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { DEMO_COURSES } from '../fixtures/courses';
 import { deleteMediaForCourse } from './mediaVault';
 
 export interface QuizQuestion {
@@ -212,8 +211,8 @@ export function transformManifest(manifest: any): CourseData {
   };
 }
 
-// Pre-bundled university courses available immediately out of the box
-export const DEFAULT_PREBUNDLED_COURSES: CourseData[] = DEMO_COURSES.map(transformManifest);
+// Pre-bundled courses (initialized empty in a clean local-first vault state)
+export const DEFAULT_PREBUNDLED_COURSES: CourseData[] = [];
 
 // -----------------------------------------------------------------------------
 // IndexedDB Meta Vault Store (Resilient Multi-Megabyte Storage)
@@ -283,9 +282,9 @@ async function loadCoursesFromIndexedDb(): Promise<CourseData[]> {
 export function getVaultCourses(): CourseData[] {
   try {
     const raw = localStorage.getItem(VAULT_COURSES_KEY);
-    if (raw) {
+    if (raw !== null) {
       const parsed: CourseData[] = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -293,7 +292,7 @@ export function getVaultCourses(): CourseData[] {
     console.warn('Could not read vault storage:', err);
   }
 
-  return DEFAULT_PREBUNDLED_COURSES;
+  return [];
 }
 
 export function saveVaultCourses(courses: CourseData[]): void {
@@ -322,17 +321,6 @@ export function saveVaultCourses(courses: CourseData[]): void {
       electron.storage.savePersistentCourses(courses);
     }
 
-    // 4. Mirror manifest on external disk for external courses
-    if (electron?.storage?.saveCourseToDisk) {
-      for (const course of courses) {
-        if (course.storageTier === 'external' && course.externalMountPath) {
-          electron.storage
-            .saveCourseToDisk({ course, targetDir: course.externalMountPath })
-            .catch((err: any) => console.warn('Could not mirror external manifest:', err));
-        }
-      }
-    }
-
     window.dispatchEvent(new Event('coursenest_vault_updated'));
   } catch (e) {
     console.error('Failed to save courses to local vault:', e);
@@ -351,7 +339,7 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
     courseMap.set(c.id, c);
   }
 
-  // 1. Rehydrate from IndexedDB
+  // 1. Always rehydrate from IndexedDB persistent vault
   try {
     const idbCourses = await loadCoursesFromIndexedDb();
     for (const c of idbCourses) {
@@ -381,43 +369,66 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
       const discovered = await electron.storage.scanDirectoryForCourses(scanPath);
       if (Array.isArray(discovered) && discovered.length > 0) {
         for (const c of discovered) {
-          const existing = courseMap.get(c.id);
-          courseMap.set(c.id, {
-            ...c,
-            ...(existing ? { sections: existing.sections || c.sections } : {}),
-            storageTier: 'external',
-            externalMountPath: c.externalMountPath || scanPath,
-            isExternalMissing: false,
-          });
+          if (courseMap.has(c.id)) {
+            const existing = courseMap.get(c.id)!;
+            courseMap.set(c.id, {
+              ...existing,
+              ...c,
+              sections: existing.sections && existing.sections.length > 0 ? existing.sections : c.sections,
+              storageTier: 'external',
+              externalMountPath: c.externalMountPath || scanPath,
+              isExternalMissing: false,
+            });
+          }
         }
       }
     } catch (scanErr) {
       console.warn('Auto-discovery of external courses skipped:', scanErr);
     }
 
-    // 4. Probe accessibility for all registered external courses
+    // 4. Probe accessibility and auto-recover for all external courses
     for (const [id, c] of courseMap.entries()) {
-      if (c.storageTier === 'external' && c.externalMountPath) {
-        try {
-          const status = await electron.storage.checkVolumeAccess(c.externalMountPath);
-          courseMap.set(id, {
-            ...c,
-            isExternalMissing: !status.isMounted,
-          });
-        } catch {
-          courseMap.set(id, {
-            ...c,
-            isExternalMissing: true,
-          });
+      if (c.storageTier === 'external') {
+        const probeTarget = c.externalCourseDir || c.externalMountPath || explicitMountPath;
+        let isReachable = false;
+        if (probeTarget) {
+          try {
+            const status = await electron.storage.checkVolumeAccess(probeTarget);
+            if (status.isMounted) {
+              isReachable = true;
+            }
+          } catch {}
         }
+
+        // Auto-recovery: if not directly reachable, probe all connected drives
+        if (!isReachable && electron.storage.autoLocateCourseDir) {
+          try {
+            const located = await electron.storage.autoLocateCourseDir({
+              courseId: id,
+              courseDir: c.externalCourseDir,
+            });
+            if (located.exists && located.courseDir) {
+              courseMap.set(id, {
+                ...c,
+                externalCourseDir: located.courseDir,
+                externalMountPath: located.mountPath || c.externalMountPath,
+                isExternalMissing: false,
+              });
+              continue;
+            }
+          } catch {}
+        }
+
+        courseMap.set(id, {
+          ...c,
+          isExternalMissing: !isReachable,
+        });
       }
     }
   }
 
   const merged = Array.from(courseMap.values());
-  if (merged.length > 0) {
-    saveVaultCourses(merged);
-  }
+  saveVaultCourses(merged);
   return merged;
 }
 
@@ -503,7 +514,9 @@ export function updateCourseTitle(courseId: string, newTitle: string): void {
 }
 
 export async function deleteCourseFromVault(courseId: string): Promise<void> {
-  const updated = getVaultCourses().filter((c) => c.id !== courseId);
+  const current = getVaultCourses();
+  const targetCourse = current.find((c) => c.id === courseId);
+  const updated = current.filter((c) => c.id !== courseId);
   saveVaultCourses(updated);
 
   // 1. Purge all decompressed media files (video, audio, PDF, handouts) from IndexedDB
@@ -513,7 +526,21 @@ export async function deleteCourseFromVault(courseId: string): Promise<void> {
     console.warn(`Could not purge media blobs for course ${courseId}:`, err);
   }
 
-  // 2. Clean up associated progress keys
+  // 2. Permanently delete external files from disk if running in Electron
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.deleteCourseFromDisk) {
+    try {
+      await electron.storage.deleteCourseFromDisk({
+        courseId,
+        courseDir: targetCourse?.externalCourseDir,
+        mountPath: targetCourse?.externalMountPath,
+      });
+    } catch (diskErr) {
+      console.warn(`Could not delete course from disk (${courseId}):`, diskErr);
+    }
+  }
+
+  // 3. Clean up associated progress keys
   try {
     const progressPrefix = `${VAULT_PROGRESS_KEY}:${courseId}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -546,6 +573,11 @@ export const removeCourseFromVault = deleteCourseFromVault;
 export function resetVaultToDefaults(): void {
   try {
     localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify([]));
+    saveCoursesToIndexedDb([]);
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.storage?.savePersistentCourses) {
+      electron.storage.savePersistentCourses([]);
+    }
     window.dispatchEvent(new Event('coursenest_vault_updated'));
   } catch {}
 }
@@ -578,6 +610,22 @@ export function setLessonProgress(
     window.dispatchEvent(new Event('coursenest_progress_updated'));
   } catch (e) {
     console.error('Failed to save lesson progress:', e);
+  }
+
+  // Desktop sync for MCP server & external AI tools
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.saveProgress) {
+    try {
+      const percent = getCourseProgressPercent(courseId);
+      electron.storage.saveProgress({
+        courseId,
+        progress: {
+          lastLessonId: lessonId,
+          lastAccessedAt: next.lastAccessedAt,
+          percent,
+        },
+      });
+    } catch {}
   }
   return next;
 }

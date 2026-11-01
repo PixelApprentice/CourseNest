@@ -32,12 +32,12 @@ export function HomePage() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-10">
-      {/* Hero Banner */}
+      {/* Hero Banner with Theme Ambient Glow */}
       <section className="relative overflow-hidden rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] p-6 md:p-8">
         <div 
-          className="absolute inset-0 opacity-10 pointer-events-none"
+          className="absolute inset-0 opacity-15 pointer-events-none"
           style={{
-            backgroundImage: `radial-gradient(var(--cn-primary) 1px, transparent 1px)`,
+            backgroundImage: `radial-gradient(var(--cn-primary) 1.5px, transparent 1.5px)`,
             backgroundSize: '24px 24px',
           }}
         />
@@ -73,6 +73,7 @@ export function HomePage() {
               <IconUpload size={14} />
               <span>Import Materials</span>
             </Link>
+
             <Link
               to="/library"
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)] transition-[background-color,color,transform] duration-150 ease-out active:scale-95"

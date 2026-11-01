@@ -37,70 +37,11 @@ interface PptxPresentationViewerProps {
   isDocked?: boolean;
 }
 
-export const DEFAULT_DEMO_SLIDES: PptxSlide[] = [
-  {
-    slideNumber: 1,
-    title: 'CS 101: Systems Programming & Memory Architectures',
-    bullets: [
-      'Undergraduate Systems Engineering Curriculum',
-      'Physical realities of CPU registers, cache levels, and RAM latencies',
-      'Bridging the Von Neumann memory wall in modern multiprocessors',
-      'Presented by Faculty of Computer Science'
-    ],
-    notes: 'Welcome students to Lecture 1. Emphasize that while software abstractions look flat, physical silicon has dramatic latency deltas.'
-  },
-  {
-    slideNumber: 2,
-    title: 'The Modern Memory Hierarchy: Orders of Magnitude',
-    bullets: [
-      'CPU Registers: < 0.5 ns (1 clock cycle) — Immediate silicon access',
-      'L1 Cache: ~1.0 ns (4 clock cycles) — Per-core private SRAM',
-      'L2 Cache: ~4.0 ns (12 clock cycles) — Larger per-core SRAM buffer',
-      'L3 Shared LLC: ~15 - 25 ns (40 cycles) — Shared multicore pool',
-      'DDR5 Main RAM: ~60 - 100 ns (200 cycles) — Off-chip capacitive DRAM',
-      'PCIe 5.0 NVMe SSD: ~10,000 ns — Flash block controllers'
-    ],
-    notes: 'Key takeaway: Accessing main RAM is 200x slower than L1 cache. Cache lines transfer 64 bytes at a time.'
-  },
-  {
-    slideNumber: 3,
-    title: 'Spatial vs. Temporal Locality Principles',
-    bullets: [
-      'Temporal Locality: Memory referenced recently is highly likely to be referenced again soon (e.g. loop counters, stack pointers).',
-      'Spatial Locality: Memory adjacent to recently referenced addresses is likely to be accessed next.',
-      'Hardware Prefetchers detect sequential stride patterns and preemptively fill L1/L2 caches.',
-      'Matrix traversal order: Row-major access in C matches layout; column-major access causes compulsory cache misses.'
-    ],
-    codeSnippet: `// High spatial locality (Row-major in C):\nfor (int r = 0; r < ROWS; r++) {\n    for (int c = 0; c < COLS; c++) {\n        sum += matrix[r][c]; // Sequential 64-byte lines\n    }\n}`,
-    notes: 'Walk students through the stride benchmark on the board.'
-  },
-  {
-    slideNumber: 4,
-    title: 'Virtual Memory & Multi-Level Page Tables',
-    bullets: [
-      'Decouples process logical address space from physical RAM frames.',
-      'Translation Lookaside Buffer (TLB): High-speed hardware cache of page translations.',
-      'Page Fault Handling: OS traps to kernel mode, initiates DMA from swap/disk, and updates page table.',
-      'Hardware Page Walkers resolve multi-level tables (e.g., 4-level PML4 in x86-64).'
-    ],
-    notes: 'Explain why 64-bit architectures require multi-level paging rather than a single flat table.'
-  },
-  {
-    slideNumber: 5,
-    title: 'Concurrency Invariants & Synchronization Barriers',
-    bullets: [
-      'Race Conditions occur on simultaneous unsynchronized write access to shared state.',
-      'Amdahl’s Law sets an asymptotic limit on speedup: S(s) = 1 / ((1 - p) + p/s).',
-      'Mutual exclusion must prevent deadlock by eliminating circular wait conditions.',
-      'Lock-Free atomic operations utilize CPU Compare-And-Swap (CAS) instructions.'
-    ],
-    notes: 'Recap for next week lab assignment: Thread barrier synchronization.'
-  }
-];
+export const DEFAULT_DEMO_SLIDES: PptxSlide[] = [];
 
 export function PptxPresentationViewer({
   filename = 'Lecture_Presentation_Slides.pptx',
-  fileSizeBytes = 3500000,
+  fileSizeBytes = 0,
   fileBlob,
   initialSlides,
   activeSlideNumber,
@@ -110,7 +51,7 @@ export function PptxPresentationViewer({
   onToggleDock,
   isDocked = false,
 }: PptxPresentationViewerProps) {
-  const [slides, setSlides] = useState<PptxSlide[]>(initialSlides || DEFAULT_DEMO_SLIDES);
+  const [slides, setSlides] = useState<PptxSlide[]>(initialSlides || []);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showNotes, setShowNotes] = useState(true);
@@ -225,19 +166,21 @@ export function PptxPresentationViewer({
     };
   }, [fileBlob]);
 
-  const activeSlide = slides[currentSlideIndex] || slides[0]!;
+  const activeSlide = slides.length > 0 ? (slides[currentSlideIndex] || slides[0] || null) : null;
 
   const goToNext = useCallback(() => {
+    if (slides.length === 0) return;
     setCurrentSlideIndex((idx) => Math.min(slides.length - 1, idx + 1));
     stopNarration();
     setIsReadingAloud(false);
   }, [slides.length]);
 
   const goToPrev = useCallback(() => {
+    if (slides.length === 0) return;
     setCurrentSlideIndex((idx) => Math.max(0, idx - 1));
     stopNarration();
     setIsReadingAloud(false);
-  }, []);
+  }, [slides.length]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -259,6 +202,7 @@ export function PptxPresentationViewer({
 
   // Read slide text aloud
   const handleReadAloud = () => {
+    if (!activeSlide) return;
     if (isReadingAloud) {
       stopNarration();
       setIsReadingAloud(false);
@@ -274,7 +218,7 @@ export function PptxPresentationViewer({
   };
 
   const handleAskAi = () => {
-    if (!onAskAi) return;
+    if (!onAskAi || !activeSlide) return;
     const slideSummary = `SLIDE ${activeSlide.slideNumber}: "${activeSlide.title}"\nKEY BULLETS:\n${activeSlide.bullets.map((b) => `- ${b}`).join('\n')}\n${activeSlide.notes ? `SPEAKER NOTES: ${activeSlide.notes}` : ''}`;
     onAskAi(slideSummary);
   };
@@ -398,135 +342,153 @@ export function PptxPresentationViewer({
 
       {/* Main Presentation Stage */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Slide Thumbnails Rail (Collapsible in grid mode) */}
-        {!showGrid && (
-          <aside className="w-48 sm:w-56 border-r border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/70 overflow-y-auto p-3 space-y-2.5 shrink-0 hidden md:block">
-            <div className="text-[11px] uppercase font-bold tracking-wider text-[var(--cn-text-muted)] px-1 mb-2">
-              Slides ({slides.length})
+        {!activeSlide || slides.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[var(--cn-bg)]">
+            <div className="w-16 h-16 rounded-2xl bg-[var(--cn-surface)] border border-[var(--cn-border)] flex items-center justify-center text-[var(--cn-text-muted)] mb-4 shadow-sm">
+              <IconPresentation size={32} />
             </div>
-            {slides.map((slide, idx) => {
-              const isSelected = idx === currentSlideIndex;
-              return (
-                <button
-                  key={slide.slideNumber}
-                  onClick={() => {
-                    setCurrentSlideIndex(idx);
-                    stopNarration();
-                    setIsReadingAloud(false);
-                  }}
-                  className={`w-full text-left p-2.5 rounded-xl border transition-all duration-150 ${
-                    isSelected
-                      ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)] shadow-md ring-1 ring-[var(--cn-primary)]/30'
-                      : 'border-[var(--cn-border)] bg-[var(--cn-surface)] hover:bg-[var(--cn-surface-hover)]'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] mb-1">
-                    <span className="font-mono font-bold">#{slide.slideNumber}</span>
-                    {slide.notes && <IconNotes size={11} className="text-amber-400" />}
-                  </div>
-                  <h4 className="text-xs font-semibold text-[var(--cn-text-primary)] line-clamp-2 leading-tight">
-                    {slide.title}
-                  </h4>
-                </button>
-              );
-            })}
-          </aside>
-        )}
-
-        {/* Center Presentation Viewport */}
-        {showGrid ? (
-          /* Grid View Mode */
-          <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-[var(--cn-bg)]">
-            {slides.map((slide, idx) => (
-              <div
-                key={slide.slideNumber}
-                onClick={() => {
-                  setCurrentSlideIndex(idx);
-                  setShowGrid(false);
-                }}
-                className="aspect-video p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-primary)] hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between shadow-lg group"
-              >
-                <div>
-                  <div className="text-[11px] font-mono text-[var(--cn-text-muted)] mb-1">Slide {slide.slideNumber}</div>
-                  <h3 className="text-xs font-bold text-[var(--cn-text-primary)] group-hover:text-[var(--cn-primary)] line-clamp-2">
-                    {slide.title}
-                  </h3>
-                  <p className="text-[11px] text-[var(--cn-text-secondary)] mt-2 line-clamp-3">
-                    {slide.bullets[0]}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] pt-2 border-t border-[var(--cn-border)]">
-                  <span>{slide.bullets.length} items</span>
-                  {slide.notes && <span className="text-amber-400 font-mono">Notes attached</span>}
-                </div>
-              </div>
-            ))}
+            <h3 className="text-base font-semibold text-[var(--cn-text-primary)] mb-1">
+              {isLoading ? 'Parsing Presentation Slides...' : 'No Presentation Slides Available'}
+            </h3>
+            <p className="text-xs text-[var(--cn-text-secondary)] max-w-sm">
+              {isLoading
+                ? 'Decompressing slide packages and parsing XML contents...'
+                : 'This presentation contains no extracted slides. Import a course archive with slide decks (.pptx) to view slides here.'}
+            </p>
           </div>
         ) : (
-          /* Single Slide Presentation Canvas */
-          <div className="flex-1 flex flex-col overflow-y-auto p-4 sm:p-8 items-center justify-center bg-[var(--cn-bg)]">
-            {/* 16:9 Slide Canvas */}
-            <div className="w-full max-w-4xl aspect-video rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] shadow-2xl p-6 sm:p-10 flex flex-col justify-between relative overflow-hidden select-text">
-              {/* Subtle slide watermark background */}
-              <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-[var(--cn-primary)]/5 blur-3xl pointer-events-none" />
-
-              {/* Slide Header */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] uppercase font-mono tracking-wider mb-3">
-                  <span>{filename}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-border)] font-bold text-[var(--cn-primary)]">
-                    Slide {activeSlide.slideNumber} / {slides.length}
-                  </span>
+          <>
+            {/* Left Slide Thumbnails Rail (Collapsible in grid mode) */}
+            {!showGrid && (
+              <aside className="w-48 sm:w-56 border-r border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]/70 overflow-y-auto p-3 space-y-2.5 shrink-0 hidden md:block">
+                <div className="text-[11px] uppercase font-bold tracking-wider text-[var(--cn-text-muted)] px-1 mb-2">
+                  Slides ({slides.length})
                 </div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--cn-text-primary)] border-b border-[var(--cn-border)] pb-4">
-                  {activeSlide.title}
-                </h1>
-              </div>
+                {slides.map((slide, idx) => {
+                  const isSelected = idx === currentSlideIndex;
+                  return (
+                    <button
+                      key={slide.slideNumber}
+                      onClick={() => {
+                        setCurrentSlideIndex(idx);
+                        stopNarration();
+                        setIsReadingAloud(false);
+                      }}
+                      className={`w-full text-left p-2.5 rounded-xl border transition-all duration-150 ${
+                        isSelected
+                          ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)] shadow-md ring-1 ring-[var(--cn-primary)]/30'
+                          : 'border-[var(--cn-border)] bg-[var(--cn-surface)] hover:bg-[var(--cn-surface-hover)]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] mb-1">
+                        <span className="font-mono font-bold">#{slide.slideNumber}</span>
+                        {slide.notes && <IconNotes size={11} className="text-amber-400" />}
+                      </div>
+                      <h4 className="text-xs font-semibold text-[var(--cn-text-primary)] line-clamp-2 leading-tight">
+                        {slide.title}
+                      </h4>
+                    </button>
+                  );
+                })}
+              </aside>
+            )}
 
-              {/* Slide Body Bullets */}
-              <div className="my-auto py-4 space-y-3">
-                {activeSlide.bullets.map((bullet, bIdx) => (
-                  <div key={bIdx} className="flex items-start gap-3">
-                    <span className="w-2 h-2 rounded-full bg-orange-400 mt-2 shrink-0 shadow-sm" />
-                    <p className="text-sm sm:text-base text-[var(--cn-text-secondary)] leading-relaxed font-normal">
-                      {bullet}
-                    </p>
+            {/* Center Presentation Viewport */}
+            {showGrid ? (
+              /* Grid View Mode */
+              <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-[var(--cn-bg)]">
+                {slides.map((slide, idx) => (
+                  <div
+                    key={slide.slideNumber}
+                    onClick={() => {
+                      setCurrentSlideIndex(idx);
+                      setShowGrid(false);
+                    }}
+                    className="aspect-video p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-primary)] hover:scale-[1.02] transition-all cursor-pointer flex flex-col justify-between shadow-lg group"
+                  >
+                    <div>
+                      <div className="text-[11px] font-mono text-[var(--cn-text-muted)] mb-1">Slide {slide.slideNumber}</div>
+                      <h3 className="text-xs font-bold text-[var(--cn-text-primary)] group-hover:text-[var(--cn-primary)] line-clamp-2">
+                        {slide.title}
+                      </h3>
+                      <p className="text-[11px] text-[var(--cn-text-secondary)] mt-2 line-clamp-3">
+                        {slide.bullets[0]}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] pt-2 border-t border-[var(--cn-border)]">
+                      <span>{slide.bullets.length} items</span>
+                      {slide.notes && <span className="text-amber-400 font-mono">Notes attached</span>}
+                    </div>
                   </div>
                 ))}
+              </div>
+            ) : (
+              /* Single Slide Presentation Canvas */
+              <div className="flex-1 flex flex-col overflow-y-auto p-4 sm:p-8 items-center justify-center bg-[var(--cn-bg)]">
+                {/* 16:9 Slide Canvas */}
+                <div className="w-full max-w-4xl aspect-video rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] shadow-2xl p-6 sm:p-10 flex flex-col justify-between relative overflow-hidden select-text">
+                  {/* Subtle slide watermark background */}
+                  <div className="absolute -right-12 -bottom-12 w-64 h-64 rounded-full bg-[var(--cn-primary)]/5 blur-3xl pointer-events-none" />
 
-                {/* Optional Embedded Code Snippet */}
-                {activeSlide.codeSnippet && (
-                  <div className="mt-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] p-3 font-mono text-xs text-emerald-400 relative group">
-                    <button
-                      onClick={() => handleCopyCode(activeSlide.codeSnippet!)}
-                      className="absolute top-2 right-2 px-2 py-1 rounded bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] text-[11px] border border-[var(--cn-border)] flex items-center gap-1"
-                    >
-                      {copiedCode ? <IconCheck size={12} className="text-emerald-400" /> : null}
-                      <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
-                    </button>
-                    <pre className="overflow-x-auto whitespace-pre-wrap">{activeSlide.codeSnippet}</pre>
+                  {/* Slide Header */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] uppercase font-mono tracking-wider mb-3">
+                      <span>{filename}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-border)] font-bold text-[var(--cn-primary)]">
+                        Slide {activeSlide.slideNumber} / {slides.length}
+                      </span>
+                    </div>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--cn-text-primary)] border-b border-[var(--cn-border)] pb-4">
+                      {activeSlide.title}
+                    </h1>
+                  </div>
+
+                  {/* Slide Body Bullets */}
+                  <div className="my-auto py-4 space-y-3">
+                    {activeSlide.bullets.map((bullet, bIdx) => (
+                      <div key={bIdx} className="flex items-start gap-3">
+                        <span className="w-2 h-2 rounded-full bg-orange-400 mt-2 shrink-0 shadow-sm" />
+                        <p className="text-sm sm:text-base text-[var(--cn-text-secondary)] leading-relaxed font-normal">
+                          {bullet}
+                        </p>
+                      </div>
+                    ))}
+
+                    {/* Optional Embedded Code Snippet */}
+                    {activeSlide.codeSnippet && (
+                      <div className="mt-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] p-3 font-mono text-xs text-emerald-400 relative group">
+                        <button
+                          onClick={() => handleCopyCode(activeSlide.codeSnippet!)}
+                          className="absolute top-2 right-2 px-2 py-1 rounded bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] text-[11px] border border-[var(--cn-border)] flex items-center gap-1"
+                        >
+                          {copiedCode ? <IconCheck size={12} className="text-emerald-400" /> : null}
+                          <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+                        </button>
+                        <pre className="overflow-x-auto whitespace-pre-wrap">{activeSlide.codeSnippet}</pre>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Slide Footer */}
+                  <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] pt-3 border-t border-[var(--cn-border)]">
+                    <span>CourseNest Slide Deck Reader</span>
+                    <span className="font-mono">Page {activeSlide.slideNumber}</span>
+                  </div>
+                </div>
+
+                {/* Expandable Presenter Notes Drawer */}
+                {showNotes && activeSlide.notes && (
+                  <div className="w-full max-w-4xl mt-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[var(--cn-text-primary)] text-xs">
+                    <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-[11px] text-amber-500 mb-1">
+                      <IconNotes size={13} />
+                      <span>Speaker Notes</span>
+                    </div>
+                    <p className="leading-relaxed whitespace-pre-wrap">{activeSlide.notes}</p>
                   </div>
                 )}
               </div>
-
-              {/* Slide Footer */}
-              <div className="flex items-center justify-between text-[11px] text-[var(--cn-text-muted)] pt-3 border-t border-[var(--cn-border)]">
-                <span>CourseNest Slide Deck Reader</span>
-                <span className="font-mono">Page {activeSlide.slideNumber}</span>
-              </div>
-            </div>
-
-            {/* Expandable Presenter Notes Drawer */}
-            {showNotes && activeSlide.notes && (
-              <div className="w-full max-w-4xl mt-4 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[var(--cn-text-primary)] text-xs">
-                <div className="flex items-center gap-2 font-semibold uppercase tracking-wider text-[11px] text-amber-500 mb-1">
-                  <IconNotes size={13} />
-                  <span>Speaker Notes</span>
-                </div>
-                <p className="leading-relaxed whitespace-pre-wrap">{activeSlide.notes}</p>
-              </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
@@ -535,7 +497,7 @@ export function PptxPresentationViewer({
         <div className="flex items-center gap-3">
           <button
             onClick={goToPrev}
-            disabled={currentSlideIndex === 0}
+            disabled={!activeSlide || currentSlideIndex === 0}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-semibold text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] disabled:opacity-30 disabled:pointer-events-none transition-colors"
           >
             <IconChevronLeft size={16} />
@@ -543,12 +505,12 @@ export function PptxPresentationViewer({
           </button>
 
           <span className="text-xs font-mono text-[var(--cn-text-muted)]">
-            {currentSlideIndex + 1} / {slides.length}
+            {activeSlide ? currentSlideIndex + 1 : 0} / {slides.length}
           </span>
 
           <button
             onClick={goToNext}
-            disabled={currentSlideIndex === slides.length - 1}
+            disabled={!activeSlide || currentSlideIndex === slides.length - 1}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary)] hover:brightness-110 text-xs font-semibold text-[var(--cn-primary-text)] disabled:opacity-30 disabled:pointer-events-none transition-colors shadow-sm"
           >
             <span className="hidden sm:inline">Next Slide</span>

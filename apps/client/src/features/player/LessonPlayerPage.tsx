@@ -27,7 +27,7 @@ import { addLog } from '../../lib/logger';
 import { getMediaBlobUrl, revokeAllMediaBlobUrls } from '../../lib/mediaVault';
 import { ThemeLoader } from '../../components/ThemeLoader';
 import { EmbeddedDocumentViewer } from '../../components/EmbeddedDocumentViewer';
-import { PptxPresentationViewer, DEFAULT_DEMO_SLIDES } from '../../components/PptxPresentationViewer';
+import { PptxPresentationViewer } from '../../components/PptxPresentationViewer';
 import { VlcMediaViewer } from '../../components/VlcMediaViewer';
 import { YouTubePlayer } from '../../components/YouTubePlayer';
 import { extractYouTubeVideoId } from '../../lib/youtubeHelper';
@@ -39,6 +39,7 @@ import { AudibleLectureBar } from '../../components/AudibleLectureBar';
 import { playAudibleChime } from '../../lib/audibleSuite';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { sanitizeLectureHtml, formatSubtitleTranscriptForAi } from '../../lib/formatHelpers';
+import { setPlaybackOffscreen } from '../../lib/playbackStore';
 import { 
   IconArrowLeft, 
   IconChevronLeft, 
@@ -123,6 +124,25 @@ export function LessonPlayerPage() {
   const currentTimeRef = useRef(0);
   const lastSavedTimeRef = useRef(0);
   const lastUiUpdateRef = useRef(0);
+  const videoContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Monitor video element visibility: if user scrolls down to read notes or quiz, dock YouTube-style miniplayer
+  useEffect(() => {
+    if (!videoContainerRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry) {
+          setPlaybackOffscreen(!entry.isIntersecting);
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(videoContainerRef.current);
+    return () => {
+      observer.disconnect();
+      setPlaybackOffscreen(false);
+    };
+  }, [activeLesson?.id]);
 
   // Lesson Readable Text for Audible Text-to-Speech Narration
   const lessonTextContent = useMemo(() => {
@@ -377,7 +397,7 @@ export function LessonPlayerPage() {
 
   const [isCheckingVolume, setIsCheckingVolume] = useState(false);
 
-  // Background auto-probe: silently detects reconnected external HDD every 3.5s
+  // Background auto-probe: silently detects reconnected external HDD
   useEffect(() => {
     if (!isExternalDisconnected) return;
     const targetPath = courseData?.externalMountPath || storageConfig.externalMountPath;
@@ -392,10 +412,10 @@ export function LessonPlayerPage() {
           await reconcileVaultStorage(targetPath);
         }
       } catch {}
-    }, 3500);
+    }, 3000);
 
     return () => clearInterval(timer);
-  }, [isExternalDisconnected, courseData, storageConfig]);
+  }, [isExternalDisconnected, courseData?.externalMountPath, storageConfig.externalMountPath]);
 
   const handleVerifyAndReconnect = async () => {
     setIsCheckingVolume(true);
@@ -1279,15 +1299,21 @@ export function LessonPlayerPage() {
                 lessonId={activeLesson.id}
                 activeDocumentText={aiDocContext || activeLesson.description}
                 subtitleTranscript={activeLessonSubtitleTranscript}
-                slidesData={DEFAULT_DEMO_SLIDES}
+                slidesData={undefined}
                 onSeekTo={(sec) => seekTo(sec)}
                 onNavigateSlide={(slideNum) => {
                   setActiveSlideNumber(slideNum);
                   if (!activePptxViewer) {
-                    setActivePptxViewer({
-                      filename: 'Lecture_Presentation_Slides.pptx',
-                      fileSizeBytes: 3500000,
-                    });
+                    const pptxBlock = activeLesson.blocks.find(
+                      (b) => b.type === 'presentation' || b.filename?.toLowerCase().endsWith('.pptx')
+                    );
+                    if (pptxBlock) {
+                      setActivePptxViewer({
+                        filename: pptxBlock.filename || pptxBlock.title || 'Presentation.pptx',
+                        fileSizeBytes: pptxBlock.fileSizeBytes || 0,
+                        fileUrl: pptxBlock.src,
+                      });
+                    }
                   }
                 }}
                 onAppendNote={(note) => setNotesContent(note)}
