@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow, dialog, app, Notification, shell } from "electron";
-import { dirname, resolve, join } from "path";
+import { dirname, resolve, join, basename } from "path";
 import { constants, existsSync, readFileSync } from "fs";
-import { readFile, stat, readdir, access, writeFile, mkdir } from "fs/promises";
+import { readFile, stat, readdir, access, writeFile, mkdir, rm } from "fs/promises";
 import { createSqliteConnection, initializeSqliteDatabase } from "@coursenest/sqlite-adapter";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
@@ -24,6 +24,14 @@ function validatePathBoundary(targetPath) {
     throw new Error(`Access denied: path "${targetPath}" is outside authorized storage directories`);
   }
   return resolvedPath;
+}
+function resolveCourseStorageDir(baseDir, courseId) {
+  const normBase = resolve(baseDir);
+  const baseName = basename(normBase).toLowerCase();
+  if (baseName === "coursenest_courses") {
+    return join(normBase, courseId);
+  }
+  return join(normBase, "CourseNest_courses", courseId);
 }
 function registerIpcHandlers() {
   ipcMain.handle("window:minimize", (event) => {
@@ -152,7 +160,7 @@ function registerIpcHandlers() {
     try {
       const { course, targetDir } = params;
       const baseDir = targetDir ? validatePathBoundary(targetDir) : configuredExternalMountPath ? validatePathBoundary(configuredExternalMountPath) : join(app.getPath("userData"), "courses");
-      const courseDir = join(baseDir, "coursenest_courses", course.id);
+      const courseDir = resolveCourseStorageDir(baseDir, course.id);
       await mkdir(courseDir, { recursive: true });
       const manifestPath = join(courseDir, "coursenest-manifest.json");
       const courseWithDir = {
@@ -184,8 +192,9 @@ function registerIpcHandlers() {
     async (_event, params) => {
       const { courseId, filePath, buffer, targetDir } = params;
       const baseDir = targetDir ? validatePathBoundary(targetDir) : configuredExternalMountPath ? validatePathBoundary(configuredExternalMountPath) : join(app.getPath("userData"), "courses");
+      const courseDir = resolveCourseStorageDir(baseDir, courseId);
       const cleanRelative = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
-      const fullPath = validatePathBoundary(join(baseDir, "coursenest_courses", courseId, cleanRelative));
+      const fullPath = validatePathBoundary(join(courseDir, cleanRelative));
       await mkdir(dirname(fullPath), { recursive: true });
       await writeFile(fullPath, Buffer.from(buffer));
       return { success: true, fullPath };
@@ -197,13 +206,63 @@ function registerIpcHandlers() {
       const { courseId, filePath, targetDir } = params;
       const baseDir = targetDir ? validatePathBoundary(targetDir) : configuredExternalMountPath ? validatePathBoundary(configuredExternalMountPath) : join(app.getPath("userData"), "courses");
       const cleanRelative = filePath.replace(/\\/g, "/").replace(/^\/+/, "");
-      const fullPath = validatePathBoundary(join(baseDir, "coursenest_courses", courseId, cleanRelative));
+      const candidatePaths = [
+        join(resolveCourseStorageDir(baseDir, courseId), cleanRelative),
+        join(baseDir, "coursenest_courses", courseId, cleanRelative),
+        join(baseDir, "CourseNest_courses", courseId, cleanRelative),
+        join(baseDir, courseId, cleanRelative)
+      ];
+      for (const p of candidatePaths) {
+        try {
+          const resolved = validatePathBoundary(p);
+          await access(resolved, constants.R_OK);
+          const fileBuf = await readFile(resolved);
+          return { exists: true, buffer: fileBuf.buffer };
+        } catch {
+        }
+      }
+      return { exists: false, error: "Media file not found on disk" };
+    }
+  );
+  ipcMain.handle(
+    "storage:deleteCourseFromDisk",
+    async (_event, params) => {
+      const { courseId, courseDir, mountPath } = params;
       try {
-        await access(fullPath, constants.R_OK);
-        const fileBuf = await readFile(fullPath);
-        return { exists: true, buffer: fileBuf.buffer };
+        if (existsSync(VAULT_FILE)) {
+          try {
+            const raw = await readFile(VAULT_FILE, "utf-8");
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const remaining = parsed.filter((c) => c.id !== courseId);
+              await writeFile(VAULT_FILE, JSON.stringify(remaining, null, 2), "utf-8");
+            }
+          } catch {
+          }
+        }
+        const candidateDirs = /* @__PURE__ */ new Set();
+        if (courseDir) candidateDirs.add(courseDir);
+        const baseDir = mountPath || configuredExternalMountPath;
+        if (baseDir) {
+          candidateDirs.add(resolveCourseStorageDir(baseDir, courseId));
+          candidateDirs.add(join(baseDir, "coursenest_courses", courseId));
+          candidateDirs.add(join(baseDir, "CourseNest_courses", courseId));
+          candidateDirs.add(join(baseDir, courseId));
+        }
+        for (const dir of candidateDirs) {
+          try {
+            const resolved = validatePathBoundary(dir);
+            if (existsSync(resolved)) {
+              await rm(resolved, { recursive: true, force: true });
+            }
+          } catch (e) {
+            console.warn(`Could not remove course dir ${dir}:`, e?.message);
+          }
+        }
+        return { success: true };
       } catch (err) {
-        return { exists: false, error: err.message };
+        console.error(`Failed to delete course from disk (${courseId}):`, err);
+        return { success: false, error: err.message };
       }
     }
   );
@@ -212,17 +271,29 @@ function registerIpcHandlers() {
     try {
       const resolved = validatePathBoundary(baseDir);
       await access(resolved, constants.R_OK);
-      const coursesSubdir = join(resolved, "coursenest_courses");
-      const dirsToCheck = [];
-      if (existsSync(coursesSubdir)) {
-        const subEntries = await readdir(coursesSubdir, { withFileTypes: true });
-        for (const entry of subEntries) {
+      const dirsToCheck = /* @__PURE__ */ new Set();
+      dirsToCheck.add(resolved);
+      try {
+        const directEntries = await readdir(resolved, { withFileTypes: true });
+        for (const entry of directEntries) {
           if (entry.isDirectory()) {
-            dirsToCheck.push(join(coursesSubdir, entry.name));
+            const childDir = join(resolved, entry.name);
+            dirsToCheck.add(childDir);
+            if (entry.name.toLowerCase() === "coursenest_courses") {
+              try {
+                const subEntries = await readdir(childDir, { withFileTypes: true });
+                for (const sub of subEntries) {
+                  if (sub.isDirectory()) {
+                    dirsToCheck.add(join(childDir, sub.name));
+                  }
+                }
+              } catch {
+              }
+            }
           }
         }
+      } catch {
       }
-      dirsToCheck.push(resolved);
       for (const d of dirsToCheck) {
         const candidateFiles = [
           join(d, "coursenest-manifest.json"),
@@ -239,7 +310,8 @@ function registerIpcHandlers() {
                   ...data,
                   storageTier: "external",
                   externalMountPath: resolved,
-                  externalCourseDir: d
+                  externalCourseDir: d,
+                  isExternalMissing: false
                 });
                 break;
               }
@@ -257,6 +329,74 @@ function registerIpcHandlers() {
     const target = dirPath || configuredExternalMountPath;
     if (!target) return [];
     return await scanDirectoryRecursive(target);
+  });
+  ipcMain.handle("storage:autoLocateCourseDir", async (_event, params) => {
+    const { courseId, courseDir } = params;
+    if (!courseId) return { exists: false };
+    if (courseDir && existsSync(courseDir)) {
+      try {
+        await access(courseDir, constants.R_OK);
+        return { exists: true, courseDir, mountPath: dirname(courseDir) };
+      } catch {
+      }
+    }
+    if (configuredExternalMountPath && existsSync(configuredExternalMountPath)) {
+      const candidates = [
+        join(configuredExternalMountPath, courseId),
+        join(configuredExternalMountPath, "CourseNest_courses", courseId),
+        join(configuredExternalMountPath, "coursenest_courses", courseId)
+      ];
+      for (const cand of candidates) {
+        if (existsSync(cand)) {
+          try {
+            await access(cand, constants.R_OK);
+            return { exists: true, courseDir: cand, mountPath: configuredExternalMountPath };
+          } catch {
+          }
+        }
+      }
+    }
+    const rootsToProbe = [];
+    if (process.platform === "linux") {
+      const user = process.env.USER || process.env.LOGNAME || "";
+      rootsToProbe.push("/run/media", "/media");
+      if (user) {
+        rootsToProbe.push(`/run/media/${user}`, `/media/${user}`);
+      }
+      rootsToProbe.push("/mnt");
+    } else if (process.platform === "darwin") {
+      rootsToProbe.push("/Volumes");
+    } else if (process.platform === "win32") {
+      for (let code = 68; code <= 90; code++) {
+        rootsToProbe.push(`${String.fromCharCode(code)}:\\`);
+      }
+    }
+    for (const root of rootsToProbe) {
+      if (!existsSync(root)) continue;
+      try {
+        const entries = await readdir(root, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          const mount = join(root, entry.name);
+          const candidates = [
+            join(mount, courseId),
+            join(mount, "CourseNest_courses", courseId),
+            join(mount, "coursenest_courses", courseId)
+          ];
+          for (const cand of candidates) {
+            if (existsSync(cand)) {
+              try {
+                await access(cand, constants.R_OK);
+                return { exists: true, courseDir: cand, mountPath: mount };
+              } catch {
+              }
+            }
+          }
+        }
+      } catch {
+      }
+    }
+    return { exists: false };
   });
   ipcMain.handle("storage:listExternalMounts", async () => {
     const mounts = [];
@@ -287,12 +427,18 @@ function registerIpcHandlers() {
             checkedPaths.add(mountPath);
             try {
               await access(mountPath, constants.R_OK);
-              const coursesFolder = join(mountPath, "coursenest_courses");
-              const hasCourses = existsSync(coursesFolder);
+              const coursesFolderCandidates = [
+                join(mountPath, "CourseNest_courses"),
+                join(mountPath, "coursenest_courses")
+              ];
+              let hasCourses = false;
               let courseCount = 0;
-              if (hasCourses) {
-                const courseDirs = await readdir(coursesFolder, { withFileTypes: true });
-                courseCount = courseDirs.filter((d) => d.isDirectory()).length;
+              for (const folder of coursesFolderCandidates) {
+                if (existsSync(folder)) {
+                  hasCourses = true;
+                  const courseDirs = await readdir(folder, { withFileTypes: true });
+                  courseCount += courseDirs.filter((d) => d.isDirectory()).length;
+                }
               }
               mounts.push({
                 path: mountPath,
@@ -311,12 +457,18 @@ function registerIpcHandlers() {
     if (configuredExternalMountPath && !mounts.some((m) => m.path === configuredExternalMountPath)) {
       try {
         await access(configuredExternalMountPath, constants.R_OK);
-        const coursesFolder = join(configuredExternalMountPath, "coursenest_courses");
-        const hasCourses = existsSync(coursesFolder);
+        const coursesFolderCandidates = [
+          join(configuredExternalMountPath, "CourseNest_courses"),
+          join(configuredExternalMountPath, "coursenest_courses")
+        ];
+        let hasCourses = false;
         let courseCount = 0;
-        if (hasCourses) {
-          const courseDirs = await readdir(coursesFolder, { withFileTypes: true });
-          courseCount = courseDirs.filter((d) => d.isDirectory()).length;
+        for (const folder of coursesFolderCandidates) {
+          if (existsSync(folder)) {
+            hasCourses = true;
+            const courseDirs = await readdir(folder, { withFileTypes: true });
+            courseCount += courseDirs.filter((d) => d.isDirectory()).length;
+          }
         }
         mounts.unshift({
           path: configuredExternalMountPath,
@@ -436,8 +588,11 @@ function getSavedThemeBg() {
   }
   return "#0A0A0B";
 }
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("ozone-platform-hint", "auto");
+  app.commandLine.appendSwitch("enable-features", "VaapiVideoDecoder,VaapiVideoEncoder");
+}
 app.commandLine.appendSwitch("enable-gpu-rasterization");
-app.commandLine.appendSwitch("enable-zero-copy");
 app.commandLine.appendSwitch("js-flags", "--max-old-space-size=2048");
 app.commandLine.appendSwitch("renderer-process-limit", "4");
 let mainWindow = null;

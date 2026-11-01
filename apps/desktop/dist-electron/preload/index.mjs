@@ -29,7 +29,9 @@ const electronAPI = {
     scanDirectoryForCourses: (dirPath) => ipcRenderer.invoke("storage:scanDirectoryForCourses", dirPath),
     listExternalMounts: () => ipcRenderer.invoke("storage:listExternalMounts"),
     getPersistentCourses: () => ipcRenderer.invoke("storage:getPersistentCourses"),
-    savePersistentCourses: (courses) => ipcRenderer.invoke("storage:savePersistentCourses", courses)
+    savePersistentCourses: (courses) => ipcRenderer.invoke("storage:savePersistentCourses", courses),
+    deleteCourseFromDisk: (params) => ipcRenderer.invoke("storage:deleteCourseFromDisk", params),
+    autoLocateCourseDir: (params) => ipcRenderer.invoke("storage:autoLocateCourseDir", params)
   },
   app: {
     getPath: (name) => ipcRenderer.invoke("app:getPath", name),

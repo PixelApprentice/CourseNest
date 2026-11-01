@@ -30,8 +30,11 @@ function getSavedThemeBg(): string {
 }
 
 // Hardware acceleration and laptop battery/CPU optimization flags
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto');
+  app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,VaapiVideoEncoder');
+}
 app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
 
 // Memory exhaustion safeguards (protects 16GB RAM Linux environments with 0 swap)
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=2048');

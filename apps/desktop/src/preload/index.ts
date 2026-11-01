@@ -98,8 +98,41 @@ const electronAPI = {
     getPersistentCourses: () =>
       ipcRenderer.invoke('storage:getPersistentCourses') as Promise<any[]>,
 
+    saveProgress: (params: { courseId: string; progress: any }) =>
+      ipcRenderer.invoke('storage:saveProgress', params) as Promise<boolean>,
+
+    getProgress: (courseId?: string) =>
+      ipcRenderer.invoke('storage:getProgress', courseId) as Promise<any>,
+
+    saveFlashcard: (card: any) =>
+      ipcRenderer.invoke('storage:saveFlashcard', card) as Promise<boolean>,
+
+    getFlashcards: (courseId?: string) =>
+      ipcRenderer.invoke('storage:getFlashcards', courseId) as Promise<any[]>,
+
     savePersistentCourses: (courses: any[]) =>
       ipcRenderer.invoke('storage:savePersistentCourses', courses) as Promise<boolean>,
+
+    deleteCourseFromDisk: (params: { courseId: string; courseDir?: string; mountPath?: string }) =>
+      ipcRenderer.invoke('storage:deleteCourseFromDisk', params) as Promise<{
+        success: boolean;
+        error?: string;
+      }>,
+
+    autoLocateCourseDir: (params: { courseId: string; courseDir?: string }) =>
+      ipcRenderer.invoke('storage:autoLocateCourseDir', params) as Promise<{
+        exists: boolean;
+        courseDir?: string;
+        mountPath?: string;
+      }>,
+
+    onMountsChanged: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('storage:mountsChanged', handler);
+      return () => {
+        ipcRenderer.removeListener('storage:mountsChanged', handler);
+      };
+    },
   },
 
   app: {
