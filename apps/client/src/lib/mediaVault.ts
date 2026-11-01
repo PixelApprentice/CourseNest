@@ -57,7 +57,8 @@ function getDb(): Promise<IDBDatabase> {
 }
 
 /**
- * Store a binary asset for a course (supports both IndexedDB and external disk in Electron)
+ * Store a binary asset for a course (writes to physical SSD / external drive in Electron;
+ * falls back to sandboxed IndexedDB only in pure web browser environments without native filesystem access).
  */
 export async function saveMediaFile(
   courseId: string,
@@ -68,26 +69,33 @@ export async function saveMediaFile(
   externalMountPath?: string,
 ): Promise<void> {
   const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
-
-  // If targeting external storage in Electron desktop, write directly to physical drive!
   const electron = (window as any).electron || (window as any).__ELECTRON__;
-  if (targetStorage === 'external' && electron?.storage?.writeMediaFile) {
+
+  // 1. In Electron desktop runtime: write directly to physical drive (SSD or External USB/HDD)!
+  // This avoids storing multi-gigabyte (2GB - 10GB+) media files in browser IndexedDB.
+  if (electron?.storage?.writeMediaFile) {
     try {
       const buffer = await blob.arrayBuffer();
       const res = await electron.storage.writeMediaFile({
         courseId,
         filePath: normalizedPath,
         buffer,
-        targetDir: externalMountPath,
+        targetDir: targetStorage === 'external' ? externalMountPath : undefined,
+        storageTier: targetStorage,
       });
-      if (!res?.success) {
-        console.warn(`Writing to external disk failed:`, (res as any)?.error);
+
+      if (res?.success) {
+        // Physical file successfully stored on SSD or external disk!
+        // Do NOT duplicate large video/audio/doc binaries in IndexedDB.
+        return;
       }
+      console.warn('Physical disk write returned false, falling back to IndexedDB');
     } catch (diskErr) {
-      console.warn(`Writing to external disk failed, falling back to IndexedDB:`, diskErr);
+      console.warn('Physical disk write failed, falling back to sandboxed IndexedDB:', diskErr);
     }
   }
 
+  // 2. Sandboxed Web Browser Fallback (e.g. pure web browser without desktop bridge)
   const db = await getDb();
   const key = `${courseId}::${normalizedPath}`;
 

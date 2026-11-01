@@ -48,6 +48,25 @@ function resolveCourseStorageDir(baseDir: string, courseId: string): string {
   return join(normBase, 'CourseNest_courses', courseId);
 }
 
+function getSystemMountRoots(): string[] {
+  const rootsToProbe: string[] = [];
+  if (process.platform === 'linux') {
+    const user = process.env.USER || process.env.LOGNAME || '';
+    rootsToProbe.push('/media', '/run/media');
+    if (user) {
+      rootsToProbe.push(`/media/${user}`, `/run/media/${user}`);
+    }
+    rootsToProbe.push('/mnt');
+  } else if (process.platform === 'darwin') {
+    rootsToProbe.push('/Volumes');
+  } else if (process.platform === 'win32') {
+    for (let code = 68; code <= 90; code++) {
+      rootsToProbe.push(`${String.fromCharCode(code)}:\\`);
+    }
+  }
+  return rootsToProbe;
+}
+
 export function registerIpcHandlers(): void {
   // ── Frameless Window Controls (VS Code Style) ──────────────────────
   ipcMain.handle('window:minimize', (event) => {
@@ -271,15 +290,14 @@ export function registerIpcHandlers(): void {
     }
   });
 
-  // ── External Disk Course Writing & Ingestion ─────────────────────────
+  // ── SSD & Removable Drive Course Writing & Ingestion ─────────────────
   ipcMain.handle('storage:saveCourseToDisk', async (_event, params: { course: any; targetDir?: string }) => {
     try {
       const { course, targetDir } = params;
-      const baseDir = targetDir
-        ? validatePathBoundary(targetDir)
-        : configuredExternalMountPath
-        ? validatePathBoundary(configuredExternalMountPath)
-        : join(app.getPath('userData'), 'courses');
+      const isInternal = course?.storageTier === 'internal' || (!targetDir && !configuredExternalMountPath);
+      const baseDir = isInternal
+        ? join(app.getPath('userData'), 'courses')
+        : validatePathBoundary(targetDir || configuredExternalMountPath || join(app.getPath('userData'), 'courses'));
 
       const courseDir = resolveCourseStorageDir(baseDir, course.id);
       await mkdir(courseDir, { recursive: true });
@@ -287,8 +305,8 @@ export function registerIpcHandlers(): void {
       const manifestPath = join(courseDir, 'coursenest-manifest.json');
       const courseWithDir = {
         ...course,
-        storageTier: targetDir || configuredExternalMountPath ? 'external' : 'internal',
-        externalMountPath: baseDir,
+        storageTier: isInternal ? 'internal' : 'external',
+        externalMountPath: isInternal ? undefined : baseDir,
         externalCourseDir: courseDir,
       };
 
@@ -316,13 +334,14 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(
     'storage:writeMediaFile',
-    async (_event, params: { courseId: string; filePath: string; buffer: ArrayBuffer; targetDir?: string }) => {
-      const { courseId, filePath, buffer, targetDir } = params;
-      const baseDir = targetDir
-        ? validatePathBoundary(targetDir)
-        : configuredExternalMountPath
-        ? validatePathBoundary(configuredExternalMountPath)
-        : join(app.getPath('userData'), 'courses');
+    async (_event, params: { courseId: string; filePath: string; buffer: ArrayBuffer; targetDir?: string; storageTier?: 'internal' | 'external' }) => {
+      const { courseId, filePath, buffer, targetDir, storageTier } = params;
+      // Internal tier writes directly to physical SSD (app.getPath('userData')/courses)
+      // External tier writes to targetDir or configuredExternalMountPath
+      const isInternal = storageTier === 'internal' || (!targetDir && !configuredExternalMountPath);
+      const baseDir = isInternal
+        ? join(app.getPath('userData'), 'courses')
+        : validatePathBoundary(targetDir || configuredExternalMountPath || join(app.getPath('userData'), 'courses'));
 
       const courseDir = resolveCourseStorageDir(baseDir, courseId);
       const cleanRelative = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
@@ -330,7 +349,7 @@ export function registerIpcHandlers(): void {
 
       await mkdir(dirname(fullPath), { recursive: true });
       await writeFile(fullPath, Buffer.from(buffer));
-      return { success: true, fullPath };
+      return { success: true, fullPath, courseDir };
     },
   );
 
@@ -338,27 +357,44 @@ export function registerIpcHandlers(): void {
     'storage:readMediaFile',
     async (_event, params: { courseId: string; filePath: string; targetDir?: string }) => {
       const { courseId, filePath, targetDir } = params;
-      const baseDir = targetDir
-        ? validatePathBoundary(targetDir)
-        : configuredExternalMountPath
-        ? validatePathBoundary(configuredExternalMountPath)
-        : join(app.getPath('userData'), 'courses');
-
       const cleanRelative = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
-      const candidatePaths = [
-        join(resolveCourseStorageDir(baseDir, courseId), cleanRelative),
-        join(baseDir, 'coursenest_courses', courseId, cleanRelative),
-        join(baseDir, 'CourseNest_courses', courseId, cleanRelative),
-        join(baseDir, courseId, cleanRelative),
-      ];
 
-      for (const p of candidatePaths) {
+      // Prioritized directory candidates: targetDir, configured mount, SSD, and auto-detected external drives
+      const candidateDirs = new Set<string>();
+      if (targetDir) candidateDirs.add(resolve(targetDir));
+      if (configuredExternalMountPath) candidateDirs.add(resolve(configuredExternalMountPath));
+      candidateDirs.add(join(app.getPath('userData'), 'courses'));
+
+      const roots = getSystemMountRoots();
+      for (const root of roots) {
         try {
-          const resolved = validatePathBoundary(p);
-          await access(resolved, constants.R_OK);
-          const fileBuf = await readFile(resolved);
-          return { exists: true, buffer: fileBuf.buffer };
+          if (existsSync(root)) {
+            const entries = await readdir(root, { withFileTypes: true });
+            for (const entry of entries) {
+              if (entry.isDirectory()) {
+                candidateDirs.add(join(root, entry.name));
+              }
+            }
+          }
         } catch {}
+      }
+
+      for (const baseDir of candidateDirs) {
+        const candidatePaths = [
+          join(resolveCourseStorageDir(baseDir, courseId), cleanRelative),
+          join(baseDir, 'coursenest_courses', courseId, cleanRelative),
+          join(baseDir, 'CourseNest_courses', courseId, cleanRelative),
+          join(baseDir, courseId, cleanRelative),
+        ];
+
+        for (const p of candidatePaths) {
+          try {
+            const resolved = validatePathBoundary(p);
+            await access(resolved, constants.R_OK);
+            const fileBuf = await readFile(resolved);
+            return { exists: true, buffer: fileBuf.buffer, path: resolved };
+          } catch {}
+        }
       }
 
       return { exists: false, error: 'Media file not found on disk' };

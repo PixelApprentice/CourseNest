@@ -68,7 +68,7 @@ const electronAPI = {
         manifestPath: string;
       }>,
 
-    writeMediaFile: (params: { courseId: string; filePath: string; buffer: ArrayBuffer; targetDir?: string }) =>
+    writeMediaFile: (params: { courseId: string; filePath: string; buffer: ArrayBuffer; targetDir?: string; storageTier?: 'internal' | 'external' }) =>
       ipcRenderer.invoke('storage:writeMediaFile', params) as Promise<{
         success: boolean;
         fullPath: string;

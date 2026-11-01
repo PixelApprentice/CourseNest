@@ -379,6 +379,16 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
               externalMountPath: c.externalMountPath || scanPath,
               isExternalMissing: false,
             });
+          } else {
+            // Automatically discover and register courses present on newly mounted drive
+            courseMap.set(c.id, {
+              ...c,
+              storageTier: 'external',
+              externalMountPath: c.externalMountPath || scanPath,
+              isExternalMissing: false,
+              isImported: true,
+              addedAt: c.addedAt || new Date().toISOString(),
+            });
           }
         }
       }

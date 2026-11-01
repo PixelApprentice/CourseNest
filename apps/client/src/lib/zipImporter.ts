@@ -891,21 +891,25 @@ export async function commitImportedCourse(params: {
   reportProgress(94, targetStorage === 'external' ? 'Writing manifest and structure to external disk...' : 'Writing course manifest to offline vault...');
   addCourseToVault(courseData);
 
-  // If external storage, mirror course manifest to physical external drive
+  // Mirror course manifest to physical drive (SSD or External Drive) in Electron
   const electron = (window as any).electron || (window as any).__ELECTRON__;
-  if (targetStorage === 'external' && electron?.storage?.saveCourseToDisk && targetBaseMountPath) {
+  if (electron?.storage?.saveCourseToDisk) {
     try {
       const diskRes = await electron.storage.saveCourseToDisk({
         course: courseData,
-        targetDir: targetBaseMountPath,
+        targetDir: targetStorage === 'external' ? targetBaseMountPath : undefined,
       });
       if (diskRes?.courseDir) {
         courseData.externalCourseDir = diskRes.courseDir;
         addCourseToVault(courseData);
       }
-      addLog('INFO', 'IMPORTER', `Course saved to physical external disk at: ${diskRes?.courseDir || targetBaseMountPath}`);
+      addLog(
+        'INFO',
+        'IMPORTER',
+        `Course saved to physical ${targetStorage === 'external' ? 'external drive' : 'SSD'} at: ${diskRes?.courseDir || 'Local Vault'}`
+      );
     } catch (diskErr: any) {
-      addLog('WARN', 'IMPORTER', `Failed to write course manifest to external drive: ${diskErr.message}`);
+      addLog('WARN', 'IMPORTER', `Failed to write course manifest to disk: ${diskErr.message}`);
     }
   }
 

@@ -129,7 +129,31 @@ export function useStorageConfig(): { config: StorageConfig; refresh: () => void
   useEffect(() => {
     const handler = () => setConfig(getStorageConfig());
     window.addEventListener('coursenest_storage_changed', handler);
-    return () => window.removeEventListener('coursenest_storage_changed', handler);
+
+    // Auto-detect physical external drives when plugged in or removed in desktop runtime
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    let unsubMounts: (() => void) | undefined;
+
+    if (electron?.storage?.onMountsChanged) {
+      unsubMounts = electron.storage.onMountsChanged(async () => {
+        try {
+          const current = getStorageConfig();
+          if (current.volumeType === 'external' && electron.storage.checkVolumeAccess) {
+            const status = await electron.storage.checkVolumeAccess(current.externalMountPath);
+            if (status.isMounted !== current.isMounted) {
+              toggleMountStatus(status.isMounted);
+            }
+          }
+          window.dispatchEvent(new Event('coursenest_storage_changed'));
+          window.dispatchEvent(new Event('coursenest_vault_updated'));
+        } catch {}
+      });
+    }
+
+    return () => {
+      window.removeEventListener('coursenest_storage_changed', handler);
+      if (unsubMounts) unsubMounts();
+    };
   }, []);
 
   return { config, refresh };

@@ -29,9 +29,20 @@ const electronAPI = {
     scanDirectoryForCourses: (dirPath) => ipcRenderer.invoke("storage:scanDirectoryForCourses", dirPath),
     listExternalMounts: () => ipcRenderer.invoke("storage:listExternalMounts"),
     getPersistentCourses: () => ipcRenderer.invoke("storage:getPersistentCourses"),
+    saveProgress: (params) => ipcRenderer.invoke("storage:saveProgress", params),
+    getProgress: (courseId) => ipcRenderer.invoke("storage:getProgress", courseId),
+    saveFlashcard: (card) => ipcRenderer.invoke("storage:saveFlashcard", card),
+    getFlashcards: (courseId) => ipcRenderer.invoke("storage:getFlashcards", courseId),
     savePersistentCourses: (courses) => ipcRenderer.invoke("storage:savePersistentCourses", courses),
     deleteCourseFromDisk: (params) => ipcRenderer.invoke("storage:deleteCourseFromDisk", params),
-    autoLocateCourseDir: (params) => ipcRenderer.invoke("storage:autoLocateCourseDir", params)
+    autoLocateCourseDir: (params) => ipcRenderer.invoke("storage:autoLocateCourseDir", params),
+    onMountsChanged: (callback) => {
+      const handler = () => callback();
+      ipcRenderer.on("storage:mountsChanged", handler);
+      return () => {
+        ipcRenderer.removeListener("storage:mountsChanged", handler);
+      };
+    }
   },
   app: {
     getPath: (name) => ipcRenderer.invoke("app:getPath", name),
