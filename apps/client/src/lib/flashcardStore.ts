@@ -73,6 +73,13 @@ export function saveFlashcard(card: Omit<Flashcard, 'id' | 'createdAt' | 'review
     console.error('Failed to save flashcard to storage:', e);
   }
 
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.saveFlashcard) {
+    try {
+      electron.storage.saveFlashcard(fullCard);
+    } catch {}
+  }
+
   return fullCard;
 }
 

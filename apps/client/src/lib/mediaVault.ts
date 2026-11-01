@@ -5,8 +5,10 @@
  */
 
 const DB_NAME = 'coursenest_media_vault_v1';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'media_files';
+const META_STORE_NAME = 'meta_courses';
+const PROGRESS_STORE_NAME = 'meta_progress';
 
 export interface StoredMediaFile {
   key: string; // `${courseId}::${filePath}`
@@ -35,6 +37,12 @@ function getDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
         store.createIndex('courseId', 'courseId', { unique: false });
+      }
+      if (!db.objectStoreNames.contains(META_STORE_NAME)) {
+        db.createObjectStore(META_STORE_NAME, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(PROGRESS_STORE_NAME)) {
+        db.createObjectStore(PROGRESS_STORE_NAME, { keyPath: 'courseId' });
       }
     };
 
@@ -66,12 +74,15 @@ export async function saveMediaFile(
   if (targetStorage === 'external' && electron?.storage?.writeMediaFile) {
     try {
       const buffer = await blob.arrayBuffer();
-      await electron.storage.writeMediaFile({
+      const res = await electron.storage.writeMediaFile({
         courseId,
         filePath: normalizedPath,
         buffer,
         targetDir: externalMountPath,
       });
+      if (!res?.success) {
+        console.warn(`Writing to external disk failed:`, (res as any)?.error);
+      }
     } catch (diskErr) {
       console.warn(`Writing to external disk failed, falling back to IndexedDB:`, diskErr);
     }
@@ -314,5 +325,87 @@ export async function getMediaVaultUsage(): Promise<{ totalBytes: number; fileCo
     });
   } catch {
     return { totalBytes: 0, fileCount: 0 };
+  }
+}
+
+/**
+ * Persist course metadata into the unlimited IndexedDB metadata vault
+ */
+export async function saveCourseMetadata(course: any): Promise<void> {
+  const db = await getDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(META_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(META_STORE_NAME);
+    const req = store.put(course);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * Retrieve all course metadata stored in IndexedDB
+ */
+export async function getAllCoursesMetadata(): Promise<any[]> {
+  try {
+    const db = await getDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction(META_STORE_NAME, 'readonly');
+      const store = tx.objectStore(META_STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Delete a course metadata record and associated progress from IndexedDB
+ */
+export async function deleteCourseMetadata(courseId: string): Promise<void> {
+  try {
+    const db = await getDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction([META_STORE_NAME, PROGRESS_STORE_NAME], 'readwrite');
+      tx.objectStore(META_STORE_NAME).delete(courseId);
+      tx.objectStore(PROGRESS_STORE_NAME).delete(courseId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {}
+}
+
+/**
+ * Save course progress record into IndexedDB
+ */
+export async function saveCourseProgressRecord(courseId: string, progress: any): Promise<void> {
+  try {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(PROGRESS_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(PROGRESS_STORE_NAME);
+      const req = store.put({ courseId, ...progress, updatedAt: new Date().toISOString() });
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch {}
+}
+
+/**
+ * Retrieve course progress record from IndexedDB
+ */
+export async function getCourseProgressRecord(courseId: string): Promise<any | null> {
+  try {
+    const db = await getDb();
+    return new Promise((resolve) => {
+      const tx = db.transaction(PROGRESS_STORE_NAME, 'readonly');
+      const store = tx.objectStore(PROGRESS_STORE_NAME);
+      const req = store.get(courseId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
   }
 }

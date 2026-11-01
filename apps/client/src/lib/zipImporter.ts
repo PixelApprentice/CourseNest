@@ -658,7 +658,9 @@ export async function commitImportedCourse(params: {
             continue;
           }
 
+          const fileBlobSize = blob.size;
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType, targetStorage, targetBaseMountPath);
+          blob = null as any; // Release blob buffer immediately to prevent heap exhaustion
           delete (fileItem as any).rawFile;
           delete (fileItem as any).zipEntry;
           delete (fileItem as any).getData;
@@ -671,7 +673,7 @@ export async function commitImportedCourse(params: {
             title: les.title,
             src: `vault-media://${courseId}/${normalizedPath}`,
             filename: fileItem.filename,
-            fileSizeBytes: fileItem.sizeBytes || blob.size,
+            fileSizeBytes: fileItem.sizeBytes || fileBlobSize,
             mimeType: fileItem.mimeType,
           });
         } else if (fileItem.type === 'document') {
@@ -693,7 +695,9 @@ export async function commitImportedCourse(params: {
             continue;
           }
 
+          const docBlobSize = blob.size;
           await saveMediaFile(courseId, normalizedPath, blob, fileItem.mimeType, targetStorage, targetBaseMountPath);
+          blob = null as any; // Release blob buffer immediately to prevent heap exhaustion
           delete (fileItem as any).rawFile;
           delete (fileItem as any).zipEntry;
           delete (fileItem as any).getData;
@@ -706,7 +710,7 @@ export async function commitImportedCourse(params: {
             title: fileItem.filename,
             src: `vault-media://${courseId}/${normalizedPath}`,
             filename: fileItem.filename,
-            fileSizeBytes: fileItem.sizeBytes || blob.size,
+            fileSizeBytes: fileItem.sizeBytes || docBlobSize,
             mimeType: fileItem.mimeType,
           });
         } else if (fileItem.type === 'rich_text') {
@@ -891,11 +895,15 @@ export async function commitImportedCourse(params: {
   const electron = (window as any).electron || (window as any).__ELECTRON__;
   if (targetStorage === 'external' && electron?.storage?.saveCourseToDisk && targetBaseMountPath) {
     try {
-      await electron.storage.saveCourseToDisk({
+      const diskRes = await electron.storage.saveCourseToDisk({
         course: courseData,
         targetDir: targetBaseMountPath,
       });
-      addLog('INFO', 'IMPORTER', `Course saved to physical external disk at: ${targetBaseMountPath}/coursenest_courses/${courseId}`);
+      if (diskRes?.courseDir) {
+        courseData.externalCourseDir = diskRes.courseDir;
+        addCourseToVault(courseData);
+      }
+      addLog('INFO', 'IMPORTER', `Course saved to physical external disk at: ${diskRes?.courseDir || targetBaseMountPath}`);
     } catch (diskErr: any) {
       addLog('WARN', 'IMPORTER', `Failed to write course manifest to external drive: ${diskErr.message}`);
     }

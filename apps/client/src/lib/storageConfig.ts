@@ -62,6 +62,10 @@ export function setExternalMountPath(path: string): void {
   const current = getStorageConfig();
   current.externalMountPath = path;
   saveStorageConfig(current);
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.setExternalMountPath) {
+    electron.storage.setExternalMountPath(path).catch?.(() => {});
+  }
   addLog('INFO', 'STORAGE', `External mount directory configured: ${path}`);
 }
 
