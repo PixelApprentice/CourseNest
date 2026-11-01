@@ -83,7 +83,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, [storageConfig.volumeType, storageConfig.externalMountPath, storageConfig.isMounted]);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased relative">
+    <div className="flex flex-col h-screen overflow-hidden bg-(--cn-bg) text-(--cn-text-primary) antialiased relative">
       {/* Bespoke Theme Atmospheric Scenic Backdrop (Halal Mosque Skyline, Sakura Garden, Ghibli, Manga, Cyberpunk) */}
       <ThemeScenicBackdrop />
 
@@ -111,11 +111,11 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           {/* Mobile bottom navigation bar (Hidden on Lesson Player) */}
           {!isLessonPlayerPage && (
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[var(--cn-surface)] border-t border-[var(--cn-border)] flex items-center justify-around z-30">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-(--cn-surface) border-t border-(--cn-border) flex items-center justify-around z-30">
               <Link
                 to="/"
                 className={`flex flex-col items-center gap-1 text-[11px] ${
-                  location.pathname === '/' ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
+                  location.pathname === '/' ? 'text-(--cn-primary) font-semibold' : 'text-(--cn-text-muted)'
                 }`}
               >
                 <IconLayoutDashboard size={18} />
@@ -124,7 +124,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <Link
                 to="/library"
                 className={`flex flex-col items-center gap-1 text-[11px] ${
-                  location.pathname.startsWith('/library') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
+                  location.pathname.startsWith('/library') ? 'text-(--cn-primary) font-semibold' : 'text-(--cn-text-muted)'
                 }`}
               >
                 <IconBooks size={18} />
@@ -133,7 +133,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <Link
                 to="/import"
                 className={`flex flex-col items-center gap-1 text-[11px] ${
-                  location.pathname.startsWith('/import') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
+                  location.pathname.startsWith('/import') ? 'text-(--cn-primary) font-semibold' : 'text-(--cn-text-muted)'
                 }`}
               >
                 <IconUpload size={18} />
@@ -142,7 +142,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <Link
                 to="/settings"
                 className={`flex flex-col items-center gap-1 text-[11px] ${
-                  location.pathname.startsWith('/settings') ? 'text-[var(--cn-primary)] font-semibold' : 'text-[var(--cn-text-muted)]'
+                  location.pathname.startsWith('/settings') ? 'text-(--cn-primary) font-semibold' : 'text-(--cn-text-muted)'
                 }`}
               >
                 <IconSettings size={18} />
