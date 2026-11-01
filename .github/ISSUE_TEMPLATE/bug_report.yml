@@ -8,6 +8,17 @@ body:
       value: |
         Thanks for taking the time to report an issue in **CourseNest**!
   - type: dropdown
+    id: version
+    attributes:
+      label: CourseNest Version
+      description: Which version of CourseNest are you running?
+      options:
+        - "v2.0.0 (Current Release)"
+        - "main branch / development build"
+        - "v1.x (Legacy)"
+    validations:
+      required: true
+  - type: dropdown
     id: platform
     attributes:
       label: Affected Platform
@@ -15,9 +26,10 @@ body:
       options:
         - Electron Desktop (Linux)
         - Electron Desktop (Windows)
+        - Electron Desktop (macOS)
         - Web Client (Browser)
-        - Android Mobile
-        - FastAPI Central Server
+        - Android Mobile & Tablet
+        - Model Context Protocol (MCP) Server
         - Core Engine / Importer Package
     validations:
       required: true

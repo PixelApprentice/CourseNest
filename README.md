@@ -251,7 +251,13 @@ Add the CourseNest MCP server to your `claude_desktop_config.json`:
 | `coursenest_get_lesson` | Tool | Retrieves the full lesson content, lecture notes, video URL, code blocks, and transcript for study |
 | `coursenest_search` | Tool | Performs keyword and full-text search across all enrolled courses, lecture notes, and transcripts |
 | `coursenest_save_note` | Tool | Creates or updates study notes and markdown summaries for a specific lesson |
+| `coursenest_get_notes` | Tool | Retrieves saved study notes and annotations for a specific lesson |
+| `coursenest_create_flashcard` | Tool | Generates a new active recall question-answer flashcard for a lesson or topic |
+| `coursenest_get_flashcards` | Tool | Lists all generated flashcards for a specific lesson or the entire course |
+| `coursenest_get_progress` | Tool | Returns completion status, study time, and percentages across lessons and courses |
 | `coursenest://courses` | Resource | Read-only JSON resource containing all enrolled courses and metadata |
+| `coursenest://progress` | Resource | Real-time JSON resource containing offline study progress and completion timestamps |
+| `coursenest://flashcards` | Resource | Real-time JSON resource containing user active-recall flashcard decks |
 
 ### 🧪 Running MCP Standalone
 You can run the MCP server directly via stdio:
@@ -378,6 +384,29 @@ CourseNest is built with strict adherence to production-grade engineering princi
 * **Zip Slip & Path Traversal Guards**: Canonical boundary checks prevent unauthorized file writing or sandbox escaping.
 * **Content Sandboxing**: Strict inert text extraction for untrusted code, HTML, and script files.
 * **Zero Main-Thread Blocking**: All media processing, decompression, and IndexedDB transactions execute asynchronously without hitching the UI render loop.
+
+---
+
+## 💖 Open Source Acknowledgements & Credits
+
+CourseNest is built upon world-class free and open-source software, standards, and community tools. We proudly credit and attribute these core foundations:
+
+| Technology / Tool | Role in CourseNest | License | Project Link |
+| :--- | :--- | :--- | :--- |
+| **[SQLite](https://www.sqlite.org/)** (`better-sqlite3` & `aiosqlite`) | Local relational storage, ACID transaction management, and course index caching | Public Domain / MIT | [sqlite.org](https://www.sqlite.org/) |
+| **[VideoLAN (VLC)](https://www.videolan.org/)** | Media playback architecture inspiration, Web Audio API 200% Super-Gain booster, speech clarity EQ, and frame stepper | GPL-2.0 / LGPL-2.1 | [videolan.org](https://www.videolan.org/) |
+| **[Electron](https://www.electronjs.org/)** | Air-gapped cross-platform desktop runtime for Linux, macOS, and Windows with hardened IPC filesystem bridges | MIT | [electronjs.org](https://www.electronjs.org/) |
+| **[Capacitor](https://capacitorjs.com/)** | Native runtime for Android tablet deployment and Storage Access Framework (SAF) external micro-SD card access | MIT | [capacitorjs.com](https://capacitorjs.com/) |
+| **[React 19](https://react.dev/) & [React Router 7](https://reactrouter.com/)** | Declarative concurrent UI rendering, responsive dockable split-workbenches, and offline hash-based routing | MIT | [react.dev](https://react.dev/) |
+| **[Tailwind CSS v4](https://tailwindcss.com/)** | Pure cascade layer utility CSS engine powering 9 bespoke themes, accessible tokens, and GPU keyframe animations | MIT | [tailwindcss.com](https://tailwindcss.com/) |
+| **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)** | Standard open protocol connecting offline AI assistants (Claude, Gemini, Ollama) directly to local course syllabi and flashcards | MIT | [modelcontextprotocol.io](https://modelcontextprotocol.io/) |
+| **[Tabler Icons](https://tabler.io/icons)** | Over 5,000 crisp, pixel-perfect SVG vector icons rendered inline with zero external network requests | MIT | [tabler.io/icons](https://tabler.io/icons) |
+| **[JSZip](https://stuk.github.io/jszip/), [Yauzl](https://github.com/thejoshwolfe/yauzl) & [7z-wasm](https://github.com/jinfeihan57/7z-wasm)** | Sandboxed client-side archive decompression, PPTX slide XML extraction, and Zip Slip path traversal defense | MIT / BSD | [stuk.github.io/jszip](https://stuk.github.io/jszip/) |
+| **[SIL Open Font License](https://scripts.sil.org/OFL) Typography** | Plus Jakarta Sans, Nunito, Fredoka, Chakra Petch, DM Sans, and JetBrains Mono for optimal reading legibility | SIL OFL 1.1 | [scripts.sil.org/OFL](https://scripts.sil.org/OFL) |
+| **[Zod](https://zod.dev/) & [Pydantic](https://docs.pydantic.dev/)** | Runtime schema validation, course manifest verification, and tamper detection across TypeScript and Python | MIT | [zod.dev](https://zod.dev/) |
+| **[FastAPI](https://fastapi.tiangolo.com/) & [SQLAlchemy 2.0](https://www.sqlalchemy.org/)** | Headless async Python backend engine and dialect-agnostic ORM for optional multi-user local network lab servers | MIT | [fastapi.tiangolo.com](https://fastapi.tiangolo.com/) |
+
+> In-app attribution is also accessible directly within the application under **Settings → Open Source Credits**.
 
 ---
 

@@ -25,17 +25,19 @@ import {
   IconSettings,
   IconTrash,
   IconFolderOpen,
-  IconRefresh
+  IconRefresh,
+  IconHeart
 } from '@tabler/icons-react';
 import { useAiConfig, saveAiConfig, askAiAssistant, type AiProvider, type PedagogicalMode } from '../../lib/aiConfig';
 import { StatusBadge } from '../../components/StatusBadge';
 import { LogsPage } from '../logs/LogsPage';
 import { ThemeSelectorGrid } from '../../components/ThemeSelectorGrid';
+import { OpenSourceCreditsSection } from './OpenSourceCreditsSection';
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') === 'logs' ? 'logs' : 'general';
-  const [activeTab, setActiveTab] = useState<'general' | 'logs'>(initialTab);
+  const initialTab = searchParams.get('tab') === 'logs' ? 'logs' : searchParams.get('tab') === 'credits' ? 'credits' : 'general';
+  const [activeTab, setActiveTab] = useState<'general' | 'logs' | 'credits'>(initialTab);
 
   const [playbackSpeed, setPlaybackSpeed] = useState('1');
   const [autoplayNext, setAutoplayNext] = useState(true);
@@ -59,8 +61,11 @@ export function SettingsPage() {
   const [aiSavedNotice, setAiSavedNotice] = useState(false);
 
   useEffect(() => {
-    if (searchParams.get('tab') === 'logs') {
-      setActiveTab('logs');
+    const tab = searchParams.get('tab');
+    if (tab === 'logs' || tab === 'credits') {
+      setActiveTab(tab);
+    } else {
+      setActiveTab('general');
     }
   }, [searchParams]);
 
@@ -87,6 +92,15 @@ export function SettingsPage() {
   };
 
   const handleTestAiConnection = async () => {
+    if (!aiApiKey.trim() && aiProvider !== 'ollama' && !aiBaseUrl.includes('localhost') && !aiBaseUrl.includes('127.0.0.1')) {
+      setAiTestStatus({
+        testing: false,
+        success: false,
+        message: 'Please enter an API key before testing cloud connectivity.',
+      });
+      return;
+    }
+
     setAiTestStatus({ testing: true });
     saveAiConfig({
       ...aiConfig,
@@ -105,7 +119,7 @@ export function SettingsPage() {
     if (res.success) {
       setAiTestStatus({ testing: false, success: true, message: res.text });
     } else {
-      setAiTestStatus({ testing: false, success: false, message: res.error || 'Connection failed' });
+      setAiTestStatus({ testing: false, success: false, message: res.error || res.text || 'Connection failed' });
     }
   };
 
@@ -191,9 +205,9 @@ export function SettingsPage() {
     }
   };
 
-  const switchTab = (tab: 'general' | 'logs') => {
+  const switchTab = (tab: 'general' | 'logs' | 'credits') => {
     setActiveTab(tab);
-    setSearchParams(tab === 'logs' ? { tab: 'logs' } : {});
+    setSearchParams(tab === 'general' ? {} : { tab });
   };
 
   return (
@@ -205,12 +219,12 @@ export function SettingsPage() {
             Settings & Diagnostics
           </h1>
           <p className="text-xs md:text-sm text-[var(--cn-text-secondary)] mt-1">
-            Manage storage volumes, backups, optional AI assistance, and system logs.
+            Manage storage volumes, backups, open source credits, and system logs.
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center bg-[var(--cn-surface-subtle)] p-1 rounded-xl border border-[var(--cn-border)] text-xs font-mono self-start sm:self-auto">
+        <div className="flex items-center bg-[var(--cn-surface-subtle)] p-1 rounded-xl border border-[var(--cn-border)] text-xs font-mono self-start sm:self-auto flex-wrap gap-1">
           <button
             onClick={() => switchTab('general')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
@@ -224,6 +238,18 @@ export function SettingsPage() {
           </button>
 
           <button
+            onClick={() => switchTab('credits')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
+              activeTab === 'credits'
+                ? 'bg-[var(--cn-surface)] text-[var(--cn-primary)] shadow-xs'
+                : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)]'
+            }`}
+          >
+            <IconHeart size={15} className={activeTab === 'credits' ? 'text-rose-500 fill-rose-500/20' : ''} />
+            <span>Open Source Credits</span>
+          </button>
+
+          <button
             onClick={() => switchTab('logs')}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
               activeTab === 'logs'
@@ -232,13 +258,15 @@ export function SettingsPage() {
             }`}
           >
             <IconTerminal size={15} />
-            <span>System Logs & Diagnostics</span>
+            <span>System Logs</span>
           </button>
         </div>
       </div>
 
       {activeTab === 'logs' ? (
         <LogsPage />
+      ) : activeTab === 'credits' ? (
+        <OpenSourceCreditsSection />
       ) : (
         <div className="space-y-8">
           {/* Removable Media & Storage Volumes Manager */}
@@ -470,7 +498,7 @@ export function SettingsPage() {
                     type="button"
                     onClick={() => {
                       setAiProvider('gemini');
-                      setAiBaseUrl('https://generativelanguage.googleapis.com');
+                      setAiBaseUrl('https://generativelanguage.googleapis.com/v1beta');
                       setAiModelName('gemini-1.5-flash');
                     }}
                     className={`p-3 rounded-xl border text-left transition-colors ${
@@ -480,10 +508,10 @@ export function SettingsPage() {
                     }`}
                   >
                     <div className="font-bold flex items-center justify-between">
-                      <span>Google Gemini Pro</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--cn-primary-tint)] text-[var(--cn-primary)]">Cloud API</span>
+                      <span>Google Gemini</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--cn-primary-tint)] text-[var(--cn-primary)]">Free & Paid Tier</span>
                     </div>
-                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">Default: gemini-1.5-flash (fast & free tier available)</div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">Default: gemini-1.5-flash (Google AI Studio Key)</div>
                   </button>
 
                   <button
@@ -509,32 +537,12 @@ export function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setAiProvider('omniroute');
-                      setAiBaseUrl('https://tokenharbor.ai/v1');
-                      setAiModelName('deepseek-v4-flash:free');
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-colors ${
-                      aiProvider === 'omniroute' && aiBaseUrl.includes('tokenharbor')
-                        ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
-                        : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
-                    }`}
-                  >
-                    <div className="font-bold flex items-center justify-between">
-                      <span>Free Cloud AI (Zero-Cost Gateway)</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">100% Free Tier</span>
-                    </div>
-                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">DeepSeek V4 Flash / MiMo 2.5 (OpenAI-compatible zero-cost route)</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAiProvider('omniroute');
+                      setAiProvider('ollama');
                       setAiBaseUrl('http://localhost:11434/v1');
                       setAiModelName('llama3.2');
                     }}
                     className={`p-3 rounded-xl border text-left transition-colors ${
-                      aiProvider === 'omniroute' && aiBaseUrl.includes('11434')
+                      aiProvider === 'ollama'
                         ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
                         : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
                     }`}
@@ -549,21 +557,21 @@ export function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setAiProvider('omniroute');
-                      setAiBaseUrl('http://localhost:8000/v1');
+                      setAiProvider('openai-compatible');
+                      setAiBaseUrl('https://api.openai.com/v1');
                       setAiModelName('gpt-4o-mini');
                     }}
                     className={`p-3 rounded-xl border text-left transition-colors ${
-                      aiProvider === 'omniroute' && aiBaseUrl.includes('8000')
+                      aiProvider === 'openai-compatible'
                         ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/20 font-bold text-[var(--cn-text-primary)]'
                         : 'border-[var(--cn-border)] hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)]'
                     }`}
                   >
                     <div className="font-bold flex items-center justify-between">
-                      <span>Campus Gateway / Custom API</span>
+                      <span>OpenAI / Custom Compatible</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">Custom Proxy</span>
                     </div>
-                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">OpenAI-compatible server or institutional campus relay</div>
+                    <div className="text-[10px] text-[var(--cn-text-muted)] font-normal mt-1">OpenAI API or any compatible campus proxy / relay</div>
                   </button>
                 </div>
               </div>
