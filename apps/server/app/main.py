@@ -18,6 +18,7 @@ logger = logging.getLogger("coursenest.server")
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
     # Startup
+    settings.validate_security()
     logger.info("Starting CourseNest Server v2.0.0 (debug=%s)", settings.debug)
     yield
     # Shutdown
@@ -34,7 +35,7 @@ app = FastAPI(
     redoc_url="/api/redoc" if settings.debug else None,
 )
 
-# CORS
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -43,11 +44,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount API routes
+# Mount versioned API routes
 app.include_router(api_router, prefix="/api/v1")
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+    """Top-level health check endpoint."""
     return {"status": "ok", "version": "2.0.0"}

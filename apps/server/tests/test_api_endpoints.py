@@ -50,9 +50,7 @@ async def test_auth_registration_and_login(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_courses_listing_and_filtering(
-    client: AsyncClient, db_session: AsyncSession
-) -> None:
+async def test_courses_listing_and_filtering(client: AsyncClient, db_session: AsyncSession) -> None:
     """Test course catalog listing and keyword search."""
     # Create sample published and unpublished courses
     c1 = Course(

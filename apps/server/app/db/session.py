@@ -1,18 +1,36 @@
-"""Database session and engine configuration."""
+"""Database session and engine configuration supporting PostgreSQL and SQLite."""
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.config import settings
 
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=10,
-)
+
+def create_engine_for_url(url: str, debug: bool = False) -> AsyncEngine:
+    """Build async SQLAlchemy engine with connection pool tailored to the DB dialect."""
+    if url.startswith("sqlite"):
+        engine_kwargs: dict[str, Any] = {
+            "echo": debug,
+            "connect_args": {"check_same_thread": False},
+        }
+    else:
+        engine_kwargs = {
+            "echo": debug,
+            "pool_pre_ping": True,
+            "pool_size": 5,
+            "max_overflow": 10,
+        }
+    return create_async_engine(url, **engine_kwargs)
+
+
+engine = create_engine_for_url(settings.database_url, debug=settings.debug)
 
 async_session_factory = async_sessionmaker(
     engine,
@@ -22,7 +40,7 @@ async_session_factory = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency that provides a database session per request."""
+    """Dependency providing an isolated async database session per request."""
     async with async_session_factory() as session:
         try:
             yield session

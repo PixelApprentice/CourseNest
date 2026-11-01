@@ -1,6 +1,10 @@
 """Application configuration loaded from environment variables."""
 
+import logging
+
 from pydantic_settings import BaseSettings
+
+logger = logging.getLogger("coursenest.server")
 
 
 class Settings(BaseSettings):
@@ -30,6 +34,14 @@ class Settings(BaseSettings):
     ai_model: str | None = None
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "case_sensitive": False}
+
+    def validate_security(self) -> None:
+        """Emit security warnings if default credentials are detected."""
+        if not self.debug and self.secret_key == "change-this-in-production":
+            logger.warning(
+                "SECURITY WARNING: 'secret_key' is set to default placeholder in non-debug mode! "
+                "Set SECRET_KEY in production to a secure random string."
+            )
 
 
 settings = Settings()

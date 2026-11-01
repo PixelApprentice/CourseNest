@@ -4,15 +4,14 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.security import JWTError, decode_access_token
 from app.db.models.user import User
 from app.db.session import get_db
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=True)
 
 
 async def get_current_user(
@@ -27,11 +26,7 @@ async def get_current_user(
     )
 
     try:
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.secret_key,
-            algorithms=[settings.algorithm],
-        )
+        payload = decode_access_token(credentials.credentials)
         user_id: str | None = payload.get("sub")
         if user_id is None:
             raise credentials_exception
@@ -47,15 +42,15 @@ async def get_current_user(
     return user
 
 
-def require_role(required_role: str) -> Callable[..., Awaitable[User]]:
-    """Dependency factory that checks the user has a specific role."""
+def require_role(*allowed_roles: str) -> Callable[..., Awaitable[User]]:
+    """Dependency factory checking if the user possesses permitted roles (or admin)."""
 
     async def role_checker(user: User = Depends(get_current_user)) -> User:
-        if user.role != required_role and user.role != "admin":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role '{required_role}' required",
-            )
-        return user
+        if user.role == "admin" or user.role in allowed_roles:
+            return user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Operation requires one of roles: {', '.join(allowed_roles)}",
+        )
 
     return role_checker
