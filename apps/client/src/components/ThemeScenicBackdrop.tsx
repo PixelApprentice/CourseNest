@@ -12,7 +12,7 @@ export const ThemeScenicBackdrop: React.FC = () => {
         return (
           <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
             {/* Islamic 8-Point Rub el Hizb Geometric Tiling Texture */}
-            <svg className="absolute inset-0 w-full h-full opacity-[0.14] text-[#047857]" xmlns="http://www.w3.org/2000/svg">
+            <svg className="absolute inset-0 w-full h-full opacity-[0.18] text-[#047857]" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <pattern id="halal-tile-bg" width="80" height="80" patternUnits="userSpaceOnUse">
                   <polygon points="40,8 47,26 65,20 57,37 72,40 57,43 65,60 47,54 40,72 33,54 15,60 23,43 8,40 23,37 15,20 33,26" fill="none" stroke="currentColor" strokeWidth="1.4" />
@@ -24,7 +24,7 @@ export const ThemeScenicBackdrop: React.FC = () => {
 
             {/* Grand Mosque Skyline Vector Illustration at Bottom-Right & Center */}
             <svg
-              className="absolute right-0 bottom-0 w-full max-w-4xl h-80 sm:h-96 opacity-[0.20] text-[#047857] transition-opacity duration-300 ease-out"
+              className="absolute right-0 bottom-0 w-full max-w-4xl h-80 sm:h-96 opacity-[0.28] text-[#047857] transition-opacity duration-300 ease-out"
               viewBox="0 0 1000 400"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
@@ -34,7 +34,7 @@ export const ThemeScenicBackdrop: React.FC = () => {
               <path
                 d="M850,70 A25,25 0 1 0 865,115 A30,30 0 1 1 850,70 Z"
                 fill="#D97706"
-                className="opacity-70"
+                className="opacity-90"
               />
 
               {/* Distant Stars */}

@@ -20,12 +20,12 @@ mkdir -p "$BIN_DIR"
 mkdir -p "$DESKTOP_DIR"
 mkdir -p "$ICON_DIR"
 
-# 2. Check if build artifacts exist; if not, build them
+# 2. Build client and desktop bundle to ensure latest fixes are included
 UNPACKED_SRC="$REPO_ROOT/apps/desktop/release/linux-unpacked"
 APPIMAGE_SRC=$(find "$REPO_ROOT/apps/desktop/release" -maxdepth 1 -name "*.AppImage" 2>/dev/null | head -n 1)
 
-if [ ! -d "$UNPACKED_SRC" ]; then
-  echo "[-] Building client and desktop bundle..."
+if [ "$1" != "--skip-build" ]; then
+  echo "[-] Building latest client and desktop bundle..."
   pnpm --filter @coursenest/client build
   pnpm --filter @coursenest/desktop build
   cd "$REPO_ROOT/apps/desktop" && pnpm electron-builder --dir

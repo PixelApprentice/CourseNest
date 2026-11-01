@@ -47,7 +47,7 @@ function formatTimestamp(iso: string): string {
   }
 }
 
-export function NotificationDropdown() {
+export function NotificationDropdown({ compact = false }: { compact?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -71,15 +71,23 @@ export function NotificationDropdown() {
       {/* Bell Trigger Button */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95"
+        className={
+          compact
+            ? 'p-1 rounded-sm text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] transition-colors relative'
+            : 'relative p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95'
+        }
         title="Notifications"
         aria-label="View notifications"
       >
-        <IconBell size={16} />
+        <IconBell size={compact ? 13 : 16} />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--cn-primary)] text-[10px] font-bold text-[var(--cn-primary-text)] shadow-xs">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
+          compact ? (
+            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[var(--cn-primary)]" />
+          ) : (
+            <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--cn-primary)] text-[10px] font-bold text-[var(--cn-primary-text)] shadow-xs">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )
         )}
       </button>
 

@@ -17,6 +17,10 @@ import {
   IconSearch
 } from '@tabler/icons-react';
 import { APP_VERSION } from '@coursenest/config';
+import { NotificationDropdown } from './NotificationDropdown';
+import { BrandLogo } from './BrandLogo';
+import { usePlayback, togglePlaybackPlayPause } from '../lib/playbackStore';
+import { IconPlayerPause } from '@tabler/icons-react';
 
 interface AppTitleBarProps {
   onOpenThemeModal?: () => void;
@@ -27,6 +31,7 @@ export function AppTitleBar({ onOpenThemeModal }: AppTitleBarProps) {
   const { config: storageConfig } = useStorageConfig();
   const location = useLocation();
   const navigate = useNavigate();
+  const { playback } = usePlayback();
 
   const [isMaximized, setIsMaximized] = useState(false);
   const [isElectron, setIsElectron] = useState(false);
@@ -105,16 +110,11 @@ export function AppTitleBar({ onOpenThemeModal }: AppTitleBarProps) {
     : 'External Volume';
 
   return (
-    <header className="h-8.5 shrink-0 bg-[var(--cn-surface-subtle)] border-b border-[var(--cn-border)] flex items-center justify-between px-3 select-none text-[12px] text-[var(--cn-text-muted)] font-sans relative z-50 transition-colors">
+    <header className="h-10 shrink-0 bg-[var(--cn-surface-subtle)] border-b border-[var(--cn-border)] flex items-center justify-between px-3.5 select-none text-[12px] text-[var(--cn-text-muted)] font-sans relative z-50 transition-colors">
       {/* Left: Emblem + App Identity + Page Context (Draggable) */}
-      <div className="flex items-center gap-2.5 min-w-0 cn-window-drag flex-1">
-        <div className="flex items-center gap-1.5 cn-window-no-drag cursor-pointer" onClick={() => navigate('/')}>
-          <div className="w-4 h-4 rounded-xs bg-[var(--cn-primary)] text-[var(--cn-primary-text)] flex items-center justify-center font-bold text-[10px]">
-            C
-          </div>
-          <span className="font-bold text-[var(--cn-text-primary)] font-mono text-xs tracking-tight">
-            CourseNest
-          </span>
+      <div className="flex items-center gap-3 min-w-0 cn-window-drag flex-1">
+        <div className="flex items-center gap-2 cn-window-no-drag cursor-pointer" onClick={() => navigate('/')}>
+          <BrandLogo size="sm" showBadge={false} />
           <span className="px-1.5 py-0.2 rounded-xs text-[9px] font-mono font-semibold bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-primary)]">
             v{APP_VERSION}
           </span>
@@ -126,12 +126,41 @@ export function AppTitleBar({ onOpenThemeModal }: AppTitleBarProps) {
         </span>
       </div>
 
-      {/* Center: Window Drag Zone */}
-      <div className="hidden lg:flex items-center justify-center text-[11px] text-[var(--cn-text-muted)] font-mono opacity-60 cn-window-drag px-4">
-        CourseNest Private Educational Vault
-      </div>
+      {/* Center: Draggable Window Zone with Theme Mood OR YouTube-style Now Playing Indicator */}
+      {playback && playback.isPlaying ? (
+        <div 
+          onClick={() => navigate(`/course/${playback.courseId}/lesson/${playback.lessonId}`)}
+          className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] text-[11px] font-mono cursor-pointer hover:bg-[var(--cn-primary-tint)]/80 transition-colors cn-window-no-drag shadow-xs animate-in fade-in"
+          title={`Now Playing: ${playback.lessonTitle} (${playback.courseTitle}). Click to jump to lesson.`}
+        >
+          {/* YouTube-style animated equalizer bars */}
+          <span className="flex items-end gap-0.5 h-3">
+            <span className="w-0.5 bg-[var(--cn-primary)] rounded-full animate-pulse h-2" />
+            <span className="w-0.5 bg-[var(--cn-primary)] rounded-full animate-pulse h-3 [animation-delay:150ms]" />
+            <span className="w-0.5 bg-[var(--cn-primary)] rounded-full animate-pulse h-1.5 [animation-delay:300ms]" />
+          </span>
+          <span className="font-semibold truncate max-w-[200px]">
+            {playback.lessonTitle}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              togglePlaybackPlayPause();
+            }}
+            className="p-0.5 hover:opacity-80 active:scale-95 ml-0.5"
+            title="Pause playback"
+          >
+            <IconPlayerPause size={12} />
+          </button>
+        </div>
+      ) : (
+        <div className="hidden lg:flex items-center justify-center text-[11px] text-[var(--cn-text-muted)] font-mono opacity-60 cn-window-drag px-4">
+          {currentTheme.name} • Private Offline Vault
+        </div>
+      )}
 
-      {/* Right: Storage Status + Theme Studio + Window Controls */}
+      {/* Right: Storage Status + Tools + Window Controls */}
       <div className="flex items-center gap-2 shrink-0 cn-window-no-drag">
         {/* Storage State Pill */}
         <button
@@ -180,6 +209,9 @@ export function AppTitleBar({ onOpenThemeModal }: AppTitleBarProps) {
         >
           <IconSearch size={13} />
         </button>
+
+        {/* Notification Center */}
+        <NotificationDropdown compact />
 
         {/* Theme Studio Trigger */}
         {onOpenThemeModal && (

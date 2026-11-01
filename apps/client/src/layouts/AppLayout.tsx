@@ -1,23 +1,19 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import { BrandLogo } from '../components/BrandLogo';
-import { NotificationDropdown } from '../components/NotificationDropdown';
 import { ThemeScenicBackdrop } from '../components/ThemeScenicBackdrop';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { AppTitleBar } from '../components/AppTitleBar';
-import { useTheme } from '../lib/themeManager';
+import { YouTubeMiniPlayer } from '../components/YouTubeMiniPlayer';
+import { useStorageConfig, toggleMountStatus } from '../lib/storageConfig';
+import { reconcileVaultStorage } from '../lib/courseStore';
+import { addNotification } from '../lib/notificationStore';
 import { 
-  IconSearch, 
-  IconMoon, 
-  IconSun, 
-  IconPalette,
   IconLayoutDashboard, 
   IconBooks, 
   IconUpload, 
   IconSettings
 } from '@tabler/icons-react';
-import { APP_NAME } from '@coursenest/config';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -25,44 +21,79 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
-  const { currentTheme, setTheme } = useTheme();
+  const { config: storageConfig } = useStorageConfig();
   const location = useLocation();
 
-  const toggleQuickDark = () => {
-    if (currentTheme.isDark) {
-      const lastLight = (localStorage.getItem('cn_last_light_theme') as any) || 'paper';
-      setTheme(lastLight);
-    } else {
-      const lastDark = (localStorage.getItem('cn_last_dark_theme') as any) || 'obsidian';
-      setTheme(lastDark);
-    }
-  };
-
-  const getPageContext = () => {
-    const path = location.pathname;
-    if (path === '/') return { section: 'Home', title: 'Learning Overview' };
-    if (path === '/welcome' || path === '/landing') return { section: 'About', title: 'Platform Showcase' };
-    if (path.startsWith('/library')) return { section: 'Courses', title: 'My Library' };
-    if (path.startsWith('/studio') || path.startsWith('/create')) return { section: 'Authoring', title: 'Course Studio' };
-    if (path.startsWith('/import')) return { section: 'Materials', title: 'Add Courses' };
-    if (path.startsWith('/course/')) return { section: 'Courses', title: 'Course Details' };
-    if (path.startsWith('/settings')) return { section: 'Preferences', title: 'Settings & Logs' };
-    if (path.startsWith('/logs')) return { section: 'Diagnostics', title: 'System Logs' };
-    return { section: 'CourseNest', title: APP_NAME };
-  };
-
-  const context = getPageContext();
   const isLessonPlayerPage = location.pathname.includes('/lesson/');
+
+  // Global hotplug watcher: automatically detects when external HDD is connected or disconnected
+  useEffect(() => {
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (!electron?.storage || storageConfig.volumeType !== 'external') return;
+
+    let isChecking = false;
+    const probeVolume = async () => {
+      if (isChecking) return;
+      isChecking = true;
+      try {
+        const mountPath = storageConfig.externalMountPath;
+        if (!mountPath) return;
+
+        const res = await electron.storage.checkVolumeAccess(mountPath);
+        if (res.isMounted !== storageConfig.isMounted) {
+          toggleMountStatus(res.isMounted);
+          await reconcileVaultStorage(mountPath);
+          if (res.isMounted) {
+            addNotification({
+              title: 'External Storage Connected',
+              message: `Removable drive connected at "${mountPath}". Offline courses are ready.`,
+              priority: 'normal',
+              category: 'backup',
+            });
+          } else {
+            addNotification({
+              title: 'External Storage Disconnected',
+              message: `Removable drive was unplugged. Course notes and progress are safe.`,
+              priority: 'high',
+              category: 'backup',
+            });
+          }
+        }
+      } catch {} finally {
+        isChecking = false;
+      }
+    };
+
+    // Instant real-time native volume change listener (udev / dbus / proc)
+    const cleanupMountListener = electron.storage.onMountsChanged
+      ? electron.storage.onMountsChanged(probeVolume)
+      : undefined;
+
+    // Fast check on window focus (e.g. user plugged in USB drive and clicked back to app)
+    window.addEventListener('focus', probeVolume);
+
+    // Periodic heartbeat check every 3 seconds
+    const interval = setInterval(probeVolume, 3000);
+
+    return () => {
+      if (cleanupMountListener) cleanupMountListener();
+      window.removeEventListener('focus', probeVolume);
+      clearInterval(interval);
+    };
+  }, [storageConfig.volumeType, storageConfig.externalMountPath, storageConfig.isMounted]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased relative">
-      {/* Dynamic Theme Atmospheric Scenic Backdrop */}
+      {/* Bespoke Theme Atmospheric Scenic Backdrop (Halal Mosque Skyline, Sakura Garden, Ghibli, Manga, Cyberpunk) */}
       <ThemeScenicBackdrop />
+
+      {/* Floating YouTube-Style Picture-in-Picture Mini Player */}
+      <YouTubeMiniPlayer />
 
       {/* Theme Studio Modal */}
       <ThemeSelectorModal isOpen={isThemeModalOpen} onClose={() => setIsThemeModalOpen(false)} />
 
-      {/* VS Code Style Custom Integrated Frameless Titlebar */}
+      {/* Unified Custom Frameless Titlebar & Utility Toolbar */}
       <AppTitleBar onOpenThemeModal={() => setIsThemeModalOpen(true)} />
 
       {/* Main App Body Row */}
@@ -73,60 +104,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {/* Top Header Bar (Hidden on Lesson Player to prevent double header stacking) */}
-          {!isLessonPlayerPage && (
-            <header className="h-14 px-6 border-b border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="md:hidden">
-                  <BrandLogo size="sm" showBadge={false} />
-                </div>
-
-                <div className="hidden md:flex items-center gap-2 text-xs text-[var(--cn-text-muted)] font-mono">
-                  <span>{context.section}</span>
-                  <span>/</span>
-                  <span className="font-sans font-semibold text-[var(--cn-text-primary)] text-sm">{context.title}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Quick search button */}
-                <Link
-                  to="/library"
-                  className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
-                  title="Search courses"
-                  aria-label="Search courses"
-                >
-                  <IconSearch size={16} />
-                </Link>
-
-                {/* Notification Center */}
-                <NotificationDropdown />
-
-                {/* Theme & Aesthetic Studio Trigger */}
-                <button
-                  data-testid="theme-studio-btn"
-                  onClick={() => setIsThemeModalOpen(true)}
-                  className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90 relative"
-                  title="Open Theme & Aesthetic Studio"
-                  aria-label="Open Theme & Aesthetic Studio"
-                >
-                  <IconPalette size={16} />
-                </button>
-
-                {/* Quick Dark/Light Toggle */}
-                <button
-                  onClick={toggleQuickDark}
-                  className="p-2 rounded-lg text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
-                  title={currentTheme.isDark ? 'Switch to daylight reading' : 'Switch to dark focus'}
-                  aria-label="Toggle color theme"
-                >
-                  {currentTheme.isDark ? <IconSun size={16} /> : <IconMoon size={16} />}
-                </button>
-              </div>
-            </header>
-          )}
-
-          {/* Scrollable Main Region (Dedicated single scroll context for Lesson Player) */}
+          {/* Scrollable Main Region */}
           <main className={`flex-1 ${isLessonPlayerPage ? 'overflow-hidden' : 'overflow-y-auto pb-16 md:pb-0'}`}>
             {children}
           </main>

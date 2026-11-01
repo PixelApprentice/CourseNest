@@ -42,6 +42,7 @@ export interface AiReadingCompanionProps {
   onSeekTo?: (seconds: number) => void;
   onNavigateSlide?: (slideNumber: number) => void;
   onAppendNote?: (text: string) => void;
+  onToggleComplete?: (completed: boolean) => void;
   className?: string;
 }
 
@@ -66,6 +67,7 @@ export function AiReadingCompanion({
   onSeekTo,
   onNavigateSlide,
   onAppendNote,
+  onToggleComplete,
   className,
 }: AiReadingCompanionProps) {
   const { config, updateConfig } = useAiConfig();
@@ -179,6 +181,7 @@ I have indexed the reading materials for **${lessonTitle || 'this lesson'}**. As
       onSeekTo,
       onNavigateSlide,
       onAppendNote,
+      onToggleComplete,
     };
 
     const res = await askAiAssistant(payload);

@@ -4,9 +4,9 @@ import {
   IconBooks, 
   IconUpload, 
   IconSettings, 
-  IconShieldCheck, 
+  IconSparkles,
   IconDatabase,
-  IconSparkles 
+  IconShieldCheck
 } from '@tabler/icons-react';
 import { BrandLogo } from '../components/BrandLogo';
 import { useVaultCourses, getVaultAnalytics } from '../lib/courseStore';
@@ -27,7 +27,7 @@ export function Sidebar() {
     <aside className="flex flex-col w-64 border-r border-[var(--cn-border)] bg-[var(--cn-surface)] select-none">
       {/* Brand Header */}
       <div className="h-16 px-5 border-b border-[var(--cn-border)] flex items-center justify-between">
-        <BrandLogo size="md" />
+        <BrandLogo size="md" showBadge={true} />
       </div>
 
       {/* Primary Navigation */}

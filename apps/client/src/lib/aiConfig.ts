@@ -87,6 +87,7 @@ export interface AiQueryPayload {
   onSeekTo?: (seconds: number) => void;
   onNavigateSlide?: (slideNumber: number) => void;
   onAppendNote?: (note: string) => void;
+  onToggleComplete?: (completed: boolean) => void;
 }
 
 export interface AiQueryResponse {
@@ -132,24 +133,42 @@ export function generateOfflineLocalAnswer(
   topChunks: ScoredChunk[],
 ): { text: string; toolCalls: ToolActionCall[] } {
   const q = payload.question.toLowerCase().trim();
-  const title = payload.lessonTitle || 'this unit';
+  const title = payload.lessonTitle || payload.courseTitle || 'this unit';
   const mode = payload.pedagogicalMode || 'socratic';
   const toolCalls: ToolActionCall[] = [];
 
+  // Extract real text excerpts from topChunks or lesson payload
+  const primaryChunk = topChunks[0]?.chunk;
+  const rawExcerpt = primaryChunk?.content || payload.materialExcerpt || payload.subtitleTranscript || '';
+  const cleanExcerpt = rawExcerpt.slice(0, 300).replace(/\s+/g, ' ').trim();
+
   // 1. Generate Flashcards Request
   if (q.includes('flashcard') || q.includes('active recall') || q.includes('anki')) {
-    const flashcardsToCreate = [
-      {
+    const flashcardsToCreate: Array<{ question: string; answer: string; hint: string }> = [];
+
+    if (topChunks.length > 0) {
+      topChunks.slice(0, 3).forEach((sc) => {
+        const text = sc.chunk.content.replace(/\s+/g, ' ').trim();
+        const sentences = text.split(/(?<=[.!?])\s+/).filter((s) => s.length > 15);
+        if (sentences.length > 0) {
+          const qText = sentences[0]!;
+          const aText = sentences.slice(1, 3).join(' ') || text.slice(0, 180);
+          flashcardsToCreate.push({
+            question: `Key concept from ${sc.chunk.citationBadge || title}: What is stated regarding "${qText.slice(0, 70)}..."?`,
+            answer: aText.slice(0, 220),
+            hint: `Review ${sc.chunk.citationBadge || title}`,
+          });
+        }
+      });
+    }
+
+    if (flashcardsToCreate.length === 0) {
+      flashcardsToCreate.push({
         question: `What are the primary operational characteristics of ${title}?`,
-        answer: topChunks[0]?.chunk.content.slice(0, 200) || `Core concepts and execution models discussed in ${title}.`,
+        answer: cleanExcerpt || `Core principles and methodology introduced in ${title}.`,
         hint: `Review the foundational section of ${title}.`,
-      },
-      {
-        question: `How does spatial locality affect memory caching efficiency?`,
-        answer: `When a memory address is accessed, an entire cache line (64 bytes) is transferred to L1 SRAM, accelerating subsequent adjacent reads.`,
-        hint: `Recall CPU memory hierarchies.`,
-      },
-    ];
+      });
+    }
 
     for (const fc of flashcardsToCreate) {
       toolCalls.push({
@@ -164,7 +183,7 @@ export function generateOfflineLocalAnswer(
     }
 
     return {
-      text: `### 🃏 Active Recall Flashcards Generated: ${title}\n\nI have generated **${flashcardsToCreate.length} active-recall flashcards** based on verified lesson materials and saved them directly to your personal review deck!\n\n${flashcardsToCreate.map((f, i) => `**Card ${i + 1}**: ${f.question}\n*Answer*: ${f.answer}`).join('\n\n')}\n\n*(Created locally by CourseNest Offline Study Engine)*`,
+      text: `### 🃏 Active Recall Flashcards Generated: ${title}\n\nI generated **${flashcardsToCreate.length} active-recall flashcard(s)** directly from your verified lesson materials:\n\n${flashcardsToCreate.map((f, i) => `**Card ${i + 1}**: ${f.question}\n*Answer*: ${f.answer}`).join('\n\n')}\n\n*(Created locally by CourseNest Offline Study Engine)*`,
       toolCalls,
     };
   }
@@ -189,7 +208,7 @@ export function generateOfflineLocalAnswer(
       }).join('\n');
 
       return {
-        text: `### ⏱️ Video Lecture Citations: ${title}\n\nThis concept is discussed directly in the video recording at the following timestamps. Click any timestamp or view the auto-jump below:\n\n${citations}\n\n*(Vector-indexed by CourseNest Offline Engine)*`,
+        text: `### ⏱️ Video Lecture Citations: ${title}\n\nThis concept is discussed in the lecture video at the following timestamps:\n\n${citations}\n\n*(Vector-indexed by CourseNest Offline Engine)*`,
         toolCalls,
       };
     }
@@ -218,29 +237,29 @@ export function generateOfflineLocalAnswer(
   // 4. Grounded Context Synthesis based on Pedagogical Mode
   if (topChunks.length > 0) {
     const primary = topChunks[0]!;
-    const citations = topChunks.map((c) => `${c.chunk.citationBadge} ${c.chunk.content.slice(0, 140)}...`).join('\n\n');
+    const citations = topChunks.map((c) => `> **${c.chunk.citationBadge}**: "${c.chunk.content.slice(0, 180)}..."`).join('\n\n');
 
     if (mode === 'socratic') {
       return {
-        text: `### 🧑‍🏫 Academic Socratic Exploration: ${title}\n\nTo understand this concept deeply, consider the core principle highlighted in **${primary.chunk.citationBadge}**:\n\n> "${primary.chunk.content.slice(0, 180)}..."\n\n**Think through this:**\n1. What happens to overall throughput when latency increases across memory stages?\n2. How does the relationship between time and spatial locality affect cache miss rates?\n\n*Review **${primary.chunk.citationBadge}** in the player or notes above to test your hypothesis.*`,
+        text: `### 🧑‍🏫 Academic Socratic Exploration: ${title}\n\nConsider what the lesson material states in **${primary.chunk.citationBadge}**:\n\n> "${primary.chunk.content.slice(0, 220)}..."\n\n**To deepen your understanding:**\n1. How does this concept apply to the objectives of ${title}?\n2. What are the key consequences or requirements implied by this statement?\n\n*Review **${primary.chunk.citationBadge}** above to test your hypothesis.*`,
         toolCalls,
       };
     } else if (mode === 'quiz') {
       return {
-        text: `### 📝 Practice Checkpoint: ${title}\n\nBased directly on **${primary.chunk.citationBadge}**:\n\n**1. Comprehension Test**\nAccording to the lesson material, what is the significance of the following principle?\n> "${primary.chunk.content.slice(0, 150)}..."\n\n**Quick Answer:**\nClick **"Active Recall Flashcards"** in the companion header to practice this question in your review deck!`,
+        text: `### 📝 Practice Checkpoint: ${title}\n\nBased directly on **${primary.chunk.citationBadge}**:\n\n**Comprehension Test**\nAccording to the lesson material:\n> "${primary.chunk.content.slice(0, 180)}..."\n\n**Think through this question:**\nWhat is the primary role or significance of this topic in ${title}?\n\n*(Practice active recall or review your lesson notes above!)*`,
         toolCalls,
       };
     } else {
       // Reference mode
       return {
-        text: `### ⚡ Technical Reference: ${title}\n\n**Verified Excerpts:**\n\n${citations}\n\n*(Vector-retrieved locally via CourseNest RAG Engine)*`,
+        text: `### ⚡ Technical Reference: ${title}\n\n**Verified Excerpts from ${title}:**\n\n${citations}\n\n*(Vector-retrieved locally via CourseNest RAG Engine)*`,
         toolCalls,
       };
     }
   }
 
   return {
-    text: `### Study Companion: ${title}\n\nI have indexed the materials for **${title}**. You can ask about specific formulas, request video timestamps, generate active-recall flashcards, or ask for a slide breakdown!`,
+    text: `### Study Companion: ${title}\n\nI have indexed the materials for **${title}**. You can ask about specific concepts from the lesson, request video timestamps, generate active-recall flashcards, or ask for a study breakdown!`,
     toolCalls,
   };
 }
@@ -270,6 +289,7 @@ export async function askAiAssistant(payload: AiQueryPayload): Promise<AiQueryRe
     onSeekTo: payload.onSeekTo,
     onNavigateSlide: payload.onNavigateSlide,
     onAppendNote: payload.onAppendNote,
+    onToggleComplete: payload.onToggleComplete,
   };
 
   const isLocalEndpoint =
@@ -278,7 +298,7 @@ export async function askAiAssistant(payload: AiQueryPayload): Promise<AiQueryRe
     config.provider === 'ollama';
 
   // If no external API key and not a local endpoint, or offline without local LLM:
-  if (!config.apiKey && config.provider !== 'omniroute' && config.provider !== 'ollama' && !isLocalEndpoint) {
+  if (!config.apiKey && config.provider !== 'ollama' && !isLocalEndpoint) {
     const offlineResult = generateOfflineLocalAnswer(payload, topChunks);
     const executedActions: Array<{ tool: string; summary: string }> = [];
 
@@ -344,7 +364,11 @@ ${payload.question}`;
 
     if (config.provider === 'gemini') {
       const model = config.modelName || 'gemini-1.5-flash';
-      const endpoint = `${config.baseUrl.replace(/\/+$/, '')}/models/${model}:generateContent?key=${config.apiKey.trim()}`;
+      let baseUrl = config.baseUrl.trim().replace(/\/+$/, '');
+      if (!baseUrl.includes('/v1')) {
+        baseUrl += '/v1beta';
+      }
+      const endpoint = `${baseUrl}/models/${model}:generateContent?key=${config.apiKey.trim()}`;
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -431,23 +455,11 @@ ${payload.question}`;
       })),
     };
   } catch (err: any) {
-    addLog('WARN', 'AI', 'Remote RAG query failed, running offline local academic fallback', err.message);
-    const offlineResult = generateOfflineLocalAnswer(payload, topChunks);
-    const executedActions: Array<{ tool: string; summary: string }> = [];
-
-    for (const action of offlineResult.toolCalls) {
-      const res = await executeInAppTool(action, toolContext);
-      executedActions.push({ tool: action.tool, summary: res.resultSummary });
-    }
-
+    addLog('WARN', 'AI', 'Remote RAG query failed', err.message);
     return {
-      success: true,
-      text: `${offlineResult.text}\n\n*(Remote model unavailable. Processed via CourseNest In-Browser RAG Engine)*`,
-      executedActions,
-      groundedSources: topChunks.map((c) => ({
-        citation: c.chunk.citationBadge,
-        excerpt: c.excerpt,
-      })),
+      success: false,
+      text: `### ⚠️ AI Query Failed\n\n**Error:** ${err.message || 'Unable to connect to AI provider'}.\n\n*Please verify your API key, base URL, and model name in Settings > Study Companion.*`,
+      error: err.message || 'Remote AI query failed',
     };
   }
 }

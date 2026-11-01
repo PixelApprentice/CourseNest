@@ -12,11 +12,18 @@ import {
   IconGauge, 
   IconBroadcast,
   IconBadgeCc,
-  IconHeadphones
+  IconHeadphones,
+  IconAlertTriangle,
+  IconRotateClockwise
 } from '@tabler/icons-react';
 import { addLog } from '../lib/logger';
 import { anySubtitleToVtt } from '../lib/formatHelpers';
 import { ThemeLoader } from './ThemeLoader';
+import { 
+  setActivePlayback, 
+  updatePlaybackTime, 
+  dismissPlayback 
+} from '../lib/playbackStore';
 
 export interface SubtitleTrack {
   id?: string;
@@ -31,6 +38,9 @@ const EMPTY_SUBTITLES: SubtitleTrack[] = [];
 interface VlcMediaViewerProps {
   src: string;
   title?: string;
+  courseTitle?: string;
+  courseId?: string;
+  lessonId?: string;
   subtitles?: SubtitleTrack[];
   isAudio?: boolean;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
@@ -42,6 +52,9 @@ interface VlcMediaViewerProps {
 export function VlcMediaViewer({
   src,
   title = 'Course Video Stream',
+  courseTitle = 'Course',
+  courseId = '',
+  lessonId = '',
   subtitles = EMPTY_SUBTITLES,
   isAudio = false,
   onTimeUpdate,
@@ -79,9 +92,40 @@ export function VlcMediaViewer({
   const [activeSubtitles, setActiveSubtitles] = useState<SubtitleTrack[]>(subtitles);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [hasPlaybackError, setHasPlaybackError] = useState(false);
+  const [errorTimestamp, setErrorTimestamp] = useState(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const prevSubsKeyRef = useRef<string>('');
   const createdSubtitleBlobUrlsRef = useRef<string[]>([]);
+
+  // Register and sync with global playback store (for YouTube-style Miniplayer & Titlebar Indicator)
+  useEffect(() => {
+    setActivePlayback({
+      courseId,
+      courseTitle,
+      lessonId,
+      lessonTitle: title,
+      src,
+      isPlaying,
+      currentTime,
+      duration,
+      isMuted,
+      onTogglePlay: togglePlay,
+      onToggleMute: () => setIsMuted((m) => !m),
+      onSeek: (t) => {
+        if (videoRef.current) {
+          videoRef.current.currentTime = t;
+          setCurrentTime(t);
+        }
+      },
+    });
+  }, [isPlaying, isMuted, src, title, courseTitle, courseId, lessonId]);
+
+  useEffect(() => {
+    return () => {
+      dismissPlayback();
+    };
+  }, []);
 
   // Sync incoming subtitles only when track identifiers or sources actually change
   useEffect(() => {
@@ -347,6 +391,7 @@ export function VlcMediaViewer({
     if (!videoRef.current) return;
     const curr = videoRef.current.currentTime;
     setCurrentTime(curr);
+    updatePlaybackTime(curr, duration);
 
     // Enforce A-B loop boundary
     if (loopA !== null && loopB !== null && curr >= loopB) {
@@ -355,6 +400,32 @@ export function VlcMediaViewer({
     }
 
     onTimeUpdate?.(curr, duration);
+  };
+
+  const handlePlaybackError = () => {
+    setIsBuffering(false);
+    setIsPlaying(false);
+    const stoppedAt = videoRef.current?.currentTime || currentTime;
+    setErrorTimestamp(stoppedAt);
+    setHasPlaybackError(true);
+    addLog('WARN', 'PLAYER', `Media stream interrupted at ${Math.round(stoppedAt)}s. Possible storage disconnection.`);
+  };
+
+  const handleRetryStream = () => {
+    setHasPlaybackError(false);
+    setIsBuffering(true);
+    if (videoRef.current) {
+      videoRef.current.load();
+      if (errorTimestamp > 0) {
+        videoRef.current.currentTime = errorTimestamp;
+      }
+      videoRef.current.play().then(() => {
+        setIsPlaying(true);
+        setIsBuffering(false);
+      }).catch(() => {
+        setIsBuffering(false);
+      });
+    }
   };
 
   // Apply initial seek time ONLY ONCE per video src
@@ -568,7 +639,7 @@ export function VlcMediaViewer({
         }}
         onCanPlay={() => setIsBuffering(false)}
         onLoadStart={() => setIsBuffering(Boolean(src))}
-        onError={() => setIsBuffering(false)}
+        onError={handlePlaybackError}
         onEnded={onEnded}
       >
         {activeSubtitles.map((sub, idx) => (
@@ -582,6 +653,28 @@ export function VlcMediaViewer({
           />
         ))}
       </video>
+
+      {/* Stream Disconnection / Storage Disconnection Recovery Overlay */}
+      {hasPlaybackError && (
+        <div className="absolute inset-0 z-30 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-4 animate-in fade-in duration-200">
+          <div className="w-12 h-12 rounded-2xl bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border border-[var(--cn-warning)]/30 flex items-center justify-center shadow-lg">
+            <IconAlertTriangle size={24} />
+          </div>
+          <div className="space-y-1 max-w-md">
+            <h4 className="text-sm font-bold text-white">Media Stream Interrupted</h4>
+            <p className="text-xs text-white/70 font-mono leading-relaxed">
+              Playback stopped at <span className="text-[var(--cn-warning)] font-bold">{formatTime(errorTimestamp)}</span>. If your external drive was unplugged, reconnect it and retry.
+            </p>
+          </div>
+          <button
+            onClick={handleRetryStream}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:opacity-90 active:scale-95 transition-all shadow-md"
+          >
+            <IconRotateClockwise size={15} />
+            <span>Retry & Resume from {formatTime(errorTimestamp)}</span>
+          </button>
+        </div>
+      )}
 
       {/* Buffering & Storage Access Theme-Distinct Loader Overlay */}
       {(isBuffering || !src) && (

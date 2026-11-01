@@ -24,6 +24,7 @@ export interface ToolExecutionContext {
   onSeekTo?: (seconds: number) => void;
   onNavigateSlide?: (slideNumber: number) => void;
   onAppendNote?: (note: string) => void;
+  onToggleComplete?: (completed: boolean) => void;
 }
 
 export interface InAppToolDefinition {
@@ -131,6 +132,20 @@ export const IN_APP_AI_TOOLS: InAppToolDefinition[] = [
       required: ['query'],
     },
   },
+  {
+    name: 'mark_lesson_completed',
+    description: 'Marks the active lesson unit as completed in the student local progress tracker.',
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Brief reason or encouragement for completing the unit.',
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 /**
@@ -208,6 +223,16 @@ export async function executeInAppTool(
         return { success: true, resultSummary: summary, data: results };
       }
 
+      case 'mark_lesson_completed': {
+        if (context.onToggleComplete) {
+          context.onToggleComplete(true);
+          const summary = `Marked lesson as completed! ${action.arguments.reason ? `(${action.arguments.reason})` : ''}`.trim();
+          addLog('INFO', 'AI', summary);
+          return { success: true, resultSummary: summary };
+        }
+        return { success: false, resultSummary: 'Progress toggler not available in this context' };
+      }
+
       default:
         return { success: false, resultSummary: `Unknown tool: ${action.tool}` };
     }
@@ -227,15 +252,16 @@ export function extractEmbeddedToolCalls(responseText: string): { cleanText: str
   const toolCalls: ToolActionCall[] = [];
   let cleanText = responseText;
 
-  // Pattern 1: ```tool_call ... ```
-  const jsonBlockRegex = /```(?:tool_call|json_action)\s*([\s\S]*?)\s*```/g;
+  // Pattern 1: ```tool_call ... ``` or ```json_action ... ``` or ```json with tool/action
+  const jsonBlockRegex = /```(?:tool_call|json_action|json)\s*([\s\S]*?)\s*```/g;
   cleanText = cleanText.replace(jsonBlockRegex, (_, jsonStr) => {
     try {
       const parsed = JSON.parse(jsonStr.trim());
-      if (parsed.tool) {
+      const toolName = parsed.tool || parsed.action || parsed.name;
+      if (toolName) {
         toolCalls.push({
-          tool: parsed.tool,
-          arguments: parsed.arguments || {},
+          tool: toolName,
+          arguments: parsed.arguments || parsed.args || {},
         });
         return ''; // remove block from visible text
       }
