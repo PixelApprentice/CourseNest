@@ -12,7 +12,6 @@ import {
   IconDeviceFloppy,
   IconNote,
   IconAward,
-  IconBolt,
   IconSparkles
 } from '@tabler/icons-react';
 import { APP_NAME } from '@coursenest/config';
@@ -32,7 +31,7 @@ export function HomePage() {
 
   return (
     <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-10">
-      {/* Hero Banner with Theme Ambient Glow */}
+      {/* Hero Banner with Theme Ambient Pattern */}
       <section className="relative overflow-hidden rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] p-6 md:p-8">
         <div 
           className="absolute inset-0 opacity-15 pointer-events-none"
@@ -59,27 +58,28 @@ export function HomePage() {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Link
-              to="/studio"
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-bold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
-            >
-              <IconSparkles size={15} />
-              <span>+ Create Course</span>
-            </Link>
-
-            <Link
               to="/import"
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] text-xs font-semibold transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+              className="cn-btn cn-btn-md cn-btn-primary"
             >
-              <IconUpload size={14} />
+              <IconUpload size={15} />
               <span>Import Materials</span>
             </Link>
 
             <Link
               to="/library"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] hover:text-[var(--cn-text-primary)] transition-[background-color,color,transform] duration-150 ease-out active:scale-95"
+              className="cn-btn cn-btn-md cn-btn-secondary"
             >
               <IconBooks size={15} />
               <span>My Courses ({courses.length})</span>
+            </Link>
+
+            <Link
+              to="/studio"
+              className="cn-btn cn-btn-md cn-btn-secondary opacity-80 hover:opacity-100"
+              title="Build a course manually from scratch"
+            >
+              <IconSparkles size={14} />
+              <span>Course Studio (Manual)</span>
             </Link>
           </div>
         </div>
@@ -129,7 +129,7 @@ export function HomePage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-mono font-bold tracking-wider uppercase text-[var(--cn-text-muted)] flex items-center gap-2">
-              <IconBolt size={15} className="text-[var(--cn-primary)]" />
+              <IconPlayerPlay size={15} className="text-[var(--cn-primary)]" />
               <span>Continue Learning</span>
             </h2>
             <Link

@@ -14,19 +14,20 @@ import {
   IconPalette,
   IconSun,
   IconMoon,
-  IconSearch
+  IconSearch,
+  IconMenu2
 } from '@tabler/icons-react';
 import { APP_VERSION } from '@coursenest/config';
 import { NotificationDropdown } from './NotificationDropdown';
-import { BrandLogo } from './BrandLogo';
 import { usePlayback, togglePlaybackPlayPause } from '../lib/playbackStore';
 import { IconPlayerPause } from '@tabler/icons-react';
 
 interface AppTitleBarProps {
   onOpenThemeModal?: () => void;
+  onToggleMobileMenu?: () => void;
 }
 
-export function AppTitleBar({ onOpenThemeModal }: AppTitleBarProps) {
+export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBarProps) {
   const { currentTheme, setTheme } = useTheme();
   const { config: storageConfig } = useStorageConfig();
   const location = useLocation();
@@ -110,11 +111,25 @@ export function AppTitleBar({ onOpenThemeModal }: AppTitleBarProps) {
     : 'External Volume';
 
   return (
-    <header className="h-10 shrink-0 bg-(--cn-surface-subtle) border-b border-(--cn-border) flex items-center justify-between px-3.5 select-none text-[12px] text-(--cn-text-muted) font-sans relative z-50 transition-colors">
-      {/* Left: Emblem + App Identity + Page Context (Draggable) */}
-      <div className="flex items-center gap-3 min-w-0 cn-window-drag flex-1">
+    <header className="h-11 shrink-0 bg-(--cn-surface-subtle) border-b border-(--cn-border) flex items-center justify-between px-3.5 select-none text-[12px] text-(--cn-text-muted) font-sans relative z-50 transition-colors">
+      {/* Left: Mobile Menu + Emblem + App Identity + Page Context (Draggable) */}
+      <div className="flex items-center gap-2.5 min-w-0 cn-window-drag flex-1">
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            onClick={onToggleMobileMenu}
+            className="md:hidden p-1 rounded-md text-(--cn-text-muted) hover:text-(--cn-text-primary) hover:bg-(--cn-surface-hover) transition-colors cn-window-no-drag cursor-pointer"
+            title="Open Navigation"
+            aria-label="Open Navigation"
+          >
+            <IconMenu2 size={16} />
+          </button>
+        )}
+
         <div className="flex items-center gap-2 cn-window-no-drag cursor-pointer" onClick={() => navigate('/')}>
-          <BrandLogo size="sm" showBadge={false} />
+          <span className="font-extrabold text-[12px] tracking-tight text-(--cn-text-primary) hover:text-(--cn-primary) transition-colors">
+            CourseNest
+          </span>
           <span className="px-1.5 py-0.2 rounded-xs text-[9px] font-mono font-semibold bg-(--cn-surface) border border-(--cn-border) text-(--cn-primary)">
             v{APP_VERSION}
           </span>
@@ -156,7 +171,7 @@ export function AppTitleBar({ onOpenThemeModal }: AppTitleBarProps) {
         </div>
       ) : (
         <div className="hidden lg:flex items-center justify-center text-[11px] text-(--cn-text-muted) font-mono opacity-60 cn-window-drag px-4">
-          {currentTheme.name} • Private Offline Vault
+          Private Offline Study Vault
         </div>
       )}
 

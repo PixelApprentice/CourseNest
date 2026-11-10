@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useVaultCourses, getCourseProgressPercent, removeCourseFromVault, type CourseData } from '../../lib/courseStore';
 import { CourseCard } from '../../components/CourseCard';
 import { 
@@ -10,18 +10,21 @@ import {
   IconAlertTriangle, 
   IconBook, 
   IconDeviceFloppy,
-  IconSparkles 
+  IconSparkles,
+  IconArchive
 } from '@tabler/icons-react';
 
 type FilterType = 'all' | 'in_progress' | 'completed';
 type SortType = 'recent' | 'title' | 'duration' | 'progress';
 
 export function LibraryPage() {
+  const navigate = useNavigate();
   const { courses } = useVaultCourses();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [activeSort, setActiveSort] = useState<SortType>('recent');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
   // Confirmation modal state for removing downloads
   const [removingCourseId, setRemovingCourseId] = useState<string | null>(null);
@@ -31,6 +34,14 @@ export function LibraryPage() {
       await removeCourseFromVault(removingCourseId);
       setRemovingCourseId(null);
     }
+  };
+
+  const handleDropFiles = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingFiles(false);
+    if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
+    const files = Array.from(e.dataTransfer.files);
+    navigate('/import', { state: { droppedFiles: files } });
   };
 
   // Filter & Search Logic
@@ -69,7 +80,34 @@ export function LibraryPage() {
   });
 
   return (
-    <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
+    <div 
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDraggingFiles(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget === e.target) {
+          setIsDraggingFiles(false);
+        }
+      }}
+      onDrop={handleDropFiles}
+      className="p-6 md:p-10 max-w-6xl mx-auto space-y-8 relative"
+    >
+      {/* Global Drag-and-Drop Overlay */}
+      {isDraggingFiles && (
+        <div className="fixed inset-0 z-50 bg-[var(--cn-surface)]/90 backdrop-blur-md border-4 border-dashed border-[var(--cn-primary)] flex flex-col items-center justify-center p-8 space-y-4 pointer-events-none">
+          <div className="w-20 h-20 rounded-2xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center animate-bounce shadow-xl">
+            <IconArchive size={40} />
+          </div>
+          <h2 className="text-2xl font-extrabold text-[var(--cn-text-primary)]">
+            Drop Course Archive(s) or Folder Here
+          </h2>
+          <p className="text-sm font-mono text-[var(--cn-text-muted)]">
+            Files will be transferred directly to the offline importer.
+          </p>
+        </div>
+      )}
+
       {/* Header & Main Action */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -87,19 +125,20 @@ export function LibraryPage() {
 
         <div className="flex items-center gap-2.5 self-start md:self-auto">
           <Link
-            to="/studio"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-bold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-sm"
+            to="/import"
+            className="cn-btn cn-btn-md cn-btn-primary"
           >
-            <IconSparkles size={15} />
-            <span>+ Create Course</span>
+            <IconUpload size={15} />
+            <span>Import Materials</span>
           </Link>
 
           <Link
-            to="/import"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-semibold text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+            to="/studio"
+            className="cn-btn cn-btn-md cn-btn-secondary"
+            title="Create a custom course manually"
           >
-            <IconUpload size={14} />
-            <span>Import Materials</span>
+            <IconSparkles size={14} />
+            <span>Create Manually</span>
           </Link>
         </div>
       </div>
