@@ -2,7 +2,7 @@
 > **Open-Source, Local-First, Multi-Audience Educational Studio, Course Creator & Video Player**
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Release: v2.0.0](https://img.shields.io/badge/Release-v2.0.0-emerald.svg)](https://github.com/PixelApprentice/Korse/releases)
+[![Release: v2.1.0](https://img.shields.io/badge/Release-v2.1.0-emerald.svg)](https://github.com/PixelApprentice/CourseNest/releases)
 [![Node.js](https://img.shields.io/badge/Node.js-20_LTS-green.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)](https://python.org/)
@@ -178,6 +178,18 @@ CourseNest operates with an **air-gapped, zero-cloud architecture**. Decompresse
 * **Web Speech TTS Slide Narration**: In-slide text-to-speech audio narration reads slide titles, body bullets, and speaker notes aloud.
 * **AI Study Buddy Integration**: One-click prompt transfer sends current slide content and speaker notes directly to the AI Study Buddy for instant comprehension Q&A and concept breakdowns.
 
+### 9. Decrypt-Once Media Vault & Hardware Crypto Acceleration
+* **Native OpenSSL AES Hardware Acceleration**: Directly utilizes Node.js native crypto with OpenSSL AES-NI instructions (~844 MB/s throughput), bypassing single-threaded WebAssembly memory-bound penalties.
+* **Decrypt-Once Architecture**: Encrypted multi-part archives are decrypted once during import directly into the local vault tiers, delivering wire-speed media streaming and sub-5ms seek latency without runtime playback CPU throttling.
+* **Single-Prompt Course Password Deduplication**: Dedicated `CoursePasswordManager` keys credentials per-course, eliminating repetitive password prompts across multi-part archives (75+ parts require only 1 initial prompt).
+* **OS-Level SafeStorage**: Optional session credential persistence backed by native operating system secure vaults (Windows DPAPI, macOS Keychain, and Linux Secret Service). Plaintext passwords are never written to disk or logs.
+
+### 10. Unified Responsive Navigation & Design System
+* **Fluid Resizable Splitter**: Draggable sidebar splitter (180px–420px) with live pointer tracking, double-click reset to default 256px, keyboard accessibility (`role="separator"`), and automatic collapse to a 64px compact icon rail.
+* **Mobile Slide-Over Drawer**: Touch-friendly off-canvas drawer with backdrop blur and responsive hamburger button for mobile devices (<768px).
+* **Unified Button Design Tokens**: Canonical `.cn-btn` token contract providing uniform padding, focus rings, hover/active physics, and loading states across every screen.
+* **Resilient External Drive Poller**: Singleton polling engine with 2.5s timeout guards, volume UUID tracking, and zero transient error flashes.
+
 ---
 
 ## 🛠️ Monorepo Architecture
@@ -281,8 +293,8 @@ node packages/mcp-server/dist/index.js
 ### 2. Monorepo Installation & Build
 ```bash
 # Clone the repository
-git clone https://github.com/PixelApprentice/Korse.git
-cd Korse
+git clone https://github.com/PixelApprentice/CourseNest.git
+cd CourseNest
 
 # Install all workspace dependencies
 pnpm install

@@ -50,6 +50,8 @@ uploads/
 # Developer AI Agent Skills & Tooling (Local Only)
 .agents/
 .codex/
+.claude/
+agent/
 .impeccable/
 skills-lock.json
 .github/skills/

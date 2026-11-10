@@ -19,7 +19,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan: startup and shutdown hooks."""
     # Startup
     settings.validate_security()
-    logger.info("Starting CourseNest Server v2.0.0 (debug=%s)", settings.debug)
+    logger.info("Starting CourseNest Server v2.1.0 (debug=%s)", settings.debug)
     yield
     # Shutdown
     await engine.dispose()
@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="CourseNest API",
     description="Central backend API for CourseNest — university-managed course distribution",
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan,
     docs_url="/api/docs" if settings.debug else None,
     redoc_url="/api/redoc" if settings.debug else None,
@@ -51,4 +51,4 @@ app.include_router(api_router, prefix="/api/v1")
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Top-level health check endpoint."""
-    return {"status": "ok", "version": "2.0.0"}
+    return {"status": "ok", "version": "2.1.0"}

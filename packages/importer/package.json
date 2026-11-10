@@ -1,6 +1,6 @@
 {
   "name": "@coursenest/importer",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +14,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types test/importer.test.ts test/domain-formats.test.ts test/vault-lifecycle.test.ts",
+    "test": "node --test --experimental-strip-types test/importer.test.ts test/domain-formats.test.ts test/vault-lifecycle.test.ts test/course-password-manager.test.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

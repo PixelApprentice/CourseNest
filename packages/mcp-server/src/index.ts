@@ -112,7 +112,7 @@ function loadProgress(): Record<string, any> {
 // -----------------------------------------------------------------------------
 const server = new McpServer({
   name: 'coursenest-server',
-  version: '2.0.0',
+  version: '2.1.0',
 });
 
 // Tool 1: List Courses
@@ -488,7 +488,7 @@ server.resource(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('CourseNest MCP Server v2.0.0 running on stdio');
+  console.error('CourseNest MCP Server v2.1.0 running on stdio');
 }
 
 main().catch((err) => {
