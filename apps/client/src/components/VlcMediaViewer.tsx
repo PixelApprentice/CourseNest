@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   IconPlayerPlay, 
   IconPlayerPause, 
@@ -19,6 +19,7 @@ import {
 import { addLog } from '../lib/logger';
 import { anySubtitleToVtt } from '../lib/formatHelpers';
 import { ThemeLoader } from './ThemeLoader';
+import { savePlaybackTime } from '../lib/courseStore';
 import { 
   setActivePlayback, 
   updatePlaybackTime, 
@@ -70,7 +71,12 @@ export function VlcMediaViewer({
   const gainNodeRef = useRef<GainNode | null>(null);
   const speechFilterRef = useRef<BiquadFilterNode | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+
+  // Seek and session tracking refs
   const initialTimeAppliedRef = useRef<string | null>(null);
+  const prevLessonIdRef = useRef<string>(lessonId);
+  const prevSrcRef = useRef<string>(src);
+  const currentTimeRef = useRef<number>(0);
 
   // Core Playback State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -92,13 +98,206 @@ export function VlcMediaViewer({
   const [activeSubtitles, setActiveSubtitles] = useState<SubtitleTrack[]>(subtitles);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState(0);
   const [isBuffering, setIsBuffering] = useState(false);
+
+  // Granular Error Diagnostics
   const [hasPlaybackError, setHasPlaybackError] = useState(false);
   const [errorTimestamp, setErrorTimestamp] = useState(0);
+  const [errorTitle, setErrorTitle] = useState('Media Stream Interrupted');
+  const [errorMessage, setErrorMessage] = useState('Playback stopped unexpectedly.');
+  const [isUnsupportedFormat, setIsUnsupportedFormat] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const prevSubsKeyRef = useRef<string>('');
   const createdSubtitleBlobUrlsRef = useRef<string[]>([]);
 
-  // Register and sync with global playback store (for YouTube-style Miniplayer & Titlebar Indicator)
+  // State refs for event listeners and keyboard shortcuts (Fixes Item 3 & 9)
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+  const volumePercentRef = useRef(volumePercent);
+  volumePercentRef.current = volumePercent;
+  const playbackSpeedRef = useRef(playbackSpeed);
+  playbackSpeedRef.current = playbackSpeed;
+  const isCaptionsVisibleRef = useRef(isCaptionsVisible);
+  isCaptionsVisibleRef.current = isCaptionsVisible;
+  const selectedTrackIndexRef = useRef(selectedTrackIndex);
+  selectedTrackIndexRef.current = selectedTrackIndex;
+
+  // Auto-hide controls timer (Fixes Item 9)
+  const controlsTimeoutRef = useRef<number | null>(null);
+  const [isControlsVisible, setIsControlsVisible] = useState(true);
+
+  // Scrubber dragging state to prevent timeupdate jitter (Fixes Item 6)
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekSliderValue, setSeekSliderValue] = useState(0);
+  const isSeekingRef = useRef(false);
+  const seekSliderValueRef = useRef(0);
+  isSeekingRef.current = isSeeking;
+  seekSliderValueRef.current = seekSliderValue;
+
+  // Canonical speed options matching keyboard shortcuts and dropdown (Fixes Item 4)
+  const speedOptions = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0];
+
+  const handleMouseMove = useCallback(() => {
+    setIsControlsVisible(true);
+    if (controlsTimeoutRef.current) {
+      window.clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = window.setTimeout(() => {
+      if (isPlayingRef.current) {
+        setIsControlsVisible(false);
+      }
+    }, 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) {
+        window.clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Flush playback progress to persistent storage
+  const flushProgress = useCallback((overrideTime?: number, isCompleted?: boolean) => {
+    const lId = prevLessonIdRef.current || lessonId;
+    if (!lId) return;
+    const t = overrideTime !== undefined ? overrideTime : (videoRef.current?.currentTime || currentTimeRef.current);
+    const dur = videoRef.current?.duration || duration;
+    if (t >= 0 && !isNaN(t)) {
+      savePlaybackTime(lId, t, courseId, dur, isCompleted);
+    }
+  }, [lessonId, courseId, duration]);
+
+  const handleSeekCommit = useCallback((targetTime: number) => {
+    setIsSeeking(false);
+    isSeekingRef.current = false;
+    if (videoRef.current) {
+      videoRef.current.currentTime = targetTime;
+    }
+    setCurrentTime(targetTime);
+    currentTimeRef.current = targetTime;
+    flushProgress(targetTime);
+  }, [flushProgress]);
+
+  // Global window pointerup/touchend safeguard so dragging outside the scrubber always commits cleanly
+  useEffect(() => {
+    if (!isSeeking) return;
+    const onGlobalPointerUp = () => {
+      if (isSeekingRef.current) {
+        handleSeekCommit(seekSliderValueRef.current);
+      }
+    };
+    window.addEventListener('pointerup', onGlobalPointerUp);
+    window.addEventListener('touchend', onGlobalPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', onGlobalPointerUp);
+      window.removeEventListener('touchend', onGlobalPointerUp);
+    };
+  }, [isSeeking, handleSeekCommit]);
+
+  // Synchronize volume without double attenuation (Fixes Item 7)
+  useEffect(() => {
+    const volMultiplier = volumePercent / 100;
+    if (videoRef.current) {
+      videoRef.current.muted = isMuted;
+      if (volMultiplier > 1.0) {
+        // Boost range (100% to 200%): Element volume at 1.0, Web Audio gain handles boost
+        videoRef.current.volume = 1.0;
+        if (gainNodeRef.current) {
+          gainNodeRef.current.gain.value = isMuted ? 0 : volMultiplier;
+        }
+      } else {
+        // Normal range (0% to 100%): Web Audio gain at unity (1.0), Element handles volume
+        videoRef.current.volume = isMuted ? 0 : volMultiplier;
+        if (gainNodeRef.current) {
+          gainNodeRef.current.gain.value = isMuted ? 0 : 1.0;
+        }
+      }
+    }
+  }, [volumePercent, isMuted]);
+
+  // Update Speech Boost filter
+  useEffect(() => {
+    if (speechFilterRef.current) {
+      speechFilterRef.current.gain.value = isSpeechBoostEnabled ? 6.0 : 0.0;
+    }
+  }, [isSpeechBoostEnabled]);
+
+  const showToast = useCallback((message: string) => {
+    setShowStatusToast(message);
+    setTimeout(() => setShowStatusToast(null), 2500);
+  }, []);
+
+  // Toggle Play / Pause - Ignores AbortError (Fixes Item 1)
+  const togglePlay = useCallback(() => {
+    if (!videoRef.current) return;
+
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
+
+    if (videoRef.current.paused) {
+      videoRef.current.play().then(() => {
+        setIsPlaying(true);
+      }).catch((err) => {
+        if (err?.name !== 'AbortError') {
+          console.warn('Playback play request prevented:', err);
+        }
+      });
+    } else {
+      videoRef.current.pause();
+      setIsPlaying(false);
+      setIsControlsVisible(true);
+      flushProgress();
+    }
+  }, [flushProgress]);
+
+  // Seek relative
+  const seekRelative = useCallback((delta: number) => {
+    if (!videoRef.current) return;
+    const dur = videoRef.current.duration || duration || 0;
+    const newTime = Math.max(0, Math.min(dur, videoRef.current.currentTime + delta));
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+    currentTimeRef.current = newTime;
+    showToast(`${delta > 0 ? '+' : ''}${delta}s`);
+  }, [duration, showToast]);
+
+  // Speed selection
+  const changeSpeed = useCallback((speed: number) => {
+    if (!videoRef.current) return;
+    videoRef.current.playbackRate = speed;
+    setPlaybackSpeed(speed);
+    showToast(`Playback Speed: ${speed}x`);
+  }, [showToast]);
+
+  // Fullscreen toggle
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      containerRef.current.requestFullscreen().catch(() => {});
+    }
+  }, []);
+
+  // Toggle Captions via textTracks (Fixes Item 5)
+  const toggleCaptions = useCallback(() => {
+    const next = !isCaptionsVisibleRef.current;
+    setIsCaptionsVisible(next);
+    if (videoRef.current) {
+      const tracks = videoRef.current.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        const t = tracks[i];
+        if (t) t.mode = next && i === selectedTrackIndexRef.current ? 'showing' : 'hidden';
+      }
+    }
+    showToast(next ? 'Subtitles / Closed Captions ON' : 'Subtitles OFF');
+  }, [showToast]);
+
+  // Register with global playback store (Miniplayer & Titlebar)
   useEffect(() => {
     setActivePlayback({
       courseId,
@@ -116,10 +315,11 @@ export function VlcMediaViewer({
         if (videoRef.current) {
           videoRef.current.currentTime = t;
           setCurrentTime(t);
+          currentTimeRef.current = t;
         }
       },
     });
-  }, [isPlaying, isMuted, src, title, courseTitle, courseId, lessonId]);
+  }, [isPlaying, isMuted, src, title, courseTitle, courseId, lessonId, currentTime, duration, togglePlay]);
 
   useEffect(() => {
     return () => {
@@ -127,7 +327,7 @@ export function VlcMediaViewer({
     };
   }, []);
 
-  // Sync incoming subtitles only when track identifiers or sources actually change
+  // Sync incoming subtitles only when track identifiers or sources change
   useEffect(() => {
     const subsKey = subtitles.map((s) => `${s.id || ''}:${s.src}:${s.label}`).join('|');
     if (subsKey !== prevSubsKeyRef.current) {
@@ -137,21 +337,399 @@ export function VlcMediaViewer({
     }
   }, [subtitles]);
 
-  // Toggle Subtitles / Closed Captions
-  const toggleCaptions = () => {
-    const next = !isCaptionsVisible;
-    setIsCaptionsVisible(next);
+  // Clean Web Audio source node on video element recreation or switch
+  const disconnectAudioSource = useCallback(() => {
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.disconnect();
+      } catch {}
+      sourceNodeRef.current = null;
+    }
+  }, []);
+
+  // Web Audio initialization (avoids throwing DOMException if re-attaching)
+  const ensureAudioGraph = useCallback(() => {
+    if (!videoRef.current || sourceNodeRef.current) {
+      if (audioContextRef.current?.state === 'suspended') {
+        audioContextRef.current.resume().catch(() => {});
+      }
+      return;
+    }
+
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = audioContextRef.current || new AudioCtx();
+      audioContextRef.current = ctx;
+
+      const source = ctx.createMediaElementSource(videoRef.current);
+      sourceNodeRef.current = source;
+
+      // Gain Node (supports up to 2.0x / 200%)
+      const gainNode = gainNodeRef.current || ctx.createGain();
+      gainNode.gain.value = isMuted ? 0 : volumePercent / 100;
+      gainNodeRef.current = gainNode;
+
+      // Speech Clarity Filter
+      const filter = speechFilterRef.current || ctx.createBiquadFilter();
+      filter.type = 'peaking';
+      filter.frequency.value = 2500;
+      filter.Q.value = 1.0;
+      filter.gain.value = isSpeechBoostEnabled ? 6.0 : 0.0;
+      speechFilterRef.current = filter;
+
+      source.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    } catch (err: any) {
+      console.warn('Web Audio gain initialization skipped:', err?.message);
+    }
+  }, [isMuted, volumePercent, isSpeechBoostEnabled]);
+
+  // Video switch & resource cleanup
+  useEffect(() => {
+    // If switching from another video, flush progress for the outgoing lesson first
+    if (prevLessonIdRef.current && prevLessonIdRef.current !== lessonId) {
+      flushProgress();
+    }
+
+    prevLessonIdRef.current = lessonId;
+    prevSrcRef.current = src;
+    initialTimeAppliedRef.current = null;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    currentTimeRef.current = 0;
+    setDuration(0);
+    setHasPlaybackError(false);
+    setIsUnsupportedFormat(false);
+    setIsBuffering(Boolean(src));
+
+    // Reset audio source node for new video element
+    disconnectAudioSource();
+
+    return () => {
+      // Clean up hardware video decode buffer on source change
+      if (videoRef.current) {
+        try {
+          videoRef.current.pause();
+          videoRef.current.removeAttribute('src');
+          videoRef.current.load();
+        } catch {}
+      }
+    };
+  }, [src, lessonId, flushProgress, disconnectAudioSource]);
+
+  // Cleanup subtitle blob URLs and audio context on component unmount
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+      }
+      for (const u of createdSubtitleBlobUrlsRef.current) {
+        try {
+          URL.revokeObjectURL(u);
+        } catch {}
+      }
+      createdSubtitleBlobUrlsRef.current = [];
+    };
+  }, []);
+
+  // Persist progress checkpoints on window close or route unmount
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      flushProgress();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      handleBeforeUnload();
+    };
+  }, [flushProgress]);
+
+  // Keyboard Shortcuts with stable listeners (Fixes Items 3 & 4)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
+      const isEditable = (e.target as HTMLElement)?.isContentEditable;
+      if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(activeTag) || isEditable) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        seekRelative(-5);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        seekRelative(5);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const nextVol = Math.min(200, volumePercentRef.current + 5);
+        setVolumePercent(nextVol);
+        showToast(`Volume: ${nextVol}%`);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const nextVol = Math.max(0, volumePercentRef.current - 5);
+        setVolumePercent(nextVol);
+        showToast(`Volume: ${nextVol}%`);
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        const nextMuted = !isMutedRef.current;
+        setIsMuted(nextMuted);
+        showToast(nextMuted ? 'Muted' : 'Unmuted');
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        toggleCaptions();
+      } else if (e.key === '[') {
+        e.preventDefault();
+        const currentSpeed = playbackSpeedRef.current;
+        const currIdx = speedOptions.findIndex((s) => Math.abs(s - currentSpeed) < 0.05);
+        if (currIdx > 0) {
+          changeSpeed(speedOptions[currIdx - 1]!);
+        } else if (currIdx === -1) {
+          const lower = speedOptions.filter((s) => s < currentSpeed).pop() || speedOptions[0]!;
+          changeSpeed(lower);
+        }
+      } else if (e.key === ']') {
+        e.preventDefault();
+        const currentSpeed = playbackSpeedRef.current;
+        const currIdx = speedOptions.findIndex((s) => Math.abs(s - currentSpeed) < 0.05);
+        if (currIdx !== -1 && currIdx < speedOptions.length - 1) {
+          changeSpeed(speedOptions[currIdx + 1]!);
+        } else if (currIdx === -1) {
+          const higher = speedOptions.find((s) => s > currentSpeed) || speedOptions[speedOptions.length - 1]!;
+          changeSpeed(higher);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, seekRelative, toggleFullscreen, toggleCaptions, changeSpeed, showToast, speedOptions]);
+
+  // Frame Stepper
+  const stepFrame = (direction: 1 | -1) => {
+    if (!videoRef.current) return;
+    if (!videoRef.current.paused) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+    const frameDuration = 1 / 30; // 30fps stepping
+    const newTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + direction * frameDuration));
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+    currentTimeRef.current = newTime;
+    showToast(direction > 0 ? 'Frame Step +1 (+33ms)' : 'Frame Step -1 (-33ms)');
+  };
+
+  // A-B Looping
+  const handleSetLoopA = () => {
+    setLoopA(currentTime);
+    showToast(`VLC Loop [A] set at ${formatTime(currentTime)}`);
+  };
+
+  const handleSetLoopB = () => {
+    if (loopA !== null && currentTime > loopA) {
+      setLoopB(currentTime);
+      showToast(`VLC Loop [B] set at ${formatTime(currentTime)} — Looping Active`);
+    } else {
+      showToast('Point B must be after Point A');
+    }
+  };
+
+  const clearLoop = () => {
+    setLoopA(null);
+    setLoopB(null);
+    showToast('A-B Loop Cleared');
+  };
+
+  // Time update listener
+  const handleTimeUpdate = () => {
+    if (!videoRef.current) return;
+    const curr = videoRef.current.currentTime;
+    setCurrentTime(curr);
+    currentTimeRef.current = curr;
+    updatePlaybackTime(curr, duration);
+
+    // Enforce A-B loop boundary
+    if (loopA !== null && loopB !== null && curr >= loopB) {
+      videoRef.current.currentTime = loopA;
+      setCurrentTime(loopA);
+      currentTimeRef.current = loopA;
+    }
+
+    onTimeUpdate?.(curr, duration);
+  };
+
+  // Error diagnostics and recovery
+  const handlePlaybackError = () => {
+    setIsBuffering(false);
+    setIsPlaying(false);
+    const stoppedAt = videoRef.current?.currentTime || currentTimeRef.current || currentTime;
+    setErrorTimestamp(stoppedAt);
+    setHasPlaybackError(true);
+    flushProgress(stoppedAt);
+
+    const err = videoRef.current?.error;
+    const code = err?.code || 0;
+
+    if (code === 4) {
+      // MEDIA_ERR_SRC_NOT_SUPPORTED
+      setErrorTitle('Unsupported Format or Missing File');
+      setErrorMessage('The browser engine cannot decode this container or video codec (e.g. MKV, AVI, HEVC/H.265), or the file path does not exist. Open in native VLC Media Player.');
+      setIsUnsupportedFormat(true);
+      addLog('WARN', 'PLAYER', `Unsupported video format or missing file: ${src}`);
+    } else if (code === 3) {
+      // MEDIA_ERR_DECODE
+      setErrorTitle('Video Decode Error');
+      setErrorMessage('Hardware decoder encountered an error. The video file may be partially corrupted or encoded in an unsupported profile. Open in native VLC.');
+      setIsUnsupportedFormat(true);
+      addLog('WARN', 'PLAYER', `Video decoding error on stream: ${src}`);
+    } else if (code === 2) {
+      // MEDIA_ERR_NETWORK
+      setErrorTitle('Storage / Network Interrupted');
+      setErrorMessage(`Storage access was interrupted at ${Math.round(stoppedAt)}s. If your external HDD was unplugged, reconnect it and retry.`);
+      setIsUnsupportedFormat(false);
+      addLog('WARN', 'PLAYER', `Media stream interrupted at ${Math.round(stoppedAt)}s. Possible storage disconnection.`);
+    } else {
+      setErrorTitle('Media Stream Error');
+      setErrorMessage(`Playback stopped at ${Math.round(stoppedAt)}s. Reconnect external drive if detached, or retry playback.`);
+      setIsUnsupportedFormat(false);
+      addLog('WARN', 'PLAYER', `Media error ${code} at ${Math.round(stoppedAt)}s.`);
+    }
+  };
+
+  const handleRetryStream = () => {
+    setHasPlaybackError(false);
+    setIsUnsupportedFormat(false);
+    setErrorMessage('');
+    setIsBuffering(true);
     if (videoRef.current) {
+      const restorePos = errorTimestamp > 0 ? errorTimestamp : (currentTimeRef.current || initialTime);
+      videoRef.current.load();
+      if (restorePos > 0) {
+        const onLoaded = () => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = restorePos;
+            setCurrentTime(restorePos);
+            currentTimeRef.current = restorePos;
+          }
+          videoRef.current?.removeEventListener('loadedmetadata', onLoaded);
+        };
+        videoRef.current.addEventListener('loadedmetadata', onLoaded);
+      }
+      videoRef.current.play().then(() => {
+        setIsPlaying(true);
+        setIsBuffering(false);
+      }).catch((err) => {
+        setIsBuffering(false);
+        if (err?.name !== 'AbortError') {
+          console.warn('Retry play error:', err);
+        }
+      });
+    }
+  };
+
+  // Open in External VLC Media Player (Fixes Item 8)
+  const handleOpenInVlc = async () => {
+    let cleanPath = src;
+    if (cleanPath.startsWith('vault-media://')) {
+      const match = cleanPath.match(/^vault-media:\/\/([^/]+)\/(.+)$/);
+      if (match && match[2]) {
+        cleanPath = match[2];
+      } else {
+        cleanPath = cleanPath.replace('vault-media://', '');
+      }
+    }
+    cleanPath = decodeURIComponent(cleanPath);
+
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.shell?.openExternalFile) {
+      const res = await electron.shell.openExternalFile(cleanPath);
+      if (res?.success) {
+        showToast('Opened in native media player');
+        return;
+      }
+    }
+
+    const vlcProtocolUrl = `vlc://${encodeURI(cleanPath)}`;
+    try {
+      navigator.clipboard.writeText(cleanPath);
+      setCopiedVlcUrl(true);
+      setTimeout(() => setCopiedVlcUrl(false), 3000);
+    } catch {}
+
+    addLog('INFO', 'PLAYER', 'Invoking native VLC Media Player Bridge', `Source: ${cleanPath}`);
+    window.location.href = vlcProtocolUrl;
+    showToast('Source copied to clipboard. Launching VLC Media Player...');
+  };
+
+  // Apply initial seek time per video session
+  const handleLoadedMetadata = () => {
+    if (!videoRef.current) return;
+    const dur = videoRef.current.duration;
+    setDuration(dur);
+
+    const sessionKey = `${lessonId}:${src}`;
+    if (initialTime > 0 && initialTimeAppliedRef.current !== sessionKey && dur > 0) {
+      const targetTime = Math.min(initialTime, Math.max(0, dur - 1));
+      videoRef.current.currentTime = targetTime;
+      setCurrentTime(targetTime);
+      currentTimeRef.current = targetTime;
+      initialTimeAppliedRef.current = sessionKey;
+    }
+
+    // Initialize subtitle text tracks
+    if (subtitles.length > 0 && videoRef.current) {
       const tracks = videoRef.current.textTracks;
       for (let i = 0; i < tracks.length; i++) {
         const t = tracks[i];
-        if (t) t.mode = next && i === selectedTrackIndex ? 'showing' : 'hidden';
+        if (t) t.mode = isCaptionsVisible ? 'showing' : 'hidden';
       }
     }
-    showToast(next ? 'Subtitles / Closed Captions ON' : 'Subtitles OFF');
   };
 
-  // Select Active Subtitle Language Track
+  // React to asynchronous initialTime arrival from database or IndexedDB
+  useEffect(() => {
+    if (!videoRef.current) return;
+    const dur = videoRef.current.duration;
+    const sessionKey = `${lessonId}:${src}`;
+    if (
+      initialTime > 0 &&
+      dur > 0 &&
+      initialTimeAppliedRef.current !== sessionKey &&
+      videoRef.current.currentTime < 1
+    ) {
+      const targetTime = Math.min(initialTime, Math.max(0, dur - 1));
+      videoRef.current.currentTime = targetTime;
+      setCurrentTime(targetTime);
+      currentTimeRef.current = targetTime;
+      initialTimeAppliedRef.current = sessionKey;
+    }
+  }, [initialTime, lessonId, src]);
+
+  // Picture-in-Picture
+  const togglePiP = async () => {
+    if (!videoRef.current) return;
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await videoRef.current.requestPictureInPicture();
+      }
+    } catch {
+      showToast('Picture-in-Picture not supported on this stream');
+    }
+  };
+
   const selectSubtitleTrack = (index: number) => {
     setSelectedTrackIndex(index);
     setIsCaptionsVisible(true);
@@ -165,7 +743,6 @@ export function VlcMediaViewer({
     showToast(`Active Subtitles: ${activeSubtitles[index]?.label || 'Track ' + (index + 1)}`);
   };
 
-  // Upload and Parse Custom Subtitle File
   const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -201,290 +778,8 @@ export function VlcMediaViewer({
       showToast(`Loaded Subtitle: ${file.name}`);
       addLog('INFO', 'PLAYER', `Loaded custom subtitle: ${file.name}`);
     } catch (err: any) {
-      showToast(`Failed to parse subtitle: ${err.message}`);
+      showToast(`Failed to parse subtitle: ${err?.message}`);
     }
-  };
-
-  // Reset tracking and purge hardware video decode buffers on source change
-  useEffect(() => {
-    initialTimeAppliedRef.current = null;
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setIsBuffering(Boolean(src));
-
-    return () => {
-      if (videoRef.current) {
-        try {
-          videoRef.current.pause();
-          videoRef.current.removeAttribute('src');
-          videoRef.current.load();
-        } catch {}
-      }
-    };
-  }, [src]);
-
-  // Clean up Web Audio graph, subtitle blob URLs, and hardware video buffer on unmount
-  useEffect(() => {
-    return () => {
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close().catch(() => {});
-      }
-      for (const u of createdSubtitleBlobUrlsRef.current) {
-        try {
-          URL.revokeObjectURL(u);
-        } catch {}
-      }
-      createdSubtitleBlobUrlsRef.current = [];
-      if (videoRef.current) {
-        try {
-          videoRef.current.pause();
-          videoRef.current.removeAttribute('src');
-          videoRef.current.load();
-        } catch {}
-      }
-    };
-  }, []);
-
-  // Lazy Web Audio API initialization ONLY when super-gain or speech filter is requested
-  const ensureAudioGraph = () => {
-    if (!videoRef.current || audioContextRef.current) {
-      if (audioContextRef.current?.state === 'suspended') {
-        audioContextRef.current.resume().catch(() => {});
-      }
-      return;
-    }
-
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioCtx();
-      audioContextRef.current = ctx;
-
-      const source = ctx.createMediaElementSource(videoRef.current);
-      sourceNodeRef.current = source;
-
-      // Gain Node (supports up to 2.0x / 200%)
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = isMuted ? 0 : volumePercent / 100;
-      gainNodeRef.current = gainNode;
-
-      // Speech Clarity Filter (Biquad peaking filter for lecture vocals)
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'peaking';
-      filter.frequency.value = 2500;
-      filter.Q.value = 1.0;
-      filter.gain.value = isSpeechBoostEnabled ? 6.0 : 0.0;
-      speechFilterRef.current = filter;
-
-      source.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
-    } catch (err: any) {
-      console.warn('Web Audio gain initialization skipped:', err.message);
-    }
-  };
-
-  // Synchronize volume
-  useEffect(() => {
-    if (gainNodeRef.current && audioContextRef.current) {
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume().catch(() => {});
-      }
-      gainNodeRef.current.gain.value = isMuted ? 0 : volumePercent / 100;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.volume = isMuted ? 0 : Math.min(1.0, volumePercent / 100);
-      videoRef.current.muted = isMuted;
-    }
-  }, [volumePercent, isMuted]);
-
-  // Update Speech Boost filter
-  useEffect(() => {
-    if (speechFilterRef.current) {
-      speechFilterRef.current.gain.value = isSpeechBoostEnabled ? 6.0 : 0.0;
-    }
-  }, [isSpeechBoostEnabled]);
-
-  const showToast = (message: string) => {
-    setShowStatusToast(message);
-    setTimeout(() => setShowStatusToast(null), 2500);
-  };
-
-  // Toggle Play / Pause using native hardware element
-  const togglePlay = () => {
-    if (!videoRef.current) return;
-
-    if (audioContextRef.current?.state === 'suspended') {
-      audioContextRef.current.resume().catch(() => {});
-    }
-
-    if (videoRef.current.paused) {
-      videoRef.current.play().then(() => {
-        setIsPlaying(true);
-      }).catch((err) => {
-        console.warn('Playback play request prevented:', err);
-      });
-    } else {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-  };
-
-  // VLC Frame Stepper
-  const stepFrame = (direction: 1 | -1) => {
-    if (!videoRef.current) return;
-    if (!videoRef.current.paused) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-    const frameDuration = 1 / 30; // 30fps stepping
-    const newTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + direction * frameDuration));
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-    showToast(direction > 0 ? 'Frame Step +1 (+33ms)' : 'Frame Step -1 (-33ms)');
-  };
-
-  // Seek Relative
-  const seekRelative = (delta: number) => {
-    if (!videoRef.current) return;
-    const newTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + delta));
-    videoRef.current.currentTime = newTime;
-    setCurrentTime(newTime);
-    showToast(`${delta > 0 ? '+' : ''}${delta}s`);
-  };
-
-  // Speed selection
-  const changeSpeed = (speed: number) => {
-    if (!videoRef.current) return;
-    videoRef.current.playbackRate = speed;
-    setPlaybackSpeed(speed);
-    showToast(`Playback Speed: ${speed}x`);
-  };
-
-  // A-B Looping
-  const handleSetLoopA = () => {
-    setLoopA(currentTime);
-    showToast(`VLC Loop [A] set at ${formatTime(currentTime)}`);
-  };
-
-  const handleSetLoopB = () => {
-    if (loopA !== null && currentTime > loopA) {
-      setLoopB(currentTime);
-      showToast(`VLC Loop [B] set at ${formatTime(currentTime)} — Looping Active`);
-    } else {
-      showToast('Point B must be after Point A');
-    }
-  };
-
-  const clearLoop = () => {
-    setLoopA(null);
-    setLoopB(null);
-    showToast('A-B Loop Cleared');
-  };
-
-  // Time update and loop listener
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    const curr = videoRef.current.currentTime;
-    setCurrentTime(curr);
-    updatePlaybackTime(curr, duration);
-
-    // Enforce A-B loop boundary
-    if (loopA !== null && loopB !== null && curr >= loopB) {
-      videoRef.current.currentTime = loopA;
-      setCurrentTime(loopA);
-    }
-
-    onTimeUpdate?.(curr, duration);
-  };
-
-  const handlePlaybackError = () => {
-    setIsBuffering(false);
-    setIsPlaying(false);
-    const stoppedAt = videoRef.current?.currentTime || currentTime;
-    setErrorTimestamp(stoppedAt);
-    setHasPlaybackError(true);
-    addLog('WARN', 'PLAYER', `Media stream interrupted at ${Math.round(stoppedAt)}s. Possible storage disconnection.`);
-  };
-
-  const handleRetryStream = () => {
-    setHasPlaybackError(false);
-    setIsBuffering(true);
-    if (videoRef.current) {
-      videoRef.current.load();
-      if (errorTimestamp > 0) {
-        videoRef.current.currentTime = errorTimestamp;
-      }
-      videoRef.current.play().then(() => {
-        setIsPlaying(true);
-        setIsBuffering(false);
-      }).catch(() => {
-        setIsBuffering(false);
-      });
-    }
-  };
-
-  // Apply initial seek time ONLY ONCE per video src
-  const handleLoadedMetadata = () => {
-    if (!videoRef.current) return;
-    const dur = videoRef.current.duration;
-    setDuration(dur);
-
-    if (initialTime > 0 && initialTimeAppliedRef.current !== src && dur > 0) {
-      const targetTime = Math.min(initialTime, Math.max(0, dur - 1));
-      videoRef.current.currentTime = targetTime;
-      setCurrentTime(targetTime);
-      initialTimeAppliedRef.current = src;
-    }
-
-    // Initialize track modes
-    if (subtitles.length > 0 && videoRef.current) {
-      const tracks = videoRef.current.textTracks;
-      for (let i = 0; i < tracks.length; i++) {
-        const t = tracks[i];
-        if (t) t.mode = isCaptionsVisible ? 'showing' : 'hidden';
-      }
-    }
-  };
-
-  // Native Picture-in-Picture
-  const togglePiP = async () => {
-    if (!videoRef.current) return;
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else {
-        await videoRef.current.requestPictureInPicture();
-      }
-    } catch {
-      showToast('Picture-in-Picture not supported on this stream');
-    }
-  };
-
-  // Fullscreen
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      containerRef.current.requestFullscreen().catch(() => {});
-    }
-  };
-
-  // Open in External VLC Media Player (vlc:// protocol)
-  const handleOpenInVlc = () => {
-    const vlcProtocolUrl = `vlc://${encodeURI(src)}`;
-    navigator.clipboard.writeText(src);
-    setCopiedVlcUrl(true);
-    setTimeout(() => setCopiedVlcUrl(false), 3000);
-
-    addLog('INFO', 'PLAYER', 'Invoking VLC Stream Bridge', `Source: ${src}`);
-    window.location.href = vlcProtocolUrl;
-    showToast('Source copied to clipboard. Launching VLC Media Player...');
   };
 
   const formatTime = (seconds: number) => {
@@ -494,8 +789,6 @@ export function VlcMediaViewer({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
-
   if (isAudio) {
     return (
       <div 
@@ -503,7 +796,7 @@ export function VlcMediaViewer({
         className={`w-full bg-gradient-to-br from-[#181920] to-[#0f1015] border border-[var(--cn-border)] rounded-2xl p-6 md:p-8 shadow-xl space-y-6 select-none ${className}`}
       >
         <video
-          key={src}
+          key={`${lessonId}-${src}`}
           ref={videoRef}
           src={src}
           playsInline
@@ -511,8 +804,16 @@ export function VlcMediaViewer({
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={onEnded}
+          onPause={() => {
+            setIsPlaying(false);
+            flushProgress();
+          }}
+          onError={handlePlaybackError}
+          onEnded={() => {
+            setIsPlaying(false);
+            flushProgress(duration, true);
+            onEnded?.();
+          }}
         />
 
         <div className="flex items-center gap-4">
@@ -538,11 +839,33 @@ export function VlcMediaViewer({
             type="range"
             min={0}
             max={duration || 100}
-            value={currentTime}
+            value={isSeeking ? seekSliderValue : currentTime}
+            onPointerDown={(e) => {
+              try {
+                e.currentTarget.setPointerCapture(e.pointerId);
+              } catch {
+                // Ignore if capture fails
+              }
+              setIsSeeking(true);
+              isSeekingRef.current = true;
+              setSeekSliderValue(currentTimeRef.current);
+              seekSliderValueRef.current = currentTimeRef.current;
+            }}
             onChange={(e) => {
-              const newTime = parseFloat(e.target.value);
-              if (videoRef.current) videoRef.current.currentTime = newTime;
-              setCurrentTime(newTime);
+              const val = parseFloat(e.target.value);
+              setSeekSliderValue(val);
+              seekSliderValueRef.current = val;
+            }}
+            onPointerUp={(e) => {
+              try {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              } catch {
+                // Ignore if release fails
+              }
+              handleSeekCommit(seekSliderValueRef.current);
+            }}
+            onPointerCancel={() => {
+              handleSeekCommit(seekSliderValueRef.current);
             }}
             className="w-full h-1.5 bg-white/20 hover:h-2 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-[height] duration-150 ease-out"
           />
@@ -558,7 +881,7 @@ export function VlcMediaViewer({
             <button
               onClick={togglePlay}
               className="p-2.5 rounded-xl bg-[var(--cn-brand)] text-black font-bold hover:brightness-110 transition-[transform,filter] duration-150 ease-out shadow-md active:scale-95"
-              title={isPlaying ? 'Pause' : 'Play'}
+              title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
             >
               {isPlaying ? <IconPlayerPause size={18} /> : <IconPlayerPlay size={18} />}
             </button>
@@ -605,11 +928,12 @@ export function VlcMediaViewer({
   return (
     <div 
       ref={containerRef}
+      onMouseMove={handleMouseMove}
       className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-[var(--cn-border)] select-none group ${className}`}
     >
       {/* Video Element with Dynamic Aspect Ratio */}
       <video
-        key={src}
+        key={`${lessonId}-${src}`}
         ref={videoRef}
         src={src}
         playsInline
@@ -631,7 +955,13 @@ export function VlcMediaViewer({
           setIsPlaying(true);
           setIsBuffering(false);
         }}
-        onPause={() => setIsPlaying(false)}
+        onPause={() => {
+          setIsPlaying(false);
+          flushProgress();
+        }}
+        onSeeked={() => {
+          flushProgress();
+        }}
         onWaiting={() => setIsBuffering(true)}
         onPlaying={() => {
           setIsPlaying(true);
@@ -640,7 +970,11 @@ export function VlcMediaViewer({
         onCanPlay={() => setIsBuffering(false)}
         onLoadStart={() => setIsBuffering(Boolean(src))}
         onError={handlePlaybackError}
-        onEnded={onEnded}
+        onEnded={() => {
+          setIsPlaying(false);
+          flushProgress(videoRef.current?.duration || duration, true);
+          onEnded?.();
+        }}
       >
         {activeSubtitles.map((sub, idx) => (
           <track
@@ -654,30 +988,46 @@ export function VlcMediaViewer({
         ))}
       </video>
 
-      {/* Stream Disconnection / Storage Disconnection Recovery Overlay */}
+      {/* Clear Error State & Fallback Overlay (Issue 1) */}
       {hasPlaybackError && (
-        <div className="absolute inset-0 z-30 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-4 animate-in fade-in duration-200">
-          <div className="w-12 h-12 rounded-2xl bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border border-[var(--cn-warning)]/30 flex items-center justify-center shadow-lg">
-            <IconAlertTriangle size={24} />
+        <div className="absolute inset-0 z-30 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center space-y-4 animate-in fade-in duration-200">
+          <div className="w-13 h-13 rounded-2xl bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border border-[var(--cn-warning)]/40 flex items-center justify-center shadow-xl">
+            <IconAlertTriangle size={28} />
           </div>
-          <div className="space-y-1 max-w-md">
-            <h4 className="text-sm font-bold text-white">Media Stream Interrupted</h4>
-            <p className="text-xs text-white/70 font-mono leading-relaxed">
-              Playback stopped at <span className="text-[var(--cn-warning)] font-bold">{formatTime(errorTimestamp)}</span>. If your external drive was unplugged, reconnect it and retry.
+          <div className="space-y-1.5 max-w-md">
+            <h4 className="text-base font-bold text-white tracking-tight">{errorTitle}</h4>
+            <p className="text-xs text-white/80 font-mono leading-relaxed">
+              {errorMessage}
             </p>
+            {errorTimestamp > 0 && (
+              <p className="text-[11px] text-[var(--cn-warning)] font-mono font-semibold">
+                Saved position preserved at {formatTime(errorTimestamp)}
+              </p>
+            )}
           </div>
-          <button
-            onClick={handleRetryStream}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:opacity-90 active:scale-95 transition-all shadow-md"
-          >
-            <IconRotateClockwise size={15} />
-            <span>Retry & Resume from {formatTime(errorTimestamp)}</span>
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+            <button
+              onClick={handleRetryStream}
+              className="cn-btn cn-btn-md cn-btn-primary"
+            >
+              <IconRotateClockwise size={15} />
+              <span>Retry & Resume</span>
+            </button>
+
+            <button
+              onClick={handleOpenInVlc}
+              className="cn-btn cn-btn-md cn-btn-secondary !bg-white/10 !text-white !border-white/20 hover:!bg-white/20"
+              title="Launch native VLC Media Player to stream this file directly"
+            >
+              <IconExternalLink size={14} />
+              <span>{isUnsupportedFormat ? 'Play in Native VLC (Supported)' : 'Open in VLC'}</span>
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Buffering & Storage Access Theme-Distinct Loader Overlay */}
-      {(isBuffering || !src) && (
+      {/* Buffering Loader Overlay */}
+      {(isBuffering || !src) && !hasPlaybackError && (
         <div className="absolute inset-0 z-25 bg-black/75 backdrop-blur-xs flex items-center justify-center pointer-events-none transition-opacity duration-200 ease-out">
           <ThemeLoader size="lg" text={!src ? 'Accessing Local Vault...' : 'Buffering Stream...'} />
         </div>
@@ -690,8 +1040,10 @@ export function VlcMediaViewer({
         </div>
       )}
 
-      {/* Header Overlay */}
-      <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity z-20">
+      {/* Header Overlay (Fixes Item 9) */}
+      <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent flex items-center justify-between transition-opacity duration-200 z-20 ${
+        isControlsVisible || !isPlaying ? 'opacity-100' : 'opacity-0'
+      }`}>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#EA580C]/25 text-[#FB923C] border border-[#EA580C]/40 text-[11px] font-mono font-bold">
             <IconBroadcast size={13} className="text-[#FB923C]" />
@@ -758,16 +1110,16 @@ export function VlcMediaViewer({
               max={200}
               value={volumePercent}
               onChange={(e) => {
-                const val = parseInt(e.target.value);
+                const val = parseInt(e.target.value, 10);
                 if (val > 100) ensureAudioGraph();
                 setVolumePercent(val);
               }}
               className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)]"
             />
-            <p className="text-[10px] text-white/50">VLC signature amplification for quiet lecture audio.</p>
+            <p className="text-[10px] text-white/50">VLC amplification for quiet lecture audio.</p>
           </div>
 
-          {/* Speech / Dialogue Clarity Filter */}
+          {/* Speech Clarity Filter */}
           <div className="flex items-center justify-between pt-1">
             <span className="text-[11px] text-white/80">Vocal Clarity Boost</span>
             <button
@@ -845,21 +1197,43 @@ export function VlcMediaViewer({
         </div>
       )}
 
-      {/* Control Bar Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col gap-2 transition-opacity z-20">
+      {/* Control Bar Overlay (Fixes Item 6 & 9) */}
+      <div className={`absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col gap-2 transition-opacity duration-200 z-20 ${
+        isControlsVisible || !isPlaying ? 'opacity-100' : 'opacity-0'
+      }`}>
         {/* Scrubber Progress Bar */}
         <div className="relative w-full group/scrubber cursor-pointer py-1.5 cn-scrubber">
           <input
             type="range"
             min={0}
             max={duration || 100}
-            value={currentTime}
-            onChange={(e) => {
-              const newTime = parseFloat(e.target.value);
-              if (videoRef.current) {
-                videoRef.current.currentTime = newTime;
+            value={isSeeking ? seekSliderValue : currentTime}
+            onPointerDown={(e) => {
+              try {
+                e.currentTarget.setPointerCapture(e.pointerId);
+              } catch {
+                // Ignore if capture fails
               }
-              setCurrentTime(newTime);
+              setIsSeeking(true);
+              isSeekingRef.current = true;
+              setSeekSliderValue(currentTimeRef.current);
+              seekSliderValueRef.current = currentTimeRef.current;
+            }}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setSeekSliderValue(val);
+              seekSliderValueRef.current = val;
+            }}
+            onPointerUp={(e) => {
+              try {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              } catch {
+                // Ignore if release fails
+              }
+              handleSeekCommit(seekSliderValueRef.current);
+            }}
+            onPointerCancel={() => {
+              handleSeekCommit(seekSliderValueRef.current);
             }}
             className="w-full h-1.5 bg-white/20 hover:h-2.5 rounded-lg appearance-none cursor-pointer accent-[var(--cn-brand)] transition-[height] duration-150 ease-out"
           />
@@ -913,14 +1287,14 @@ export function VlcMediaViewer({
             <button
               onClick={() => seekRelative(-5)}
               className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)]"
-              title="Rewind 5s"
+              title="Rewind 5s (←)"
             >
               -5s
             </button>
             <button
               onClick={() => seekRelative(5)}
               className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)]"
-              title="Forward 5s"
+              title="Forward 5s (→)"
             >
               +5s
             </button>
@@ -932,6 +1306,7 @@ export function VlcMediaViewer({
                   setIsMuted(!isMuted);
                 }}
                 className="cn-btn-tactile p-1 hover:text-[var(--cn-brand)]"
+                title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
               >
                 {isMuted || volumePercent === 0 ? <IconVolumeOff size={17} /> : <IconVolume size={17} />}
               </button>
@@ -964,7 +1339,7 @@ export function VlcMediaViewer({
                       ? 'bg-[var(--cn-brand)] text-black font-bold'
                       : 'bg-white/10 text-white/80 hover:bg-white/20'
                   }`}
-                  title={isCaptionsVisible ? 'Turn Off Closed Captions' : 'Turn On Closed Captions'}
+                  title={isCaptionsVisible ? 'Turn Off Closed Captions (C)' : 'Turn On Closed Captions (C)'}
                 >
                   <IconBadgeCc size={16} />
                   <span className="text-[10px] hidden sm:inline">CC</span>
@@ -1000,6 +1375,7 @@ export function VlcMediaViewer({
                 value={playbackSpeed}
                 onChange={(e) => changeSpeed(parseFloat(e.target.value))}
                 className="cn-btn-tactile bg-white/10 hover:bg-white/20 border border-white/20 rounded px-2 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
+                title="Playback Speed ([ / ])"
               >
                 {speedOptions.map((s) => (
                   <option key={s} value={s} className="bg-[#121316] text-white">
@@ -1022,7 +1398,7 @@ export function VlcMediaViewer({
             <button
               onClick={toggleFullscreen}
               className="cn-btn-tactile p-1 text-white/80 hover:text-white"
-              title="Toggle Fullscreen"
+              title="Toggle Fullscreen (F)"
             >
               <IconMaximize size={16} />
             </button>

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { getSavedReadingPage, saveReadingPage } from '../lib/courseStore';
 import { 
   IconFileText, 
   IconZoomIn, 
@@ -24,6 +25,8 @@ interface EmbeddedDocumentViewerProps {
   description?: string;
   contentSnippet?: string;
   fileUrl?: string;
+  courseId?: string;
+  lessonId?: string;
   onClose?: () => void;
   isModal?: boolean;
   onAskAi?: (pageText: string) => void;
@@ -44,6 +47,8 @@ export function EmbeddedDocumentViewer({
   description = 'Course Lecture Handout & Slide Deck',
   contentSnippet,
   fileUrl,
+  courseId = '',
+  lessonId = '',
   onClose,
   isModal = true,
   onAskAi,
@@ -51,7 +56,12 @@ export function EmbeddedDocumentViewer({
   isDocked = false,
 }: EmbeddedDocumentViewerProps) {
   // Navigation & Zoom State
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    if (lessonId) {
+      return getSavedReadingPage(lessonId, courseId);
+    }
+    return 1;
+  });
   const [zoomLevel, setZoomLevel] = useState(100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [viewSpread, setViewSpread] = useState<'single' | 'spread'>('single');
@@ -106,6 +116,13 @@ export function EmbeddedDocumentViewer({
   const totalPages = pages.length;
   const activePage: DocumentPage = pages[currentPage - 1] ?? pages[0]!;
   const secondPage = viewSpread === 'spread' && currentPage < totalPages ? pages[currentPage] : null;
+
+  // Persist reading position
+  useEffect(() => {
+    if (lessonId && currentPage > 0) {
+      saveReadingPage(lessonId, currentPage, courseId, totalPages);
+    }
+  }, [currentPage, lessonId, courseId, totalPages]);
 
   // Zoom Helpers
   const handleZoom = (delta: number) => {

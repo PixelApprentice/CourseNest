@@ -6,6 +6,7 @@ import {
   setLessonProgress, 
   getSavedPlaybackTime, 
   savePlaybackTime, 
+  fetchDetailedProgress,
   getUserNotes, 
   saveUserNote,
   getLessonBookmarks,
@@ -187,11 +188,23 @@ export function LessonPlayerPage() {
       setQuizScore(null);
     }
 
-    // Restore video time
-    const savedTime = getSavedPlaybackTime(lId);
+    // Reset playback position tracking for this lesson
+    currentTimeRef.current = 0;
+    lastSavedTimeRef.current = 0;
+    lastUiUpdateRef.current = 0;
+
+    // Restore video time from local vault and SQLite backend
+    const savedTime = getSavedPlaybackTime(lId, cId);
     if (savedTime > 0) {
       setCurrentTime(savedTime);
+      currentTimeRef.current = savedTime;
     }
+    fetchDetailedProgress(cId, lId).then((rec) => {
+      if (!isCancelled && rec?.lastPositionSeconds && rec.lastPositionSeconds > 0) {
+        setCurrentTime((prev) => (prev > 0 ? prev : rec.lastPositionSeconds));
+        if (currentTimeRef.current === 0) currentTimeRef.current = rec.lastPositionSeconds;
+      }
+    }).catch?.(() => {});
 
     // Reset resolved URLs for new lesson to prevent unbounded RAM accumulation
     let isCancelled = false;
@@ -246,8 +259,8 @@ export function LessonPlayerPage() {
 
   const seekTo = (seconds: number) => {
     setCurrentTime(seconds);
-    if (activeLesson) {
-      savePlaybackTime(activeLesson.id, seconds);
+    if (activeLesson && courseData) {
+      savePlaybackTime(activeLesson.id, seconds, courseData.id);
     }
   };
 
@@ -637,9 +650,9 @@ export function LessonPlayerPage() {
           {sortedBlocks.map((block: ContentBlockData) => {
             // 1. VIDEO BLOCK
             if (block.type === 'video') {
-              const fallbackSampleUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
               const isVaultMedia = Boolean(block.src?.startsWith('vault-media://'));
-              const videoSrc = resolvedMediaUrls[block.id] || (isVaultMedia ? '' : block.src) || fallbackSampleUrl;
+              const resolvedBlob = resolvedMediaUrls[block.id];
+              const videoSrc = isVaultMedia ? (resolvedBlob || '') : (block.src || '');
 
               if (isExternalDisconnected) {
                 return (
@@ -649,11 +662,11 @@ export function LessonPlayerPage() {
                     </div>
                     <div className="space-y-1">
                       <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">
-                        External Storage Disconnected
+                        {courseData?.storageStatus || 'External Storage Disconnected'}
                       </h4>
                       <p className="text-xs text-[var(--cn-text-muted)] max-w-md font-mono leading-relaxed">
-                        Course video media is located on: <span className="text-[var(--cn-warning)] font-semibold">{courseData?.externalMountPath || storageConfig.externalMountPath}</span>.
-                        Please plug in your external drive to resume playback.
+                        Course video media is located on: <span className="text-[var(--cn-warning)] font-semibold">{courseData?.externalMountPath || storageConfig.externalMountPath || 'External Drive'}</span>.
+                        Please plug in your external drive or restore the course folder to resume playback. Notes and quiz progress are preserved.
                       </p>
                     </div>
 
@@ -731,14 +744,17 @@ export function LessonPlayerPage() {
                   <VlcMediaViewer
                     src={videoSrc}
                     title={activeLesson.title}
+                    courseTitle={courseData.title}
+                    courseId={courseData.id}
+                    lessonId={activeLesson.id}
                     subtitles={blockSubs}
-                    initialTime={getSavedPlaybackTime(activeLesson.id)}
+                    initialTime={getSavedPlaybackTime(activeLesson.id, courseData.id)}
                     onEnded={() => {
                       setIsCompleted(true);
                       setLessonProgress(courseData.id, activeLesson.id, { completed: true });
                       addLog('INFO', 'PLAYER', `Lesson completed via video finish: ${activeLesson.title}`);
                     }}
-                    onTimeUpdate={(curr) => {
+                    onTimeUpdate={(curr, dur) => {
                       currentTimeRef.current = curr;
                       const now = Date.now();
                       if (now - lastUiUpdateRef.current >= 1000) {
@@ -747,7 +763,7 @@ export function LessonPlayerPage() {
                       }
                       if (Math.abs(curr - lastSavedTimeRef.current) >= 5) {
                         lastSavedTimeRef.current = curr;
-                        savePlaybackTime(activeLesson.id, curr);
+                        savePlaybackTime(activeLesson.id, curr, courseData.id, dur);
                       }
                     }}
                   />
@@ -1352,6 +1368,8 @@ export function LessonPlayerPage() {
                 description={activeDocViewer.description}
                 contentSnippet={activeDocViewer.snippet}
                 fileUrl={activeDocViewer.fileUrl}
+                courseId={courseData.id}
+                lessonId={activeLesson.id}
                 onClose={() => setActiveDocViewer(null)}
                 isModal={false}
                 isDocked={true}
@@ -1375,6 +1393,8 @@ export function LessonPlayerPage() {
           description={activeDocViewer.description}
           contentSnippet={activeDocViewer.snippet}
           fileUrl={activeDocViewer.fileUrl}
+          courseId={courseData.id}
+          lessonId={activeLesson.id}
           onClose={() => setActiveDocViewer(null)}
           isModal={true}
           isDocked={false}
