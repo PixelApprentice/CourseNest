@@ -1,9 +1,10 @@
 import AdmZip from 'adm-zip';
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, rename } from 'fs/promises';
 import path from 'path';
 import { gunzip as gunzipCb } from 'node:zlib';
 import { promisify } from 'util';
 import { validateArchivePath } from './security.js';
+import { coursePasswordManager } from './coursePasswordManager.js';
 
 const gunzip = promisify(gunzipCb);
 
@@ -19,6 +20,7 @@ export async function extractArchive(
   sourcePath: string,
   sandboxDir: string,
   onProgress: (file: string, status: 'extracting' | 'completed' | 'error') => void = () => {},
+  password?: string,
 ): Promise<string[]> {
   await mkdir(sandboxDir, { recursive: true });
 
@@ -26,7 +28,7 @@ export async function extractArchive(
   const extractedFiles: string[] = [];
 
   if (ext.endsWith('.zip')) {
-    await extractZipAdm(sourcePath, sandboxDir, extractedFiles, onProgress);
+    await extractZipAdm(sourcePath, sandboxDir, extractedFiles, onProgress, password);
   } else if (ext.endsWith('.tar.gz') || ext.endsWith('.tgz')) {
     await extractTarGz(sourcePath, sandboxDir, extractedFiles, onProgress);
   } else {
@@ -39,11 +41,14 @@ export async function extractArchive(
 /**
  * Extracts multiple archives belonging to one course (e.g. part1.zip, part2.zip, module1.zip).
  * Each archive is sandboxed safely. If one archive has a corrupt entry, others continue cleanly.
+ * Reuses the course-level password across all parts.
  */
 export async function extractMultipleArchives(
   sourcePaths: string[],
   sandboxDir: string,
   onProgress: (archiveName: string, file: string, status: 'extracting' | 'completed' | 'error') => void = () => {},
+  passwords?: Record<string, string> | string,
+  courseId?: string,
 ): Promise<MultiArchiveExtractionResult[]> {
   await mkdir(sandboxDir, { recursive: true });
   const results: MultiArchiveExtractionResult[] = [];
@@ -53,12 +58,15 @@ export async function extractMultipleArchives(
     // Sandbox each archive in its own designated module folder
     const archiveDestDir = path.join(sandboxDir, baseName);
     const archiveFiles: string[] = [];
+    const password = (typeof passwords === 'string'
+      ? passwords
+      : passwords?.[archivePath] || passwords?.[baseName] || (courseId ? coursePasswordManager.getSessionPassword(courseId) : undefined)) || undefined;
 
     try {
       await mkdir(archiveDestDir, { recursive: true });
       const files = await extractArchive(archivePath, archiveDestDir, (file, status) => {
         onProgress(baseName, file, status);
-      });
+      }, password);
 
       results.push({
         archivePath,
@@ -85,32 +93,67 @@ async function extractZipAdm(
   destDir: string,
   extractedFiles: string[],
   onProgress: (file: string, status: 'extracting' | 'completed' | 'error') => void,
+  password?: string,
 ): Promise<void> {
-  const zip = new AdmZip(sourcePath);
-  const entries = zip.getEntries();
+  const stagingDir = path.join(destDir, `.staging_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`);
+  await mkdir(stagingDir, { recursive: true });
 
-  for (const entry of entries) {
-    if (entry.isDirectory) continue;
+  try {
+    const zip = new AdmZip(sourcePath);
+    const entries = zip.getEntries();
 
-    const entryName = entry.entryName.replace(/\\/g, '/');
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
 
-    // Strict Zip Slip path validation BEFORE extracting or writing
-    try {
-      validateArchivePath(entryName, destDir);
-    } catch (err) {
-      onProgress(entryName, 'error');
-      throw err;
+      const entryName = entry.entryName.replace(/\\/g, '/');
+
+      // Strict Zip Slip path validation BEFORE extracting or writing
+      try {
+        validateArchivePath(entryName, destDir);
+      } catch (err) {
+        onProgress(entryName, 'error');
+        throw err;
+      }
+
+      onProgress(entryName, 'extracting');
+      const stagingTarget = path.join(stagingDir, entryName);
+      await mkdir(path.dirname(stagingTarget), { recursive: true });
+
+      let buffer: Buffer;
+      try {
+        buffer = password ? entry.getData(password) : entry.getData();
+      } catch (err: any) {
+        if (!password && (entry.header as any)?.flags & 1) {
+          throw new Error(`Archive entry "${entryName}" is password-protected. Password required.`);
+        }
+        throw new Error(`Failed to decrypt "${entryName}": ${err?.message || 'Invalid password or corrupted entry'}`);
+      }
+
+      await writeFile(stagingTarget, buffer);
     }
 
-    onProgress(entryName, 'extracting');
-    const targetPath = path.join(destDir, entryName);
-    await mkdir(path.dirname(targetPath), { recursive: true });
-
-    const buffer = entry.getData();
-    await writeFile(targetPath, buffer);
-
-    extractedFiles.push(entryName);
-    onProgress(entryName, 'completed');
+    // Atomic promotion from stagingDir to destDir upon full success
+    const entriesToPromote = zip.getEntries().filter((e) => !e.isDirectory);
+    for (const entry of entriesToPromote) {
+      const entryName = entry.entryName.replace(/\\/g, '/');
+      const stagingTarget = path.join(stagingDir, entryName);
+      const finalTarget = path.join(destDir, entryName);
+      await mkdir(path.dirname(finalTarget), { recursive: true });
+      try {
+        await rename(stagingTarget, finalTarget);
+      } catch {
+        const content = await readFile(stagingTarget);
+        await writeFile(finalTarget, content);
+      }
+      extractedFiles.push(entryName);
+      onProgress(entryName, 'completed');
+    }
+  } finally {
+    // Clean up staging directory
+    try {
+      const { rm } = await import('fs/promises');
+      await rm(stagingDir, { recursive: true, force: true });
+    } catch {}
   }
 }
 

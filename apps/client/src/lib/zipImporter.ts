@@ -4,6 +4,32 @@ import { saveMediaFile } from './mediaVault';
 import { addCourseToVault, appendSectionsToCourse, getCourseById, type CourseData, type SectionData, type LessonData, type ContentBlockData, type SubtitleTrackData } from './courseStore';
 import { anySubtitleToVtt, extractUrlFromShortcutText, parseJupyterNotebook, sanitizeLectureHtml } from './formatHelpers';
 import { getStorageConfig } from './storageConfig';
+import { coursePasswordManager, type PasswordPromptResult, type PasswordPromptContext } from './coursePasswordManager';
+
+// Wire electron safeStorage provider into coursePasswordManager in browser context
+if (typeof window !== 'undefined') {
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.getCoursePassword) {
+    coursePasswordManager.setSafeStorageProvider({
+      getCoursePassword: async (courseId: string) => {
+        try {
+          return await electron.storage.getCoursePassword(courseId);
+        } catch {
+          return null;
+        }
+      },
+      saveCoursePassword: async (courseId: string, password: string) => {
+        try {
+          await electron.storage.saveCoursePassword(courseId, password);
+        } catch {
+          // Ignore
+        }
+      },
+    });
+  }
+}
+
+export type { PasswordPromptResult, PasswordPromptContext };
 
 export interface DiscoveredArchiveFile {
   originalPath: string;
@@ -46,6 +72,7 @@ export interface ProposalSection {
   position: number;
   sourceConfidence: 'manifest' | 'numbered' | 'heuristic';
   lessons: ProposalLesson[];
+  archiveName?: string;
 }
 
 export interface ParsedArchiveResult {
@@ -115,21 +142,309 @@ function detectFileType(ext: string): {
   return { type: 'asset', mimeType: 'application/octet-stream' };
 }
 
-function cleanTitle(raw: string): string {
+export function cleanTitle(raw: string): string {
   let name = raw.replace(/\.[^/.]+$/, '');
   name = name.replace(/[_-]+/g, ' ');
   name = name.replace(/^(\d+)[\s.]+/i, '');
   return name.trim() || raw;
 }
 
-function parsePositionAndTitle(raw: string, defaultPos: number): { position: number; title: string; hasExplicitNumber: boolean } {
-  const match = raw.match(/^(?:(?:Week|Chapter|Section|Module|Part|Lecture|Unit|Ch)\s*)?(\d+)[\s._-]+(.*)$/i);
-  if (match && match[1] && match[2]) {
-    const pos = parseInt(match[1], 10);
-    const title = cleanTitle(match[2].trim());
-    return { position: isNaN(pos) ? defaultPos : pos, title: title || raw, hasExplicitNumber: !isNaN(pos) };
+const SECTION_KEYWORDS = ['week', 'chapter', 'section', 'module', 'part', 'lecture', 'episode', 'session', 'unit', 'sec', 'ch', 'vol', 'volume'];
+
+export function findLongestCommonPrefix(names: string[]): string {
+  if (!names || names.length === 0) return '';
+  const cleanNames = names.map((n) => n.replace(/\.[^/.]+$/, '').trim()).filter(Boolean);
+  if (cleanNames.length === 0) return '';
+  if (cleanNames.length === 1) return '';
+
+  let prefix = cleanNames[0]!;
+  for (let i = 1; i < cleanNames.length; i++) {
+    const current = cleanNames[i]!;
+    let j = 0;
+    while (j < prefix.length && j < current.length && prefix[j] === current[j]) {
+      j++;
+    }
+    prefix = prefix.slice(0, j);
+    if (!prefix) break;
   }
-  return { position: defaultPos, title: cleanTitle(raw), hasExplicitNumber: false };
+
+  // Ensure prefix ends on a word boundary (don't cut words like Java / JavaScript - Review Item 16)
+  const cutsMidWord = cleanNames.some((name) => {
+    if (name.length > prefix.length) {
+      const lastPrefixChar = prefix[prefix.length - 1] || '';
+      const nextChar = name[prefix.length] || '';
+      return /\w/.test(lastPrefixChar) && /\w/.test(nextChar);
+    }
+    return false;
+  });
+
+  if (cutsMidWord) {
+    const lastBoundary = Math.max(
+      prefix.lastIndexOf(' '),
+      prefix.lastIndexOf('-'),
+      prefix.lastIndexOf('_'),
+      prefix.lastIndexOf('.')
+    );
+    if (lastBoundary > 0) {
+      prefix = prefix.slice(0, lastBoundary);
+    } else {
+      prefix = '';
+    }
+  }
+
+  prefix = prefix.replace(/[\s._-]+$/, '').trim();
+
+  // Strip section keyword if trailing (e.g. "Python Full Stack Course Part" -> "Python Full Stack Course")
+  const words = prefix.split(/\s+/);
+  if (words.length > 1) {
+    const lastWord = words[words.length - 1]!.toLowerCase();
+    if (SECTION_KEYWORDS.includes(lastWord)) {
+      words.pop();
+      prefix = words.join(' ').replace(/[\s._-]+$/, '').trim();
+    }
+  }
+
+  return prefix.length >= 3 ? prefix : '';
+}
+
+export function cleanSectionTitleAndPosition(
+  rawName: string,
+  commonPrefix: string = '',
+  defaultPosition: number = 1,
+): { position: number; cleanTitle: string; hasExplicitNumber: boolean } {
+  let name = rawName.replace(/\.[^/.]+$/, '').trim();
+
+  // 1. Strip common prefix if present
+  if (commonPrefix && commonPrefix.length >= 3) {
+    const escaped = commonPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}[\\s._-]*`, 'i');
+    const stripped = name.replace(regex, '').trim();
+    if (stripped.length > 0) {
+      name = stripped;
+    }
+  }
+
+  // 2. Keyword + number pattern anywhere in the string (beginning, middle, or end - Review Item 17)
+  const patternKeyword = /(?:^|[\s._:-]+)(Week|Chapter|Section|Module|Part|Lecture|Episode|Session|Unit|Sec|Ch|Vol|Volume)[\s._:-]*(\d+)(.*)$/i;
+  const matchKeyword = name.match(patternKeyword);
+  if (matchKeyword && matchKeyword[1] && matchKeyword[2]) {
+    const pos = parseInt(matchKeyword[2], 10);
+    const rest = (matchKeyword[3] || '').replace(/^[\s._:-]+/, '').trim();
+    const keyword = matchKeyword[1].charAt(0).toUpperCase() + matchKeyword[1].slice(1).toLowerCase();
+    const title = rest ? `${keyword} ${matchKeyword[2]} - ${rest}` : `${keyword} ${parseInt(matchKeyword[2], 10)}`;
+    return {
+      position: isNaN(pos) ? defaultPosition : pos,
+      cleanTitle: title.trim(),
+      hasExplicitNumber: !isNaN(pos),
+    };
+  }
+
+  // 3. Leading digit: "01 - Introduction" or "01. Introduction"
+  const patternLeadingDigit = /^(\d+)[\s._-]+(.*)$/;
+  const matchLeading = name.match(patternLeadingDigit);
+  if (matchLeading && matchLeading[1] && matchLeading[2]) {
+    const pos = parseInt(matchLeading[1], 10);
+    const clean = matchLeading[2].replace(/[_-]+/g, ' ').trim();
+    return {
+      position: isNaN(pos) ? defaultPosition : pos,
+      cleanTitle: clean || name,
+      hasExplicitNumber: !isNaN(pos),
+    };
+  }
+
+  // 4. Trailing digit: "Introduction - 01" or "Basics_2"
+  const patternTrailingDigit = /^(.*?)[\\s._-]+(\d+)$/;
+  const matchTrailing = name.match(patternTrailingDigit);
+  if (matchTrailing && matchTrailing[1] && matchTrailing[2]) {
+    const pos = parseInt(matchTrailing[2], 10);
+    const clean = matchTrailing[1].replace(/[_-]+/g, ' ').trim();
+    return {
+      position: isNaN(pos) ? defaultPosition : pos,
+      cleanTitle: clean || name,
+      hasExplicitNumber: !isNaN(pos),
+    };
+  }
+
+  // 5. Fallback: Clean separators
+  const fallbackClean = name.replace(/[_-]+/g, ' ').trim();
+  return {
+    position: defaultPosition,
+    cleanTitle: fallbackClean || `Section ${defaultPosition}`,
+    hasExplicitNumber: false,
+  };
+}
+
+function parsePositionAndTitle(raw: string, defaultPos: number): { position: number; title: string; hasExplicitNumber: boolean } {
+  const res = cleanSectionTitleAndPosition(raw, '', defaultPos);
+  return { position: res.position, title: res.cleanTitle, hasExplicitNumber: res.hasExplicitNumber };
+}
+
+export function isZipEncrypted(buffer: ArrayBuffer | Uint8Array): boolean {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  const len = bytes.length;
+  for (let i = 0; i < len - 10; i++) {
+    if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b) {
+      // Local File Header PK\x03\x04
+      if (bytes[i + 2] === 0x03 && bytes[i + 3] === 0x04) {
+        const flag = (bytes[i + 6] ?? 0) | ((bytes[i + 7] ?? 0) << 8);
+        const method = (bytes[i + 8] ?? 0) | ((bytes[i + 9] ?? 0) << 8);
+        if ((flag & 0x0001) !== 0 || method === 99) {
+          return true;
+        }
+      }
+      // Central Directory Header PK\x01\x02
+      if (bytes[i + 2] === 0x01 && bytes[i + 3] === 0x02) {
+        const flag = (bytes[i + 8] ?? 0) | ((bytes[i + 9] ?? 0) << 8);
+        const method = (bytes[i + 10] ?? 0) | ((bytes[i + 11] ?? 0) << 8);
+        if ((flag & 0x0001) !== 0 || method === 99) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// -----------------------------------------------------------------------------
+// Safe In-Memory & OS Keychain Password Management (Fixes Issue A)
+// Never stored in plaintext localStorage or logs. Kept in memory per session by default.
+// -----------------------------------------------------------------------------
+try {
+  // Purge any legacy plaintext archive passwords from localStorage
+  localStorage.removeItem('coursenest_known_archive_passwords_v1');
+} catch {}
+
+export function getSessionCoursePassword(courseId?: string): string | null {
+  return coursePasswordManager.getSessionPassword(courseId || 'default-session');
+}
+
+export function setSessionCoursePassword(password: string, courseId?: string): void {
+  coursePasswordManager.setSessionPassword(courseId || 'default-session', password);
+}
+
+export async function resolveCoursePassword(courseId?: string): Promise<string | null> {
+  return coursePasswordManager.getCoursePassword(courseId || 'default-session');
+}
+
+async function extractWith7zWasm(
+  file: File,
+  archiveBaseName: string,
+  password?: string,
+): Promise<DiscoveredArchiveFile[]> {
+  const SevenZip = (await import('7z-wasm')).default;
+  const stdoutLogs: string[] = [];
+  const stderrLogs: string[] = [];
+  const sz = await SevenZip({
+    print: (txt: string) => stdoutLogs.push(txt),
+    printErr: (txt: string) => stderrLogs.push(txt),
+  });
+  const id = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '.bin';
+  const memArchiveName = `/archive_${id}${ext}`;
+  const stagingDir = `/staging_${id}`;
+
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  sz.FS.writeFile(memArchiveName, buffer);
+
+  try {
+    sz.FS.mkdir(stagingDir);
+  } catch {}
+
+  const args = ['x', memArchiveName, `-o${stagingDir}`, '-y'];
+  if (password) {
+    args.push(`-p${password}`);
+  }
+
+  const exitCode = (sz.callMain(args) as unknown as number) ?? 0;
+
+  const cleanupVirtualFS = () => {
+    try {
+      sz.FS.unlink(memArchiveName);
+    } catch {}
+    try {
+      const deleteRecursive = (dir: string) => {
+        const entries = sz.FS.readdir(dir);
+        for (const entry of entries) {
+          if (entry === '.' || entry === '..') continue;
+          const full = `${dir}/${entry}`;
+          const stat = sz.FS.stat(full);
+          if (sz.FS.isDir(stat.mode)) {
+            deleteRecursive(full);
+            sz.FS.rmdir(full);
+          } else {
+            sz.FS.unlink(full);
+          }
+        }
+      };
+      deleteRecursive(stagingDir);
+      sz.FS.rmdir(stagingDir);
+    } catch {}
+  };
+
+  if (exitCode !== 0) {
+    cleanupVirtualFS();
+    const combinedOutput = [...stdoutLogs, ...stderrLogs].join('\n').toLowerCase();
+    const isPasswordError =
+      combinedOutput.includes('wrong password') ||
+      combinedOutput.includes('enter password') ||
+      combinedOutput.includes('can not open encrypted archive') ||
+      combinedOutput.includes('cannot open encrypted') ||
+      combinedOutput.includes('data error in encrypted');
+
+    if (isPasswordError || password || exitCode === 2) {
+      throw new Error(
+        password
+          ? 'Incorrect password. Please verify and try again.'
+          : 'Archive is password-protected. Password required.'
+      );
+    }
+    throw new Error(`Extraction failed with exit code ${exitCode}: ${stderrLogs.join(' ') || stdoutLogs.join(' ') || 'Corrupted archive or unsupported format'}`);
+  }
+
+  const results: DiscoveredArchiveFile[] = [];
+
+  const traverseDir = (dir: string, baseRel: string) => {
+    const entries = sz.FS.readdir(dir);
+    for (const entry of entries) {
+      if (entry === '.' || entry === '..') continue;
+      const fullPath = `${dir}/${entry}`;
+      const relPath = baseRel ? `${baseRel}/${entry}` : entry;
+      const stat = sz.FS.stat(fullPath);
+      if (sz.FS.isDir(stat.mode)) {
+        traverseDir(fullPath, relPath);
+      } else {
+        if (isIgnored(relPath)) continue;
+        if (relPath.includes('../') || relPath.includes('..\\') || relPath.startsWith('/') || relPath.startsWith('\\')) {
+          addLog('WARN', 'SECURITY', `Blocked unsafe path in archive: ${relPath}`);
+          continue;
+        }
+
+        const filename = entry;
+        const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
+        const { type, mimeType } = detectFileType(ext);
+
+        const fileBytes = sz.FS.readFile(fullPath);
+        const fileBlob = new Blob([fileBytes as any], { type: mimeType });
+
+        results.push({
+          originalPath: relPath,
+          cleanPath: relPath,
+          filename,
+          sizeBytes: stat.size || fileBlob.size,
+          fileType: type,
+          mimeType,
+          archiveName: archiveBaseName,
+          getData: async () => fileBlob,
+        });
+      }
+    }
+  };
+
+  traverseDir(stagingDir, '');
+
+  cleanupVirtualFS();
+
+  return results;
 }
 
 /**
@@ -137,10 +452,16 @@ function parsePositionAndTitle(raw: string, defaultPos: number): { position: num
  */
 export async function parseCourseArchives(
   files: File[],
-  onProgress?: (percent: number, status: string) => void
+  onProgress?: (percent: number, status: string) => void,
+  onPasswordRequired?: (filename: string, attemptCount: number, errorMsg?: string) => Promise<PasswordPromptResult>,
+  courseId?: string,
 ): Promise<ParsedArchiveResult> {
   const discoveredFiles: DiscoveredArchiveFile[] = [];
   let maxReportedPct = 0;
+  
+  // Stable course key for this batch ensures all 75 parts share the exact same course password promise
+  const batchCourseKey = courseId || `import-batch-${files.map(f => f.name).sort().join('|')}`;
+  let currentCoursePassword = await coursePasswordManager.getCoursePassword(batchCourseKey);
 
   const reportProgress = (pct: number, status: string) => {
     maxReportedPct = Math.max(maxReportedPct, Math.min(100, Math.round(pct)));
@@ -149,23 +470,27 @@ export async function parseCourseArchives(
     }
   };
 
-  reportProgress(5, `Preparing archive scan for ${files.length} file(s)...`);
+  reportProgress(5, `Preparing queue for ${files.length} archive(s)...`);
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]!;
-    addLog('INFO', 'IMPORTER', `Reading course archive: ${file.name}`, `Size: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
+    addLog('INFO', 'IMPORTER', `Reading course archive [${i + 1}/${files.length}]: ${file.name}`, `Size: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
     
+    // Yield to the browser event loop so progress updates and memory can breathe
+    await new Promise((r) => setTimeout(r, 30));
+
     const fileBase = 10 + (i / files.length) * 75;
-    reportProgress(fileBase, `Reading archive ${i + 1} of ${files.length}: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)} MB)...`);
+    reportProgress(fileBase, `[Queue ${i + 1}/${files.length}] Scanning "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB)...`);
 
     const lowerName = file.name.toLowerCase();
     const isRar = lowerName.endsWith('.rar');
     const is7z = lowerName.endsWith('.7z') || lowerName.endsWith('.7zip');
+    const isZip = lowerName.endsWith('.zip') || lowerName.endsWith('.tar.gz') || lowerName.endsWith('.tgz');
     const archiveBaseName = file.name.replace(/\.[^/.]+$/, '');
 
     // 1. RAR Archives (.rar) via node-unrar-js WASM
     if (isRar) {
-      reportProgress(fileBase + (0.4 / files.length) * 75, `Decompressing RAR headers: ${file.name}...`);
+      reportProgress(fileBase + (0.4 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Decompressing RAR: ${file.name}...`);
       try {
         const { createExtractorFromData } = await import('node-unrar-js');
         const arrayBuffer = await file.arrayBuffer();
@@ -208,91 +533,174 @@ export async function parseCourseArchives(
       continue;
     }
 
-    // 2. 7-Zip Archives (.7z, .7zip) via 7z-wasm
-    if (is7z) {
-      reportProgress(fileBase + (0.4 / files.length) * 75, `Decompressing 7-Zip headers: ${file.name}...`);
+    // 2. Encrypted Check & Decompression
+    let isEncrypted = false;
+    let fileBuffer: ArrayBuffer | null = null;
+
+    if (isZip) {
       try {
-        const SevenZip = (await import('7z-wasm')).default;
-        const sz = await SevenZip();
-        const memArchiveName = `archive_${i}.7z`;
-        const buffer = new Uint8Array(await file.arrayBuffer());
+        fileBuffer = await file.arrayBuffer();
+        isEncrypted = isZipEncrypted(fileBuffer);
+      } catch {}
+    }
 
-        const stream = sz.FS.open(memArchiveName, 'w+');
-        sz.FS.write(stream, buffer, 0, buffer.length);
-        sz.FS.close(stream);
+    // If encrypted or 7z: use 7z-wasm with course password reuse across all parts (Issue A)
+    if (is7z || isEncrypted) {
+      let extracted: DiscoveredArchiveFile[] | null = null;
 
-        const outDir = `/extracted_${i}`;
-        try { sz.FS.mkdir(outDir); } catch {}
-        sz.callMain(['x', memArchiveName, `-o${outDir}`, '-y']);
+      // Automatically try the course password on every part!
+      if (currentCoursePassword) {
+        try {
+          reportProgress(fileBase + (0.3 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Auto-unlocking "${file.name}" with course password...`);
+          extracted = await extractWith7zWasm(file, archiveBaseName, currentCoursePassword);
+          addLog('INFO', 'IMPORTER', `Archive "${file.name}" automatically decrypted using course password.`);
+        } catch {
+          // Password did not match this specific part
+        }
+      }
 
-        const traverse7zDir = (dir: string, baseRel: string) => {
-          const entries = sz.FS.readdir(dir);
-          for (const entry of entries) {
-            if (entry === '.' || entry === '..') continue;
-            const fullPath = `${dir}/${entry}`;
-            const relPath = baseRel ? `${baseRel}/${entry}` : entry;
-            const stat = sz.FS.stat(fullPath);
-            if (sz.FS.isDir(stat.mode)) {
-              traverse7zDir(fullPath, relPath);
-            } else {
-              if (isIgnored(relPath)) continue;
-              const filename = entry;
-              const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
-              const { type, mimeType } = detectFileType(ext);
+      // If no course password yet or password failed on this part, prompt user (Issue A)
+      if (!extracted) {
+        let attempt = 0;
+        let lastError: string | undefined = currentCoursePassword
+          ? `Course password failed for part "${file.name}". Please enter the password for this part.`
+          : undefined;
 
-              discoveredFiles.push({
-                originalPath: relPath,
-                cleanPath: relPath,
-                filename,
-                sizeBytes: stat.size || 0,
-                fileType: type,
-                mimeType,
-                archiveName: archiveBaseName,
-                getData: async () => {
-                  const data = sz.FS.readFile(fullPath);
-                  return new Blob([data as any], { type: mimeType });
-                },
-              });
-            }
+        while (true) {
+          attempt++;
+          if (!onPasswordRequired) {
+            throw new Error(`Archive "${file.name}" is password-protected. Password required.`);
           }
-        };
+          const entered = await coursePasswordManager.getCoursePassword(batchCourseKey, {
+            partName: file.name,
+            forceReprompt: attempt > 1 || !!lastError,
+            errorMessage: lastError,
+            promptFn: async (ctx) => {
+              return onPasswordRequired(ctx.partName || file.name, ctx.attemptCount, ctx.errorMessage);
+            },
+          });
 
-        traverse7zDir(outDir, '');
-      } catch (err: any) {
-        addLog('ERROR', 'IMPORTER', `Error processing 7z archive: ${file.name}`, err?.message);
-        throw new Error(`Failed to read 7-Zip archive "${file.name}": ${err?.message || 'Unsupported format'}`);
+          if (!entered) {
+            // User cancelled extraction
+            addLog('INFO', 'IMPORTER', `Password entry cancelled by user for archive: ${file.name}`);
+            break;
+          }
+
+          try {
+            reportProgress(fileBase + (0.5 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Decrypting "${file.name}"...`);
+            extracted = await extractWith7zWasm(file, archiveBaseName, entered);
+            
+            // On success, save in memory and reuse across all remaining parts of this course!
+            currentCoursePassword = entered;
+            coursePasswordManager.setSessionPassword(batchCourseKey, entered);
+            if (courseId) {
+              coursePasswordManager.aliasCourse(batchCourseKey, courseId);
+            }
+            break; // Extraction successful
+          } catch (err: any) {
+            isEncrypted = true;
+            lastError = `Incorrect password for "${file.name}". Please verify and try again.`;
+            addLog('WARN', 'IMPORTER', `Decryption failed for ${file.name}: ${err?.message || err}`);
+          }
+        }
+      }
+
+      if (extracted && extracted.length > 0) {
+        discoveredFiles.push(...extracted);
       }
       continue;
     }
 
-    // 3. Standard ZIP Archives (.zip, .tar.gz) via JSZip
-    const zip = await JSZip.loadAsync(file);
-    reportProgress(fileBase + (0.7 / files.length) * 75, `Decompressing headers: ${file.name}...`);
+    // 3. Standard Non-Encrypted ZIP Archives via JSZip (Fast Path)
+    try {
+      const zip = await JSZip.loadAsync(fileBuffer || file);
+      reportProgress(fileBase + (0.7 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Decompressing headers: ${file.name}...`);
 
-    zip.forEach((relPath, entry) => {
-      if (entry.dir || relPath.endsWith('/')) return;
-      if (isIgnored(relPath)) return;
+      zip.forEach((relPath, entry) => {
+        if (entry.dir || relPath.endsWith('/')) return;
+        if (isIgnored(relPath)) return;
 
-      if (relPath.includes('../') || relPath.includes('..\\') || relPath.startsWith('/') || relPath.startsWith('\\')) {
-        addLog('WARN', 'SECURITY', `Blocked unsafe path in archive: ${relPath}`);
-        return;
-      }
+        if (relPath.includes('../') || relPath.includes('..\\') || relPath.startsWith('/') || relPath.startsWith('\\')) {
+          addLog('WARN', 'SECURITY', `Blocked unsafe path in archive: ${relPath}`);
+          return;
+        }
 
-      const filename = relPath.split('/').pop() || relPath;
-      const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
-      const { type, mimeType } = detectFileType(ext);
+        const filename = relPath.split('/').pop() || relPath;
+        const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
+        const { type, mimeType } = detectFileType(ext);
 
-      discoveredFiles.push({
-        originalPath: relPath,
-        cleanPath: relPath,
-        filename,
-        sizeBytes: (entry as any)._data?.uncompressedSize || 0,
-        fileType: type,
-        mimeType,
-        archiveName: archiveBaseName,
-        zipEntry: entry,
+        discoveredFiles.push({
+          originalPath: relPath,
+          cleanPath: relPath,
+          filename,
+          sizeBytes: (entry as any)._data?.uncompressedSize || 0,
+          fileType: type,
+          mimeType,
+          archiveName: archiveBaseName,
+          zipEntry: entry,
+        });
       });
-    });
+    } catch (zipErr: any) {
+      // Fallback: If JSZip failed due to encrypted zip or unhandled compression, try 7z-wasm with course password
+      if (zipErr?.message?.toLowerCase().includes('encrypted') || isEncrypted) {
+        let extractedFallback: DiscoveredArchiveFile[] | null = null;
+
+        // Try course password first
+        if (currentCoursePassword) {
+          try {
+            reportProgress(fileBase + (0.3 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Auto-unlocking "${file.name}" with course password...`);
+            extractedFallback = await extractWith7zWasm(file, archiveBaseName, currentCoursePassword);
+            addLog('INFO', 'IMPORTER', `Archive "${file.name}" automatically decrypted using course password.`);
+          } catch {}
+        }
+
+        if (!extractedFallback) {
+          let attempt = 0;
+          let lastError: string | undefined = currentCoursePassword
+            ? `Course password failed for part "${file.name}". Please enter the password for this part.`
+            : undefined;
+
+          while (true) {
+            attempt++;
+            if (!onPasswordRequired) {
+              throw new Error(`Archive "${file.name}" is password-protected. Password required.`);
+            }
+            const entered = await coursePasswordManager.getCoursePassword(batchCourseKey, {
+              partName: file.name,
+              forceReprompt: attempt > 1 || !!lastError,
+              errorMessage: lastError,
+              promptFn: async (ctx) => {
+                return onPasswordRequired(ctx.partName || file.name, ctx.attemptCount, ctx.errorMessage);
+              },
+            });
+
+            if (!entered) {
+              addLog('INFO', 'IMPORTER', `Password entry cancelled for: ${file.name}`);
+              break;
+            }
+
+            try {
+              reportProgress(fileBase + (0.5 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Decrypting: ${file.name}...`);
+              extractedFallback = await extractWith7zWasm(file, archiveBaseName, entered);
+              currentCoursePassword = entered;
+              coursePasswordManager.setSessionPassword(batchCourseKey, entered);
+              if (courseId) {
+                coursePasswordManager.aliasCourse(batchCourseKey, courseId);
+              }
+              break;
+            } catch (err: any) {
+              lastError = `Incorrect password for "${file.name}". Please verify and try again.`;
+            }
+          }
+        }
+
+        if (extractedFallback) {
+          discoveredFiles.push(...extractedFallback);
+        }
+      } else {
+        throw zipErr;
+      }
+    }
   }
 
   reportProgress(92, 'Structuring lesson modules and chapters...');
@@ -385,12 +793,25 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
     }
   }
 
-  let suggestedTitle = commonRoot ? cleanTitle(commonRoot) : cleanTitle(fallbackTitle);
+  // Detect common prefix across archive names (e.g. "Python Full Stack Course Part 1", "Python Full Stack Course Part 2")
+  const distinctArchiveNames = Array.from(new Set(files.map((f) => f.archiveName).filter(Boolean)));
+  const commonArchivePrefix = findLongestCommonPrefix(distinctArchiveNames);
+
+  // Detect common prefix across subfolder names
+  const subfolderNames = files
+    .map((f) => {
+      const parts = f.cleanPath.split('/').filter(Boolean);
+      return parts.length >= 2 ? parts[parts.length - 2]! : '';
+    })
+    .filter(Boolean);
+  const commonSubfolderPrefix = findLongestCommonPrefix(Array.from(new Set(subfolderNames)));
+
+  let suggestedTitle = commonArchivePrefix || (commonRoot ? cleanTitle(commonRoot) : cleanTitle(fallbackTitle));
 
   // Group by Section:
   // If files inside archive have no subfolders (e.g. 01. Introduction.zip with flat files),
   // then the archiveName itself IS the chapter/section!
-  const sectionMap = new Map<string, { title: string; position: number; files: DiscoveredArchiveFile[] }>();
+  const sectionMap = new Map<string, { title: string; position: number; files: DiscoveredArchiveFile[]; archiveName?: string }>();
 
   for (const file of files) {
     const parts = file.cleanPath.split('/').filter(Boolean);
@@ -401,13 +822,13 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
     if (parts.length >= 2) {
       // Subfolder inside archive e.g. "Chapter 1 - Intro/01.mp4"
       const folderName = parts[parts.length - 2]!;
-      const parsed = parsePositionAndTitle(folderName, 1);
-      sectionName = parsed.title;
+      const parsed = cleanSectionTitleAndPosition(folderName, commonSubfolderPrefix, 1);
+      sectionName = parsed.cleanTitle;
       sectionPos = parsed.position;
     } else {
       // Flat inside archive: use archiveName as Section Name
-      const parsed = parsePositionAndTitle(file.archiveName, 1);
-      sectionName = parsed.title || file.archiveName;
+      const parsed = cleanSectionTitleAndPosition(file.archiveName, commonArchivePrefix, 1);
+      sectionName = parsed.cleanTitle || file.archiveName;
       sectionPos = parsed.position;
     }
 
@@ -416,6 +837,7 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
         title: sectionName,
         position: sectionPos,
         files: [],
+        archiveName: file.archiveName,
       });
     }
 
@@ -531,7 +953,7 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
       lPos++;
     }
 
-    lessons.sort((a, b) => a.position - b.position);
+    lessons.sort((a, b) => a.position - b.position || a.title.localeCompare(b.title, undefined, { numeric: true }));
 
     resultSections.push({
       id: `sec-${secIdx}`,
@@ -539,12 +961,13 @@ function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: s
       position: secData.position || secIdx,
       sourceConfidence: 'numbered',
       lessons,
+      archiveName: secData.archiveName || secData.files[0]?.archiveName,
     });
 
     secIdx++;
   }
 
-  resultSections.sort((a, b) => a.position - b.position);
+  resultSections.sort((a, b) => a.position - b.position || a.title.localeCompare(b.title, undefined, { numeric: true }));
 
   return {
     suggestedTitle: suggestedTitle || 'Imported Course',
@@ -885,7 +1308,9 @@ export async function commitImportedCourse(params: {
     storageTier: targetStorage,
     externalMountPath: targetBaseMountPath,
     externalCourseDir: targetBaseMountPath ? `${targetBaseMountPath}/coursenest_courses/${courseId}` : undefined,
+    relativeCourseDir: targetBaseMountPath ? `coursenest_courses/${courseId}` : undefined,
     isExternalMissing: false,
+    storageStatus: 'Available',
   };
 
   reportProgress(94, targetStorage === 'external' ? 'Writing manifest and structure to external disk...' : 'Writing course manifest to offline vault...');

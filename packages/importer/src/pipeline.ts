@@ -43,7 +43,7 @@ export class AtomicImportManager {
   private stagedFiles: Set<string> = new Set();
 
   async startJob(baseStagingDir?: string): Promise<string> {
-    const uniqueId = `korse-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const uniqueId = `coursenest-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     this.stagedDir = path.join(baseStagingDir ?? os.tmpdir(), uniqueId);
     await fs.mkdir(this.stagedDir, { recursive: true });
     return this.stagedDir;
