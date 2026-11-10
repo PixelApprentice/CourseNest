@@ -26,7 +26,18 @@ function getSavedThemeBg(): string {
       }
     }
   } catch {}
-  return '#0A0A0B';
+  return '#FAFAFA'; // Manga Screentone default
+}
+
+function resolveIconPath(): string | undefined {
+  const candidates = [
+    join(__dirname, '../../build/icon.png'),
+    join(app.getAppPath(), 'build/icon.png'),
+    join(process.resourcesPath, 'icon.png'),
+    join(process.resourcesPath, 'build/icon.png'),
+    join(__dirname, '../build/icon.png'),
+  ];
+  return candidates.find((p) => existsSync(p));
 }
 
 // Hardware acceleration and laptop battery/CPU optimization flags
@@ -68,6 +79,7 @@ function resolveRendererPath(): string {
 
 function createWindow(): void {
   const preloadFile = resolvePreloadPath();
+  const iconFile = resolveIconPath();
 
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -75,6 +87,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'CourseNest',
+    icon: iconFile,
     show: false,
     frame: false, // Frameless window removes native OS bezel and allows theme integration
     backgroundColor: getSavedThemeBg(),

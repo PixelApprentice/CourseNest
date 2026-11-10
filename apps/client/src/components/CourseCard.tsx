@@ -78,15 +78,30 @@ export function CourseCard({
           </span>
 
           {course.storageTier === 'external' ? (
-            course.isExternalMissing ? (
+            !course.storageStatus || course.storageStatus === 'Checking' ? (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-mono font-medium bg-[var(--cn-surface)] border border-[var(--cn-border)] text-[var(--cn-text-muted)] shadow-xs animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--cn-text-muted)]" />
+                <span>CHECKING STORAGE...</span>
+              </div>
+            ) : course.isExternalMissing ? (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--cn-warning-tint)] border border-[var(--cn-warning)]/40 text-[var(--cn-warning)] shadow-xs animate-pulse">
                 <IconAlertTriangle size={11} className="text-[var(--cn-warning)]" />
-                <span>HDD UNPLUGGED</span>
+                <span>
+                  {course.storageStatus === 'Drive disconnected'
+                    ? 'DRIVE DISCONNECTED'
+                    : course.storageStatus === 'Folder missing'
+                    ? 'FOLDER MISSING'
+                    : course.storageStatus === 'Permission denied'
+                    ? 'PERMISSION DENIED'
+                    : course.storageStatus === 'Read timeout'
+                    ? 'READ TIMEOUT'
+                    : 'HDD OFFLINE'}
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] shadow-xs">
                 <IconDeviceFloppy size={11} className="text-[var(--cn-primary)]" />
-                <span>REMOVABLE HDD</span>
+                <span>REMOVABLE HDD • AVAILABLE</span>
               </div>
             )
           ) : (
@@ -133,7 +148,17 @@ export function CourseCard({
           {course.isExternalMissing && (
             <div className="mt-2.5 p-2 rounded-lg bg-[var(--cn-warning-tint)] border border-[var(--cn-warning)]/30 text-[10.5px] font-mono text-[var(--cn-warning)] flex items-center gap-1.5">
               <IconAlertTriangle size={13} className="shrink-0" />
-              <span className="truncate">Storage offline ({course.externalMountPath || 'Removable disk'}). Reconnect to play videos. Notes are safe.</span>
+              <span className="truncate">
+                {course.storageStatus === 'Drive disconnected'
+                  ? `Drive disconnected (${course.externalMountPath || 'External USB'}). Reconnect drive to resume videos.`
+                  : course.storageStatus === 'Folder missing'
+                  ? `Course folder missing or renamed at: ${course.externalCourseDir || course.externalMountPath}.`
+                  : course.storageStatus === 'Permission denied'
+                  ? `Permission denied reading folder (${course.externalCourseDir}).`
+                  : course.storageStatus === 'Read timeout'
+                  ? `Disk read timed out on: ${course.externalMountPath || 'external drive'}.`
+                  : `Storage offline (${course.externalMountPath || 'Removable disk'}). Reconnect to play videos. Notes are safe.`}
+              </span>
             </div>
           )}
         </div>
@@ -174,7 +199,7 @@ export function CourseCard({
         <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
           <Link
             to={lastLessonId ? `/course/${course.id}/lesson/${lastLessonId}` : `/course/${course.id}`}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-semibold hover:bg-[var(--cn-primary-hover)] transition-[background-color,transform] duration-150 ease-out active:scale-95 shadow-xs"
+            className="cn-btn cn-btn-sm cn-btn-primary"
           >
             <IconPlayerPlay size={13} />
             <span>{progressPercent > 0 ? 'Resume' : 'Start'}</span>
@@ -183,7 +208,7 @@ export function CourseCard({
           <div className="flex items-center gap-1.5">
             <Link
               to={`/course/${course.id}`}
-              className="px-3 py-1.5 rounded-lg border border-[var(--cn-border)] text-xs font-medium text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)] hover:text-[var(--cn-text-primary)] transition-[background-color,color,transform] duration-150 ease-out active:scale-95"
+              className="cn-btn cn-btn-sm cn-btn-secondary"
             >
               Overview
             </Link>
@@ -193,7 +218,7 @@ export function CourseCard({
                 onClick={() => onRemoveDownload(course.id)}
                 title="Remove course from library"
                 aria-label="Remove course from library"
-                className="p-1.5 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-danger)] hover:bg-[var(--cn-danger-tint)] transition-[color,background-color,transform] duration-150 ease-out active:scale-90"
+                className="cn-btn cn-btn-sm cn-btn-danger !px-2"
               >
                 <IconTrash size={14} />
               </button>

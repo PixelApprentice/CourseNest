@@ -82,7 +82,11 @@ export interface CourseData {
   storageTier?: 'internal' | 'external';
   externalMountPath?: string;
   externalCourseDir?: string;
+  relativeCourseDir?: string;
+  volumeUuid?: string;
+  volumeLabel?: string;
   isExternalMissing?: boolean;
+  storageStatus?: 'Checking' | 'Available' | 'Drive disconnected' | 'Folder missing' | 'Permission denied' | 'Read timeout';
 }
 
 export interface UserNote {
@@ -279,13 +283,33 @@ async function loadCoursesFromIndexedDb(): Promise<CourseData[]> {
 // -----------------------------------------------------------------------------
 // Core Vault Ingestion & Retrieval
 // -----------------------------------------------------------------------------
+// In-memory runtime storage states (never persisted to disk/localStorage to prevent stale UI - Review Item 11)
+const runtimeStorageMap = new Map<string, {
+  storageStatus: CourseData['storageStatus'];
+  isExternalMissing: boolean;
+}>();
+
 export function getVaultCourses(): CourseData[] {
   try {
     const raw = localStorage.getItem(VAULT_COURSES_KEY);
     if (raw !== null) {
       const parsed: CourseData[] = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return parsed.map((c) => {
+          const runtime = runtimeStorageMap.get(c.id);
+          if (c.storageTier === 'external') {
+            return {
+              ...c,
+              storageStatus: runtime ? runtime.storageStatus : 'Checking',
+              isExternalMissing: runtime ? runtime.isExternalMissing : false,
+            };
+          }
+          return {
+            ...c,
+            storageStatus: 'Available',
+            isExternalMissing: false,
+          };
+        });
       }
     }
   } catch (err) {
@@ -297,12 +321,25 @@ export function getVaultCourses(): CourseData[] {
 
 export function saveVaultCourses(courses: CourseData[]): void {
   try {
+    // Record current statuses in memory
+    for (const c of courses) {
+      if (c.storageStatus !== undefined || c.isExternalMissing !== undefined) {
+        runtimeStorageMap.set(c.id, {
+          storageStatus: c.storageStatus,
+          isExternalMissing: !!c.isExternalMissing,
+        });
+      }
+    }
+
+    // Strip transient storageStatus and isExternalMissing so they reflect live state, not stale disk state
+    const persistentCourses = courses.map(({ storageStatus, isExternalMissing, ...rest }) => rest as CourseData);
+
     // 1. Resilient localStorage write (strips oversized data URLs if quota is exceeded)
     try {
-      localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify(courses));
+      localStorage.setItem(VAULT_COURSES_KEY, JSON.stringify(persistentCourses));
     } catch (quotaErr) {
       console.warn('localStorage quota reached, caching lightweight metadata:', quotaErr);
-      const trimmed = courses.map((c) => ({
+      const trimmed = persistentCourses.map((c) => ({
         ...c,
         thumbnailUrl: c.thumbnailUrl?.startsWith('data:') ? undefined : c.thumbnailUrl,
         coverImageUrl: c.coverImageUrl?.startsWith('data:') ? undefined : c.coverImageUrl,
@@ -313,12 +350,12 @@ export function saveVaultCourses(courses: CourseData[]): void {
     }
 
     // 2. Persistent IndexedDB mirror (supports gigabytes of course metadata)
-    saveCoursesToIndexedDb(courses);
+    saveCoursesToIndexedDb(persistentCourses);
 
     // 3. Desktop persistent vault file write
     const electron = (window as any).electron || (window as any).__ELECTRON__;
     if (electron?.storage?.savePersistentCourses) {
-      electron.storage.savePersistentCourses(courses);
+      electron.storage.savePersistentCourses(persistentCourses);
     }
 
     window.dispatchEvent(new Event('coursenest_vault_updated'));
@@ -363,7 +400,38 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
       }
     } catch {}
 
-    // 3. Auto-discover courses from external drives
+    // 3. Reliable external storage reconciliation across all attached drives using stable UUIDs
+    if (electron.storage.reconcileAllVolumes) {
+      try {
+        const reconciled = await electron.storage.reconcileAllVolumes();
+        if (Array.isArray(reconciled) && reconciled.length > 0) {
+          for (const c of reconciled) {
+            if (courseMap.has(c.id)) {
+              const existing = courseMap.get(c.id)!;
+              courseMap.set(c.id, {
+                ...existing,
+                ...c,
+                sections: existing.sections && existing.sections.length > 0 ? existing.sections : c.sections,
+                storageTier: 'external',
+                isExternalMissing: false,
+              });
+            } else {
+              courseMap.set(c.id, {
+                ...c,
+                storageTier: 'external',
+                isExternalMissing: false,
+                isImported: true,
+                addedAt: c.addedAt || new Date().toISOString(),
+              });
+            }
+          }
+        }
+      } catch (recErr) {
+        console.warn('reconcileAllVolumes check error:', recErr);
+      }
+    }
+
+    // 4. Auto-discover courses from external drives if explicit mount path passed
     try {
       const scanPath = explicitMountPath;
       const discovered = await electron.storage.scanDirectoryForCourses(scanPath);
@@ -396,42 +464,85 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
       console.warn('Auto-discovery of external courses skipped:', scanErr);
     }
 
-    // 4. Probe accessibility and auto-recover for all external courses
-    for (const [id, c] of courseMap.entries()) {
-      if (c.storageTier === 'external') {
-        const probeTarget = c.externalCourseDir || c.externalMountPath || explicitMountPath;
-        let isReachable = false;
-        if (probeTarget) {
-          try {
-            const status = await electron.storage.checkVolumeAccess(probeTarget);
-            if (status.isMounted) {
-              isReachable = true;
-            }
-          } catch {}
-        }
+    // 4. Targeted per-course path and drive check (Issue 2 & 3, Review Items 11 & 14)
+    const externalEntries = Array.from(courseMap.entries()).filter(([_, c]) => c.storageTier === 'external');
+    const internalEntries = Array.from(courseMap.entries()).filter(([_, c]) => c.storageTier !== 'external');
 
-        // Auto-recovery: if not directly reachable, probe all connected drives
-        if (!isReachable && electron.storage.autoLocateCourseDir) {
-          try {
-            const located = await electron.storage.autoLocateCourseDir({
-              courseId: id,
-              courseDir: c.externalCourseDir,
-            });
-            if (located.exists && located.courseDir) {
+    for (const [id, c] of internalEntries) {
+      courseMap.set(id, {
+        ...c,
+        storageStatus: 'Available',
+        isExternalMissing: false,
+      });
+      runtimeStorageMap.set(id, {
+        storageStatus: 'Available',
+        isExternalMissing: false,
+      });
+    }
+
+    if (electron.storage.checkCoursePathAccess) {
+      // Bounded concurrency pool (4 concurrent course access checks)
+      const CONCURRENCY_LIMIT = 4;
+      for (let i = 0; i < externalEntries.length; i += CONCURRENCY_LIMIT) {
+        const batch = externalEntries.slice(i, i + CONCURRENCY_LIMIT);
+        await Promise.all(
+          batch.map(async ([id, c]) => {
+            try {
+              const res = await electron.storage.checkCoursePathAccess({
+                courseId: id,
+                courseDir: c.externalCourseDir,
+                mountPath: c.externalMountPath || explicitMountPath,
+                relativeCourseDir: c.relativeCourseDir,
+                volumeUuid: c.volumeUuid,
+                volumeLabel: c.volumeLabel,
+              });
+
+              runtimeStorageMap.set(id, {
+                storageStatus: res.status,
+                isExternalMissing: !res.isAccessible,
+              });
+
+              const updatedCourse: CourseData = {
+                ...c,
+                isExternalMissing: !res.isAccessible,
+                storageStatus: res.status,
+                externalCourseDir: res.resolvedCourseDir || c.externalCourseDir,
+                externalMountPath: res.resolvedMountPath || c.externalMountPath,
+              };
+
+              // Backfill fields for older courses if resolved (Fixes Review Item 14)
+              if (res.resolvedVolumeUuid && !c.volumeUuid) {
+                updatedCourse.volumeUuid = res.resolvedVolumeUuid;
+              }
+              if (res.resolvedVolumeLabel && !c.volumeLabel) {
+                updatedCourse.volumeLabel = res.resolvedVolumeLabel;
+              }
+              if (res.resolvedRelativeCourseDir && !c.relativeCourseDir) {
+                updatedCourse.relativeCourseDir = res.resolvedRelativeCourseDir;
+              }
+
+              courseMap.set(id, updatedCourse);
+            } catch {
+              runtimeStorageMap.set(id, {
+                storageStatus: 'Folder missing',
+                isExternalMissing: true,
+              });
               courseMap.set(id, {
                 ...c,
-                externalCourseDir: located.courseDir,
-                externalMountPath: located.mountPath || c.externalMountPath,
-                isExternalMissing: false,
+                isExternalMissing: true,
+                storageStatus: 'Folder missing',
               });
-              continue;
             }
-          } catch {}
-        }
-
+          })
+        );
+      }
+    } else {
+      // Pure web or fallback mode
+      for (const [id, c] of externalEntries) {
         courseMap.set(id, {
           ...c,
-          isExternalMissing: !isReachable,
+          isExternalMissing: false,
+          storageStatus: 'Available',
         });
       }
     }
@@ -660,10 +771,21 @@ export function getCourseProgressPercent(courseOrId: string | CourseData): numbe
 }
 
 // -----------------------------------------------------------------------------
-// Playback Time Operations
+// Playback Time & Reading Progress Operations
 // -----------------------------------------------------------------------------
-export function getSavedPlaybackTime(lessonId: string): number {
+export function getSavedPlaybackTime(lessonId: string, courseId?: string): number {
   try {
+    if (courseId) {
+      const courseScoped = localStorage.getItem(`coursenest_time:${courseId}:${lessonId}`);
+      if (courseScoped) {
+        const val = parseFloat(courseScoped);
+        if (!isNaN(val) && val > 0) return val;
+      }
+      const prog = getLessonProgress(courseId, lessonId);
+      if (prog?.lastPositionSeconds && prog.lastPositionSeconds > 0) {
+        return prog.lastPositionSeconds;
+      }
+    }
     const raw = localStorage.getItem(`coursenest_time:${lessonId}`);
     return raw ? parseFloat(raw) : 0;
   } catch {
@@ -671,10 +793,101 @@ export function getSavedPlaybackTime(lessonId: string): number {
   }
 }
 
-export function savePlaybackTime(lessonId: string, timeSeconds: number): void {
+export function savePlaybackTime(
+  lessonId: string,
+  timeSeconds: number,
+  courseId?: string,
+  duration?: number,
+  completed?: boolean
+): void {
   try {
     localStorage.setItem(`coursenest_time:${lessonId}`, timeSeconds.toString());
+    if (courseId) {
+      localStorage.setItem(`coursenest_time:${courseId}:${lessonId}`, timeSeconds.toString());
+      const current = getLessonProgress(courseId, lessonId);
+      const isDone = completed !== undefined ? completed : current.completed;
+      setLessonProgress(courseId, lessonId, {
+        lastPositionSeconds: timeSeconds,
+        completed: isDone,
+      });
+
+      const electron = (window as any).electron || (window as any).__ELECTRON__;
+      if (electron?.storage?.saveDetailedProgress) {
+        electron.storage.saveDetailedProgress({
+          courseId,
+          lessonId,
+          lastPositionSeconds: timeSeconds,
+          durationSeconds: duration,
+          completed: isDone,
+        }).catch?.(() => {});
+      }
+    }
   } catch {}
+}
+
+export function getSavedReadingPage(lessonId: string, courseId?: string): number {
+  try {
+    if (courseId) {
+      const courseScoped = localStorage.getItem(`coursenest_reading:${courseId}:${lessonId}`);
+      if (courseScoped) {
+        const page = parseInt(courseScoped, 10);
+        if (!isNaN(page) && page > 0) return page;
+      }
+    }
+    const raw = localStorage.getItem(`coursenest_reading:${lessonId}`);
+    return raw ? parseInt(raw, 10) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+export function saveReadingPage(
+  lessonId: string,
+  pageNumber: number,
+  courseId?: string,
+  totalPages?: number
+): void {
+  try {
+    localStorage.setItem(`coursenest_reading:${lessonId}`, pageNumber.toString());
+    if (courseId) {
+      localStorage.setItem(`coursenest_reading:${courseId}:${lessonId}`, pageNumber.toString());
+      const isCompleted = totalPages ? pageNumber >= totalPages : false;
+      if (isCompleted) {
+        setLessonProgress(courseId, lessonId, { completed: true });
+      }
+
+      const electron = (window as any).electron || (window as any).__ELECTRON__;
+      if (electron?.storage?.saveDetailedProgress) {
+        electron.storage.saveDetailedProgress({
+          courseId,
+          lessonId,
+          lastPositionSeconds: pageNumber,
+          durationSeconds: totalPages,
+          completed: isCompleted,
+        }).catch?.(() => {});
+      }
+    }
+  } catch {}
+}
+
+export async function fetchDetailedProgress(courseId: string, lessonId: string) {
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.getDetailedProgress) {
+    try {
+      const rec = await electron.storage.getDetailedProgress({ courseId, lessonId });
+      if (rec) {
+        if (rec.lastPositionSeconds && rec.lastPositionSeconds > 0) {
+          localStorage.setItem(`coursenest_time:${courseId}:${lessonId}`, rec.lastPositionSeconds.toString());
+          localStorage.setItem(`coursenest_time:${lessonId}`, rec.lastPositionSeconds.toString());
+        }
+        if (rec.completed) {
+          setLessonProgress(courseId, lessonId, { completed: true, lastPositionSeconds: rec.lastPositionSeconds });
+        }
+        return rec;
+      }
+    } catch {}
+  }
+  return null;
 }
 
 // -----------------------------------------------------------------------------
@@ -827,33 +1040,60 @@ export function getVaultAnalytics() {
 }
 
 // -----------------------------------------------------------------------------
-// React Hooks for Reactive Store Updates
+// React Hooks for Reactive Store Updates (Shared Singleton Poller - Review Item 11)
 // -----------------------------------------------------------------------------
+let isReconcilingShared = false;
+let pollerSubscribersCount = 0;
+let pollerTimer: any = null;
+
+async function runSharedReconciliation(): Promise<void> {
+  if (isReconcilingShared) return;
+  isReconcilingShared = true;
+  try {
+    await reconcileVaultStorage();
+  } catch (err) {
+    console.warn('Background vault reconciliation error:', err);
+  } finally {
+    isReconcilingShared = false;
+  }
+}
+
 export function useVaultCourses(): { courses: CourseData[]; refresh: () => void } {
   const [courses, setCourses] = useState<CourseData[]>(getVaultCourses);
 
   const refresh = () => {
-    reconcileVaultStorage().then((updated) => {
-      setCourses(updated);
+    runSharedReconciliation().then(() => {
+      setCourses(getVaultCourses());
     }).catch(() => {
       setCourses(getVaultCourses());
     });
   };
 
   useEffect(() => {
-    // Run background reconciliation on mount to detect newly plugged drives
-    reconcileVaultStorage().then((updated) => {
-      setCourses(updated);
-    }).catch(() => {});
+    // Shared singleton poller lifecycle
+    pollerSubscribersCount++;
+    if (pollerSubscribersCount === 1) {
+      runSharedReconciliation().then(() => setCourses(getVaultCourses()));
+      pollerTimer = setInterval(runSharedReconciliation, 3500);
+    } else {
+      setCourses(getVaultCourses());
+    }
 
     const handler = () => setCourses(getVaultCourses());
     window.addEventListener('coursenest_vault_updated', handler);
     window.addEventListener('coursenest_progress_updated', handler);
     window.addEventListener('coursenest_storage_changed', refresh);
+
     return () => {
       window.removeEventListener('coursenest_vault_updated', handler);
       window.removeEventListener('coursenest_progress_updated', handler);
       window.removeEventListener('coursenest_storage_changed', refresh);
+
+      pollerSubscribersCount = Math.max(0, pollerSubscribersCount - 1);
+      if (pollerSubscribersCount === 0 && pollerTimer) {
+        clearInterval(pollerTimer);
+        pollerTimer = null;
+      }
     };
   }, []);
 

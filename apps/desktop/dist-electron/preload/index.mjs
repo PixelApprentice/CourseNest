@@ -15,6 +15,9 @@ const electronAPI = {
     openFiles: (options) => ipcRenderer.invoke("dialog:openFiles", options),
     openDirectory: () => ipcRenderer.invoke("dialog:openDirectory")
   },
+  shell: {
+    openExternalFile: (targetPath) => ipcRenderer.invoke("shell:openExternalFile", targetPath)
+  },
   fs: {
     readFile: (path) => ipcRenderer.invoke("fs:readFile", path),
     stat: (path) => ipcRenderer.invoke("fs:stat", path),
@@ -22,6 +25,9 @@ const electronAPI = {
   },
   storage: {
     checkVolumeAccess: (volumePath) => ipcRenderer.invoke("storage:checkVolumeAccess", volumePath),
+    checkCoursePathAccess: (params) => ipcRenderer.invoke("storage:checkCoursePathAccess", params),
+    saveCoursePassword: (params) => ipcRenderer.invoke("storage:saveCoursePassword", params),
+    getCoursePassword: (courseId) => ipcRenderer.invoke("storage:getCoursePassword", courseId),
     setExternalMountPath: (mountPath) => ipcRenderer.invoke("storage:setExternalMountPath", mountPath),
     saveCourseToDisk: (params) => ipcRenderer.invoke("storage:saveCourseToDisk", params),
     writeMediaFile: (params) => ipcRenderer.invoke("storage:writeMediaFile", params),
@@ -31,6 +37,10 @@ const electronAPI = {
     getPersistentCourses: () => ipcRenderer.invoke("storage:getPersistentCourses"),
     saveProgress: (params) => ipcRenderer.invoke("storage:saveProgress", params),
     getProgress: (courseId) => ipcRenderer.invoke("storage:getProgress", courseId),
+    saveDetailedProgress: (record) => ipcRenderer.invoke("storage:saveDetailedProgress", record),
+    getDetailedProgress: (params) => ipcRenderer.invoke("storage:getDetailedProgress", params),
+    listVolumes: () => ipcRenderer.invoke("storage:listVolumes"),
+    reconcileAllVolumes: () => ipcRenderer.invoke("storage:reconcileAllVolumes"),
     saveFlashcard: (card) => ipcRenderer.invoke("storage:saveFlashcard", card),
     getFlashcards: (courseId) => ipcRenderer.invoke("storage:getFlashcards", courseId),
     savePersistentCourses: (courses) => ipcRenderer.invoke("storage:savePersistentCourses", courses),
@@ -41,6 +51,20 @@ const electronAPI = {
       ipcRenderer.on("storage:mountsChanged", handler);
       return () => {
         ipcRenderer.removeListener("storage:mountsChanged", handler);
+      };
+    },
+    onVolumeMounted: (callback) => {
+      const handler = (_e, vol) => callback(vol);
+      ipcRenderer.on("storage:volumeMounted", handler);
+      return () => {
+        ipcRenderer.removeListener("storage:volumeMounted", handler);
+      };
+    },
+    onVolumeUnmounted: (callback) => {
+      const handler = (_e, info) => callback(info);
+      ipcRenderer.on("storage:volumeUnmounted", handler);
+      return () => {
+        ipcRenderer.removeListener("storage:volumeUnmounted", handler);
       };
     }
   },

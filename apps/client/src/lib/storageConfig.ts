@@ -134,14 +134,51 @@ export function useStorageConfig(): { config: StorageConfig; refresh: () => void
     const electron = (window as any).electron || (window as any).__ELECTRON__;
     let unsubMounts: (() => void) | undefined;
 
+    // Check attached real drives immediately on mount
+    if (electron?.storage?.listVolumes) {
+      electron.storage.listVolumes().then((vols: any[]) => {
+        if (Array.isArray(vols) && vols.length > 0) {
+          const current = getStorageConfig();
+          const ext = vols.find(
+            (v: any) =>
+              v.isRemovable ||
+              v.mountPath.startsWith('/run/media') ||
+              v.mountPath.startsWith('/media') ||
+              v.mountPath.startsWith('/mnt')
+          );
+          if (ext && (current.externalMountPath === '/media/usb-drive/coursenest_media' || !current.externalMountPath)) {
+            current.externalMountPath = ext.mountPath;
+            current.isMounted = true;
+            saveStorageConfig(current);
+            setConfig(current);
+          }
+        }
+      }).catch?.(() => {});
+    }
+
     if (electron?.storage?.onMountsChanged) {
       unsubMounts = electron.storage.onMountsChanged(async () => {
         try {
           const current = getStorageConfig();
-          if (current.volumeType === 'external' && electron.storage.checkVolumeAccess) {
-            const status = await electron.storage.checkVolumeAccess(current.externalMountPath);
-            if (status.isMounted !== current.isMounted) {
-              toggleMountStatus(status.isMounted);
+          if (electron.storage.listVolumes) {
+            const vols = await electron.storage.listVolumes();
+            const extVol = vols.find(
+              (v: any) =>
+                v.isRemovable ||
+                v.mountPath.startsWith('/run/media') ||
+                v.mountPath.startsWith('/media') ||
+                v.mountPath.startsWith('/mnt') ||
+                (current.externalMountPath && v.mountPath === current.externalMountPath)
+            );
+            if (extVol) {
+              if (current.externalMountPath !== extVol.mountPath && current.volumeType === 'external') {
+                current.externalMountPath = extVol.mountPath;
+              }
+              if (!current.isMounted) {
+                toggleMountStatus(true);
+              }
+            } else if (current.volumeType === 'external' && current.isMounted) {
+              toggleMountStatus(false);
             }
           }
           window.dispatchEvent(new Event('coursenest_storage_changed'));

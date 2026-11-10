@@ -20,7 +20,10 @@ import {
   IconBooks,
   IconPhoto,
   IconUpload,
-  IconWand
+  IconWand,
+  IconArrowUp,
+  IconArrowDown,
+  IconGripVertical
 } from '@tabler/icons-react';
 import { 
   addCourseToVault, 
@@ -270,6 +273,70 @@ export function CourseStudioPage() {
   const handleRemoveSection = (secIndex: number) => {
     if (sections.length <= 1) return;
     setSections(sections.filter((_, i) => i !== secIndex));
+  };
+
+  // Move Section Up/Down
+  const handleMoveSection = (secIndex: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? secIndex - 1 : secIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sections.length) return;
+    const copy = [...sections];
+    const item = copy.splice(secIndex, 1)[0]!;
+    copy.splice(targetIndex, 0, item);
+    setSections(copy);
+  };
+
+  // Move Lesson Up/Down
+  const handleMoveLesson = (secIndex: number, lesIndex: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? lesIndex - 1 : lesIndex + 1;
+    const targetSec = sections[secIndex];
+    if (!targetSec || targetIndex < 0 || targetIndex >= targetSec.lessons.length) return;
+    const copy = [...sections];
+    const secCopy = { ...copy[secIndex]!, lessons: [...copy[secIndex]!.lessons] };
+    const item = secCopy.lessons.splice(lesIndex, 1)[0]!;
+    secCopy.lessons.splice(targetIndex, 0, item);
+    copy[secIndex] = secCopy;
+    setSections(copy);
+  };
+
+  // Drag & Drop State for Studio Sections & Lessons
+  const [draggedSecIndex, setDraggedSecIndex] = useState<number | null>(null);
+  const [dragOverSecIndex, setDragOverSecIndex] = useState<number | null>(null);
+  const [draggedLessonInfo, setDraggedLessonInfo] = useState<{ secIndex: number; lesIndex: number } | null>(null);
+  const [dragOverLessonInfo, setDragOverLessonInfo] = useState<{ secIndex: number; lesIndex: number } | null>(null);
+
+  const handleStudioSectionDrop = (targetIndex: number) => {
+    if (draggedSecIndex === null || draggedSecIndex === targetIndex) {
+      setDraggedSecIndex(null);
+      setDragOverSecIndex(null);
+      return;
+    }
+    const copy = [...sections];
+    const item = copy.splice(draggedSecIndex, 1)[0]!;
+    copy.splice(targetIndex, 0, item);
+    setSections(copy);
+    setDraggedSecIndex(null);
+    setDragOverSecIndex(null);
+  };
+
+  const handleStudioLessonDrop = (targetSecIndex: number, targetLesIndex: number) => {
+    if (!draggedLessonInfo) return;
+    const { secIndex: srcSec, lesIndex: srcLes } = draggedLessonInfo;
+    const copy = sections.map((s) => ({ ...s, lessons: [...s.lessons] }));
+    const src = copy[srcSec];
+    const dst = copy[targetSecIndex];
+    if (!src || !dst) return;
+
+    if (srcSec === targetSecIndex) {
+      if (srcLes === targetLesIndex) return;
+      const lesson = src.lessons.splice(srcLes, 1)[0]!;
+      src.lessons.splice(targetLesIndex, 0, lesson);
+    } else {
+      const lesson = src.lessons.splice(srcLes, 1)[0]!;
+      dst.lessons.splice(targetLesIndex, 0, lesson);
+    }
+    setSections(copy);
+    setDraggedLessonInfo(null);
+    setDragOverLessonInfo(null);
   };
 
   // Add Lesson
@@ -899,88 +966,230 @@ export function CourseStudioPage() {
         </div>
 
         {/* Sections List */}
-        {sections.map((section, sIdx) => (
-          <div 
-            key={section.id} 
-            className="rounded-2xl border border-[var(--cn-border)] bg-[var(--cn-surface)] overflow-hidden shadow-sm space-y-4 p-5"
-          >
-            {/* Section Header */}
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--cn-border)] pb-3">
-              <div className="flex-1 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-md bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                  {sIdx + 1}
-                </span>
-                <input
-                  type="text"
-                  value={section.title}
-                  onChange={(e) => handleUpdateSectionTitle(sIdx, e.target.value)}
-                  className="w-full font-bold text-sm bg-transparent border-0 text-[var(--cn-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)] rounded px-1"
-                  placeholder="Module Title..."
-                />
+        {sections.map((section, sIdx) => {
+          const isSecDragging = draggedSecIndex === sIdx;
+          const isSecDragOver = dragOverSecIndex === sIdx;
+
+          return (
+            <div 
+              key={section.id} 
+              draggable
+              onDragStart={(e) => {
+                if (draggedLessonInfo) return;
+                e.dataTransfer.effectAllowed = 'move';
+                setDraggedSecIndex(sIdx);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (draggedLessonInfo) return;
+                e.dataTransfer.dropEffect = 'move';
+                if (dragOverSecIndex !== sIdx) setDragOverSecIndex(sIdx);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedLessonInfo) {
+                  handleStudioLessonDrop(sIdx, section.lessons.length);
+                  return;
+                }
+                handleStudioSectionDrop(sIdx);
+              }}
+              onDragEnd={() => {
+                setDraggedSecIndex(null);
+                setDragOverSecIndex(null);
+              }}
+              className={`rounded-2xl border bg-[var(--cn-surface)] overflow-hidden shadow-sm space-y-4 p-5 transition-all duration-150 ${
+                isSecDragging
+                  ? 'opacity-40 scale-[0.99] border-[var(--cn-primary)] ring-2 ring-[var(--cn-primary)]/40'
+                  : isSecDragOver
+                  ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/25 shadow-md ring-2 ring-[var(--cn-primary)]/40'
+                  : 'border-[var(--cn-border)]'
+              }`}
+            >
+              {/* Section Header */}
+              <div className="flex items-center justify-between gap-3 border-b border-[var(--cn-border)] pb-3">
+                <div className="flex-1 flex items-center gap-2">
+                  {/* Grip & Reorder buttons */}
+                  <div
+                    className="cursor-grab active:cursor-grabbing p-1 text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] shrink-0 flex items-center justify-center rounded border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]"
+                    title="Drag to reorder module"
+                  >
+                    <IconGripVertical size={14} />
+                  </div>
+
+                  <div className="flex items-center border border-[var(--cn-border)] rounded-md overflow-hidden bg-[var(--cn-surface-subtle)] shrink-0">
+                    <button
+                      type="button"
+                      disabled={sIdx === 0}
+                      onClick={() => handleMoveSection(sIdx, 'up')}
+                      aria-label="Move module up"
+                      title="Move module up"
+                      className="p-1 text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] disabled:opacity-25 transition-colors"
+                    >
+                      <IconArrowUp size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sIdx === sections.length - 1}
+                      onClick={() => handleMoveSection(sIdx, 'down')}
+                      aria-label="Move module down"
+                      title="Move module down"
+                      className="p-1 text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] disabled:opacity-25 transition-colors border-l border-[var(--cn-border)]"
+                    >
+                      <IconArrowDown size={11} />
+                    </button>
+                  </div>
+
+                  <span className="w-6 h-6 rounded-md bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                    {sIdx + 1}
+                  </span>
+                  <input
+                    type="text"
+                    value={section.title}
+                    onChange={(e) => handleUpdateSectionTitle(sIdx, e.target.value)}
+                    className="w-full font-bold text-sm bg-transparent border-0 text-[var(--cn-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--cn-primary)] rounded px-1"
+                    placeholder="Module Title..."
+                  />
+                </div>
+
+                {sections.length > 1 && (
+                  <button
+                    onClick={() => handleRemoveSection(sIdx)}
+                    className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Delete Module"
+                  >
+                    <IconTrash size={15} />
+                  </button>
+                )}
               </div>
 
-              {sections.length > 1 && (
-                <button
-                  onClick={() => handleRemoveSection(sIdx)}
-                  className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
-                  title="Delete Module"
-                >
-                  <IconTrash size={15} />
-                </button>
-              )}
-            </div>
+              {/* Lessons Inside Section */}
+              <div 
+                onDragOver={(e) => {
+                  if (draggedLessonInfo && draggedLessonInfo.secIndex !== sIdx) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }
+                }}
+                onDrop={(e) => {
+                  if (draggedLessonInfo && draggedLessonInfo.secIndex !== sIdx) {
+                    e.preventDefault();
+                    handleStudioLessonDrop(sIdx, section.lessons.length);
+                  }
+                }}
+                className="space-y-4 pl-0 sm:pl-3"
+              >
+                {section.lessons.map((lesson, lIdx) => {
+                  const isLesDragging = draggedLessonInfo?.secIndex === sIdx && draggedLessonInfo?.lesIndex === lIdx;
+                  const isLesDragOver = dragOverLessonInfo?.secIndex === sIdx && dragOverLessonInfo?.lesIndex === lIdx;
+                  const ytThumbnail = lesson.contentType === 'youtube' ? getYouTubeThumbnailUrl(lesson.youtubeUrl) : null;
 
-            {/* Lessons Inside Section */}
-            <div className="space-y-4 pl-0 sm:pl-3">
-              {section.lessons.map((lesson, lIdx) => {
-                const ytThumbnail = lesson.contentType === 'youtube' ? getYouTubeThumbnailUrl(lesson.youtubeUrl) : null;
+                  return (
+                    <div
+                      key={lesson.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.effectAllowed = 'move';
+                        setDraggedLessonInfo({ secIndex: sIdx, lesIndex: lIdx });
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverLessonInfo?.secIndex !== sIdx || dragOverLessonInfo?.lesIndex !== lIdx) {
+                          setDragOverLessonInfo({ secIndex: sIdx, lesIndex: lIdx });
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleStudioLessonDrop(sIdx, lIdx);
+                      }}
+                      onDragEnd={(e) => {
+                        e.stopPropagation();
+                        setDraggedLessonInfo(null);
+                        setDragOverLessonInfo(null);
+                      }}
+                      className={`p-4 rounded-xl border bg-[var(--cn-bg)] space-y-3 relative group transition-all duration-150 ${
+                        isLesDragging
+                          ? 'opacity-40 scale-[0.99] border-[var(--cn-primary)]'
+                          : isLesDragOver
+                          ? 'border-[var(--cn-primary)] bg-[var(--cn-primary-tint)]/25 ring-2 ring-[var(--cn-primary)]/40 shadow-sm'
+                          : 'border-[var(--cn-border)]'
+                      }`}
+                    >
+                      {/* Lesson Top Bar */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 flex items-center gap-2">
+                          {/* Lesson Grip & Move buttons */}
+                          <div
+                            className="cursor-grab active:cursor-grabbing p-1 text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] shrink-0 flex items-center justify-center rounded border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)]"
+                            title="Drag to reorder lesson"
+                          >
+                            <IconGripVertical size={13} />
+                          </div>
 
-                return (
-                  <div
-                    key={lesson.id}
-                    className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] space-y-3 relative group"
-                  >
-                    {/* Lesson Top Bar */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 flex items-center gap-2">
-                        <span className="text-[11px] font-mono text-[var(--cn-text-muted)] font-bold">
-                          {sIdx + 1}.{lIdx + 1}
-                        </span>
-                        <input
-                          type="text"
-                          value={lesson.title}
-                          onChange={(e) => handleUpdateLesson(sIdx, lIdx, 'title', e.target.value)}
-                          className="font-semibold text-xs bg-transparent border-b border-transparent hover:border-[var(--cn-border)] focus:border-[var(--cn-primary)] text-[var(--cn-text-primary)] focus:outline-none px-1 w-full"
-                          placeholder="Lesson Title..."
-                        />
-                      </div>
+                          <div className="flex items-center border border-[var(--cn-border)] rounded-md overflow-hidden bg-[var(--cn-surface-subtle)] shrink-0">
+                            <button
+                              type="button"
+                              disabled={lIdx === 0}
+                              onClick={() => handleMoveLesson(sIdx, lIdx, 'up')}
+                              aria-label="Move lesson up"
+                              title="Move lesson up"
+                              className="p-1 text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] disabled:opacity-25 transition-colors"
+                            >
+                              <IconArrowUp size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={lIdx === section.lessons.length - 1}
+                              onClick={() => handleMoveLesson(sIdx, lIdx, 'down')}
+                              aria-label="Move lesson down"
+                              title="Move lesson down"
+                              className="p-1 text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface)] disabled:opacity-25 transition-colors border-l border-[var(--cn-border)]"
+                            >
+                              <IconArrowDown size={11} />
+                            </button>
+                          </div>
 
-                      <div className="flex items-center gap-2">
-                        {/* Duration input */}
-                        <div className="flex items-center gap-1 text-[11px] text-[var(--cn-text-muted)] font-mono">
-                          <IconClock size={13} />
+                          <span className="text-[11px] font-mono text-[var(--cn-text-muted)] font-bold">
+                            {sIdx + 1}.{lIdx + 1}
+                          </span>
                           <input
-                            type="number"
-                            min={1}
-                            max={360}
-                            value={lesson.estimatedDurationMinutes}
-                            onChange={(e) => handleUpdateLesson(sIdx, lIdx, 'estimatedDurationMinutes', parseInt(e.target.value, 10) || 15)}
-                            className="w-12 px-1 py-0.5 rounded border border-[var(--cn-border)] bg-[var(--cn-surface)] text-center text-[var(--cn-text-primary)]"
+                            type="text"
+                            value={lesson.title}
+                            onChange={(e) => handleUpdateLesson(sIdx, lIdx, 'title', e.target.value)}
+                            className="font-semibold text-xs bg-transparent border-b border-transparent hover:border-[var(--cn-border)] focus:border-[var(--cn-primary)] text-[var(--cn-text-primary)] focus:outline-none px-1 w-full"
+                            placeholder="Lesson Title..."
                           />
-                          <span>min</span>
                         </div>
 
-                        {section.lessons.length > 1 && (
-                          <button
-                            onClick={() => handleRemoveLesson(sIdx, lIdx)}
-                            className="p-1 text-[var(--cn-text-muted)] hover:text-red-400 rounded transition-colors"
-                            title="Delete Lesson"
-                          >
-                            <IconTrash size={14} />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {/* Duration input */}
+                          <div className="flex items-center gap-1 text-[11px] text-[var(--cn-text-muted)] font-mono">
+                            <IconClock size={13} />
+                            <input
+                              type="number"
+                              min={1}
+                              max={360}
+                              value={lesson.estimatedDurationMinutes}
+                              onChange={(e) => handleUpdateLesson(sIdx, lIdx, 'estimatedDurationMinutes', parseInt(e.target.value, 10) || 15)}
+                              className="w-12 px-1 py-0.5 rounded border border-[var(--cn-border)] bg-[var(--cn-surface)] text-center text-[var(--cn-text-primary)]"
+                            />
+                            <span>min</span>
+                          </div>
+
+                          {section.lessons.length > 1 && (
+                            <button
+                              onClick={() => handleRemoveLesson(sIdx, lIdx)}
+                              className="p-1 text-[var(--cn-text-muted)] hover:text-red-400 rounded transition-colors"
+                              title="Delete Lesson"
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
                     {/* Lesson Content Type Selector Tabs */}
                     <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-[var(--cn-border)]/50">
@@ -1170,7 +1379,8 @@ export function CourseStudioPage() {
               </button>
             </div>
           </div>
-        ))}
+        );
+      })}
       </div>
 
       {/* Bottom Publish Bar */}

@@ -29,6 +29,14 @@ const electronAPI = {
       ipcRenderer.invoke('dialog:openDirectory') as Promise<string | null>,
   },
 
+  shell: {
+    openExternalFile: (targetPath: string) =>
+      ipcRenderer.invoke('shell:openExternalFile', targetPath) as Promise<{
+        success: boolean;
+        error?: string;
+      }>,
+  },
+
   fs: {
     readFile: (path: string) =>
       ipcRenderer.invoke('fs:readFile', path) as Promise<ArrayBuffer>,
@@ -54,6 +62,34 @@ const electronAPI = {
         path: string;
         error?: string;
       }>,
+
+    checkCoursePathAccess: (params: {
+      courseId: string;
+      courseDir?: string;
+      mountPath?: string;
+      relativeCourseDir?: string;
+      volumeUuid?: string;
+      volumeLabel?: string;
+    }) =>
+      ipcRenderer.invoke('storage:checkCoursePathAccess', params) as Promise<{
+        isAccessible: boolean;
+        status: 'Available' | 'Drive disconnected' | 'Folder missing' | 'Permission denied' | 'Read timeout';
+        resolvedCourseDir?: string;
+        resolvedMountPath?: string;
+        resolvedVolumeUuid?: string;
+        resolvedVolumeLabel?: string;
+        resolvedRelativeCourseDir?: string;
+        error?: string;
+      }>,
+
+    saveCoursePassword: (params: { courseId: string; password: string }) =>
+      ipcRenderer.invoke('storage:saveCoursePassword', params) as Promise<{
+        success: boolean;
+        error?: string;
+      }>,
+
+    getCoursePassword: (courseId: string) =>
+      ipcRenderer.invoke('storage:getCoursePassword', courseId) as Promise<string | null>,
 
     setExternalMountPath: (mountPath: string) =>
       ipcRenderer.invoke('storage:setExternalMountPath', mountPath) as Promise<{
@@ -104,6 +140,27 @@ const electronAPI = {
     getProgress: (courseId?: string) =>
       ipcRenderer.invoke('storage:getProgress', courseId) as Promise<any>,
 
+    saveDetailedProgress: (record: any) =>
+      ipcRenderer.invoke('storage:saveDetailedProgress', record) as Promise<{ success: boolean; error?: string }>,
+
+    getDetailedProgress: (params: { courseId: string; lessonId?: string }) =>
+      ipcRenderer.invoke('storage:getDetailedProgress', params) as Promise<any>,
+
+    listVolumes: () =>
+      ipcRenderer.invoke('storage:listVolumes') as Promise<
+        Array<{
+          uuid: string;
+          label: string;
+          mountPath: string;
+          device?: string;
+          fsType?: string;
+          isRemovable: boolean;
+        }>
+      >,
+
+    reconcileAllVolumes: () =>
+      ipcRenderer.invoke('storage:reconcileAllVolumes') as Promise<any[]>,
+
     saveFlashcard: (card: any) =>
       ipcRenderer.invoke('storage:saveFlashcard', card) as Promise<boolean>,
 
@@ -131,6 +188,22 @@ const electronAPI = {
       ipcRenderer.on('storage:mountsChanged', handler);
       return () => {
         ipcRenderer.removeListener('storage:mountsChanged', handler);
+      };
+    },
+
+    onVolumeMounted: (callback: (vol: any) => void) => {
+      const handler = (_e: any, vol: any) => callback(vol);
+      ipcRenderer.on('storage:volumeMounted', handler);
+      return () => {
+        ipcRenderer.removeListener('storage:volumeMounted', handler);
+      };
+    },
+
+    onVolumeUnmounted: (callback: (info: { uuid: string }) => void) => {
+      const handler = (_e: any, info: any) => callback(info);
+      ipcRenderer.on('storage:volumeUnmounted', handler);
+      return () => {
+        ipcRenderer.removeListener('storage:volumeUnmounted', handler);
       };
     },
   },
