@@ -227,11 +227,8 @@ export function SettingsPage() {
         <div className="flex items-center bg-[var(--cn-surface-subtle)] p-1 rounded-xl border border-[var(--cn-border)] text-xs font-mono self-start sm:self-auto flex-wrap gap-1">
           <button
             onClick={() => switchTab('general')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
-              activeTab === 'general'
-                ? 'bg-[var(--cn-surface)] text-[var(--cn-primary)] shadow-xs'
-                : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)]'
-            }`}
+            data-active={activeTab === 'general'}
+            className="cn-tab-btn"
           >
             <IconSettings size={15} />
             <span>Preferences & Storage</span>
@@ -239,11 +236,8 @@ export function SettingsPage() {
 
           <button
             onClick={() => switchTab('credits')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
-              activeTab === 'credits'
-                ? 'bg-[var(--cn-surface)] text-[var(--cn-primary)] shadow-xs'
-                : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)]'
-            }`}
+            data-active={activeTab === 'credits'}
+            className="cn-tab-btn"
           >
             <IconHeart size={15} className={activeTab === 'credits' ? 'text-rose-500 fill-rose-500/20' : ''} />
             <span>Open Source Credits</span>
@@ -251,11 +245,8 @@ export function SettingsPage() {
 
           <button
             onClick={() => switchTab('logs')}
-            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-95 font-semibold ${
-              activeTab === 'logs'
-                ? 'bg-[var(--cn-surface)] text-[var(--cn-primary)] shadow-xs'
-                : 'text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)]'
-            }`}
+            data-active={activeTab === 'logs'}
+            className="cn-tab-btn"
           >
             <IconTerminal size={15} />
             <span>System Logs</span>
