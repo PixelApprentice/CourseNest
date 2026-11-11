@@ -10,7 +10,7 @@
     "build:packages": "pnpm --filter './packages/**' build",
     "build:client": "pnpm --filter @coursenest/client build",
     "build:desktop": "pnpm --filter @coursenest/desktop build",
-    "lint": "pnpm -r lint",
+    "lint": "pnpm -r --if-present lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "clean": "pnpm -r clean",
