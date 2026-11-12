@@ -124,9 +124,17 @@ export function VlcMediaViewer({
   const selectedTrackIndexRef = useRef(selectedTrackIndex);
   selectedTrackIndexRef.current = selectedTrackIndex;
 
-  // Auto-hide controls timer (Fixes Item 9)
+  // Auto-hide controls timer and interaction tracking (B4)
   const controlsTimeoutRef = useRef<number | null>(null);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
+  const isPointerOverControlsRef = useRef(false);
+  const isMenuOpenRef = useRef(false);
+  const isBufferingRef = useRef(isBuffering);
+  isBufferingRef.current = isBuffering;
+  const hasPlaybackErrorRef = useRef(hasPlaybackError);
+  hasPlaybackErrorRef.current = hasPlaybackError;
+  const showVlcPanelRef = useRef(showVlcPanel);
+  showVlcPanelRef.current = showVlcPanel;
 
   // Scrubber dragging state to prevent timeupdate jitter (Fixes Item 6)
   const [isSeeking, setIsSeeking] = useState(false);
@@ -139,25 +147,58 @@ export function VlcMediaViewer({
   // Canonical speed options matching keyboard shortcuts and dropdown (Fixes Item 4)
   const speedOptions = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0];
 
-  const handleMouseMove = useCallback(() => {
-    setIsControlsVisible(true);
+  const clearControlsTimer = useCallback(() => {
     if (controlsTimeoutRef.current) {
       window.clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
     }
+  }, []);
+
+  const shouldPreventAutoHide = useCallback(() => {
+    return (
+      !isPlayingRef.current ||
+      isBufferingRef.current ||
+      hasPlaybackErrorRef.current ||
+      isSeekingRef.current ||
+      isPointerOverControlsRef.current ||
+      showVlcPanelRef.current ||
+      isMenuOpenRef.current
+    );
+  }, []);
+
+  const scheduleAutoHide = useCallback(() => {
+    clearControlsTimer();
+    if (shouldPreventAutoHide()) {
+      setIsControlsVisible(true);
+      return;
+    }
+
     controlsTimeoutRef.current = window.setTimeout(() => {
-      if (isPlayingRef.current) {
+      if (!shouldPreventAutoHide()) {
         setIsControlsVisible(false);
       }
-    }, 2500);
-  }, []);
+    }, 3000);
+  }, [clearControlsTimer, shouldPreventAutoHide]);
+
+  const revealControls = useCallback(() => {
+    setIsControlsVisible(true);
+    scheduleAutoHide();
+  }, [scheduleAutoHide]);
+
+  useEffect(() => {
+    if (shouldPreventAutoHide()) {
+      clearControlsTimer();
+      setIsControlsVisible(true);
+    } else {
+      scheduleAutoHide();
+    }
+  }, [isPlaying, isBuffering, hasPlaybackError, isSeeking, showVlcPanel, shouldPreventAutoHide, clearControlsTimer, scheduleAutoHide]);
 
   useEffect(() => {
     return () => {
-      if (controlsTimeoutRef.current) {
-        window.clearTimeout(controlsTimeoutRef.current);
-      }
+      clearControlsTimer();
     };
-  }, []);
+  }, [clearControlsTimer]);
 
   // Flush playback progress to persistent storage
   const flushProgress = useCallback((overrideTime?: number, isCompleted?: boolean) => {
@@ -452,6 +493,7 @@ export function VlcMediaViewer({
   // Keyboard Shortcuts with stable listeners (Fixes Items 3 & 4)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      revealControls();
       const activeTag = (e.target as HTMLElement)?.tagName?.toUpperCase();
       const isEditable = (e.target as HTMLElement)?.isContentEditable;
       if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(activeTag) || isEditable) {
@@ -928,8 +970,13 @@ export function VlcMediaViewer({
   return (
     <div 
       ref={containerRef}
-      onMouseMove={handleMouseMove}
-      className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-[var(--cn-border)] select-none group ${className}`}
+      onPointerMove={revealControls}
+      onTouchStart={revealControls}
+      onTouchMove={revealControls}
+      onFocusCapture={revealControls}
+      className={`relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-[var(--cn-border)] select-none group ${
+        !isControlsVisible && isPlaying && !shouldPreventAutoHide() ? 'cursor-none [&_*]:cursor-none' : ''
+      } ${className}`}
     >
       {/* Video Element with Dynamic Aspect Ratio */}
       <video
@@ -1041,9 +1088,19 @@ export function VlcMediaViewer({
       )}
 
       {/* Header Overlay (Fixes Item 9) */}
-      <div className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent flex items-center justify-between transition-opacity duration-200 z-20 ${
-        isControlsVisible || !isPlaying ? 'opacity-100' : 'opacity-0'
-      }`}>
+      <div
+        onPointerEnter={() => {
+          isPointerOverControlsRef.current = true;
+          revealControls();
+        }}
+        onPointerLeave={() => {
+          isPointerOverControlsRef.current = false;
+          scheduleAutoHide();
+        }}
+        className={`absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent flex items-center justify-between transition-opacity duration-300 motion-reduce:transition-none z-20 ${
+          isControlsVisible || shouldPreventAutoHide() ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#EA580C]/25 text-[#FB923C] border border-[#EA580C]/40 text-[11px] font-mono font-bold">
             <IconBroadcast size={13} className="text-[#FB923C]" />
@@ -1198,9 +1255,19 @@ export function VlcMediaViewer({
       )}
 
       {/* Control Bar Overlay (Fixes Item 6 & 9) */}
-      <div className={`absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col gap-2 transition-opacity duration-200 z-20 ${
-        isControlsVisible || !isPlaying ? 'opacity-100' : 'opacity-0'
-      }`}>
+      <div
+        onPointerEnter={() => {
+          isPointerOverControlsRef.current = true;
+          revealControls();
+        }}
+        onPointerLeave={() => {
+          isPointerOverControlsRef.current = false;
+          scheduleAutoHide();
+        }}
+        className={`absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/95 via-black/80 to-transparent flex flex-col gap-2 transition-opacity duration-300 motion-reduce:transition-none z-20 ${
+          isControlsVisible || shouldPreventAutoHide() ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+      >
         {/* Scrubber Progress Bar */}
         <div className="relative w-full group/scrubber cursor-pointer py-1.5 cn-scrubber">
           <input
@@ -1349,6 +1416,14 @@ export function VlcMediaViewer({
                 <select
                   value={selectedTrackIndex}
                   onChange={(e) => selectSubtitleTrack(parseInt(e.target.value, 10))}
+                  onFocus={() => {
+                    isMenuOpenRef.current = true;
+                    revealControls();
+                  }}
+                  onBlur={() => {
+                    isMenuOpenRef.current = false;
+                    scheduleAutoHide();
+                  }}
                   className="cn-btn-tactile bg-white/10 hover:bg-white/20 border border-white/20 rounded px-1.5 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
                   title="Select Subtitle Track"
                 >
@@ -1374,6 +1449,14 @@ export function VlcMediaViewer({
               <select
                 value={playbackSpeed}
                 onChange={(e) => changeSpeed(parseFloat(e.target.value))}
+                onFocus={() => {
+                  isMenuOpenRef.current = true;
+                  revealControls();
+                }}
+                onBlur={() => {
+                  isMenuOpenRef.current = false;
+                  scheduleAutoHide();
+                }}
                 className="cn-btn-tactile bg-white/10 hover:bg-white/20 border border-white/20 rounded px-2 py-0.5 text-[11px] text-white cursor-pointer focus:outline-hidden"
                 title="Playback Speed ([ / ])"
               >

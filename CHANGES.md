@@ -200,7 +200,66 @@ Test dataset size: 25 MB
 
 ## Phase 2: Video Player
 
-*(To be implemented in Phase 2)*
+### B4. Auto-Hide Controls & Mouse Cursor (Bug / Feature)
+- **Problem**: Controls remained visible indefinitely or hid abruptly, mouse cursor never hid during playback, and interactions or open menus caused controls to disappear over active user focus.
+- **Changes Applied**:
+  - `apps/client/src/components/VlcMediaViewer.tsx`:
+    - Implemented 3000ms idle countdown timer while video is actively playing.
+    - Added mouse cursor auto-hide (`cursor-none [&_*]:cursor-none`) synchronized with controls hide state.
+    - Wired interaction listeners to immediately reveal controls and reset the 3s timer on:
+      - Pointer movement (`onPointerMove`)
+      - Touch gestures (`onTouchStart`, `onTouchMove`)
+      - Keyboard shortcuts (`handleKeyDown`)
+      - Focus events (`onFocusCapture`, `onFocus`)
+    - Added complete guard protections preventing auto-hide whenever:
+      - Video is paused (`!isPlayingRef.current`)
+      - Stream is buffering or loading (`isBufferingRef.current || !src`)
+      - Video is in an error state (`hasPlaybackErrorRef.current`)
+      - User is dragging the seek bar scrubber (`isSeekingRef.current`)
+      - Pointer is hovering anywhere over the control bars (`isPointerOverControlsRef.current`)
+      - Any menu (speed selector, subtitle selector, VLC audio drawer) is open or focused (`isMenuOpenRef.current`, `showVlcPanelRef.current`)
+    - Cleaned up timers on component unmount via `clearControlsTimer`.
+    - Added CSS transitions with accessibility support: `transition-opacity duration-300 ease-out motion-reduce:transition-none`.
+    - Fullscreen support preserved identically through `containerRef`.
+- **Evidence**:
+  - Automated test suite in `scripts/test_phase2_player.mjs`:
+    ```
+    =====================================================
+           PHASE 2 VERIFICATION & ACCEPTANCE SUITE       
+    =====================================================
+
+    [Case 1] 3-second auto-hide while playing
+    ✓ Controls and cursor smoothly hid after 3s of playing
+
+    [Case 2] Reveal on interaction (mouse move, touch, key, focus)
+    ✓ Controls and cursor revealed immediately upon interaction
+
+    [Case 3] Guard: Never hide while PAUSED
+    ✓ Controls stay visible while video is paused
+
+    [Case 4] Guard: Never hide while LOADING / BUFFERING
+    ✓ Controls stay visible while video is loading/buffering
+
+    [Case 5] Guard: Never hide while in an ERROR STATE
+    ✓ Controls stay visible while video is in an error state
+
+    [Case 6] Guard: Never hide while a MENU (speed/volume/VLC) is open
+    ✓ Controls stay visible while a menu is open
+
+    [Case 7] Guard: Never hide while DRAGGING the seek bar
+    ✓ Controls stay visible while dragging seek bar
+
+    [Case 8] Guard: Never hide while POINTER is over controls
+    ✓ Controls stay visible while pointer is hovered over controls
+
+    =====================================================
+           ALL PHASE 2 ACCEPTANCE TESTS PASSED!          
+    =====================================================
+    ```
+
+---
+
+### Phase 2 Exit Criteria: met
 
 ---
 
