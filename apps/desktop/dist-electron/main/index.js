@@ -212,6 +212,12 @@ async function initializeDatabase() {
           encrypted_password_base64 TEXT NOT NULL,
           updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS encrypted_app_secrets (
+          key TEXT PRIMARY KEY,
+          encrypted_value_base64 TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
       `);
     }
     return dbConnection;
@@ -246,6 +252,56 @@ function getEncryptedCoursePassword(courseId) {
     return row?.encrypted_password_base64 || null;
   } catch (err) {
     console.warn("getEncryptedCoursePassword warning:", err?.message);
+    return null;
+  }
+}
+function deleteEncryptedCoursePassword(courseId) {
+  try {
+    if (!dbConnection) return false;
+    dbConnection.prepare("DELETE FROM encrypted_course_passwords WHERE course_id = ?").run(courseId);
+    return true;
+  } catch (err) {
+    console.warn("deleteEncryptedCoursePassword warning:", err?.message);
+    return false;
+  }
+}
+function deleteCourseSqliteData(courseId) {
+  try {
+    if (!dbConnection) return false;
+    dbConnection.prepare("DELETE FROM encrypted_course_passwords WHERE course_id = ?").run(courseId);
+    dbConnection.prepare("DELETE FROM learning_progress_records WHERE course_id = ?").run(courseId);
+    return true;
+  } catch (err) {
+    console.warn("deleteCourseSqliteData warning:", err?.message);
+    return false;
+  }
+}
+function saveEncryptedAppSecret(key, encryptedBase64) {
+  try {
+    if (!dbConnection) return false;
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    dbConnection.prepare(`
+      INSERT INTO encrypted_app_secrets (key, encrypted_value_base64, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        encrypted_value_base64 = excluded.encrypted_value_base64,
+        updated_at = excluded.updated_at
+    `).run(key, encryptedBase64, now);
+    return true;
+  } catch (err) {
+    console.warn("saveEncryptedAppSecret warning:", err?.message);
+    return false;
+  }
+}
+function getEncryptedAppSecret(key) {
+  try {
+    if (!dbConnection) return null;
+    const row = dbConnection.prepare(`
+      SELECT encrypted_value_base64 FROM encrypted_app_secrets WHERE key = ?
+    `).get(key);
+    return row?.encrypted_value_base64 || null;
+  } catch (err) {
+    console.warn("getEncryptedAppSecret warning:", err?.message);
     return null;
   }
 }
@@ -648,6 +704,41 @@ function registerIpcHandlers() {
   ipcMain.handle("storage:getCoursePassword", async (_event, courseId) => {
     try {
       const encBase64 = getEncryptedCoursePassword(courseId);
+      if (!encBase64 || !safeStorage.isEncryptionAvailable()) {
+        return null;
+      }
+      return safeStorage.decryptString(Buffer.from(encBase64, "base64"));
+    } catch {
+      return null;
+    }
+  });
+  ipcMain.handle("storage:deleteCoursePassword", async (_event, courseId) => {
+    try {
+      deleteEncryptedCoursePassword(courseId);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err?.message };
+    }
+  });
+  ipcMain.handle("storage:saveAiKey", async (_event, apiKey) => {
+    try {
+      if (!apiKey) {
+        saveEncryptedAppSecret("ai_api_key", "");
+        return { success: true };
+      }
+      if (!safeStorage.isEncryptionAvailable()) {
+        return { success: false, error: "OS safeStorage unavailable" };
+      }
+      const encrypted = safeStorage.encryptString(apiKey);
+      const ok = saveEncryptedAppSecret("ai_api_key", encrypted.toString("base64"));
+      return { success: ok };
+    } catch (err) {
+      return { success: false, error: err?.message || "Failed to save encrypted AI API key" };
+    }
+  });
+  ipcMain.handle("storage:getAiKey", async () => {
+    try {
+      const encBase64 = getEncryptedAppSecret("ai_api_key");
       if (!encBase64 || !safeStorage.isEncryptionAvailable()) {
         return null;
       }
@@ -1102,12 +1193,27 @@ function registerIpcHandlers() {
           } catch {
           }
         }
+        try {
+          if (existsSync(resolvedTarget)) {
+            const files = await readdir(resolvedTarget);
+            if (files.length === 0) {
+              await rm(resolvedTarget, { recursive: true, force: true });
+            }
+          }
+        } catch {
+        }
         return {
           success: false,
           extractedFiles: [],
           error: "No native extractor available or archive password incorrect"
         };
       } catch (err) {
+        try {
+          if (existsSync(targetDir)) {
+            await rm(targetDir, { recursive: true, force: true });
+          }
+        } catch {
+        }
         return {
           success: false,
           extractedFiles: [],
@@ -1134,6 +1240,11 @@ function registerIpcHandlers() {
         }
         const candidateDirs = /* @__PURE__ */ new Set();
         if (courseDir) candidateDirs.add(courseDir);
+        try {
+          candidateDirs.add(join(app.getPath("userData"), "courses", courseId));
+          candidateDirs.add(join(app.getPath("userData"), "CourseNest_vault_courses", courseId));
+        } catch {
+        }
         const baseDir = mountPath || configuredExternalMountPath;
         if (baseDir) {
           candidateDirs.add(resolveCourseStorageDir(baseDir, courseId));
@@ -1162,6 +1273,8 @@ function registerIpcHandlers() {
             console.warn(`Could not remove course dir ${dir}:`, e?.message);
           }
         }
+        deleteCourseSqliteData(courseId);
+        deleteEncryptedCoursePassword(courseId);
         return { success: true };
       } catch (err) {
         console.error(`Failed to delete course from disk (${courseId}):`, err);

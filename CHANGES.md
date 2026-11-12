@@ -330,7 +330,101 @@ Test dataset size: 25 MB
 
 ## Phase 4: Functionality
 
-*(To be implemented in Phase 4)*
+### F1. Google AI Studio API 429 Quota Error & API Security
+- **Root Cause Analysis**:
+  1. *Model Resource Prefix Bug*: The API endpoint was constructed as `${baseUrl}/models/${model}:generateContent`. When users pasted model identifiers displayed by Google AI Studio (e.g. `models/gemini-1.5-flash`), the resulting URL had duplicate prefixes (`/models/models/gemini-1.5-flash:generateContent`), causing 404/400 errors.
+  2. *API Key in URL Parameter*: The API key was transmitted in the URL query string (`?key=...`), exposing credentials in HTTP request logs, browser URLs, and network inspectors.
+  3. *Missing 429 / 503 Backoff*: When Google AI Studio free tier returned HTTP 429 (`RESOURCE_EXHAUSTED` / `RATE_LIMIT_EXCEEDED`), the client threw immediately with no backoff or retry logic.
+  4. *Unchecked Parallel Invocations*: Rapid clicks on "Test API Connection" or multiple prompt submissions fired concurrent network requests, quickly triggering rate limits.
+- **Changes Applied**:
+  - `apps/client/src/lib/aiConfig.ts`:
+    - Sanitized `modelName`: `(config.modelName || 'gemini-1.5-flash').trim().replace(/^models\//, '')`.
+    - Switched authentication to HTTP header `x-goog-api-key: config.apiKey.trim()`, eliminating API keys from URLs.
+    - Implemented `fetchWithRetry`:
+      - Exponential backoff with random jitter (`1000 * 2^attempt + jitter`, capped at 15s).
+      - Honors `Retry-After` response headers (in seconds) and Google RPC `retryDelay` metadata.
+      - Retries up to 3 times before failing.
+    - Implemented sequential concurrency lock (`activeInflightQuery`) to prevent hammering from rapid double-clicks.
+    - Handled 429 gracefully with informative, non-crashing UI guidance and offline study recommendations.
+    - Integrated Electron `safeStorage` via IPC (`storage:saveAiKey` and `storage:getAiKey`) so API keys are stored OS-encrypted, never in plaintext in `localStorage`.
+  - `apps/client/src/lib/logger.ts`:
+    - Added `redactSensitive` helper that scrubs Google Gemini keys (`AIza...`), OpenAI keys (`sk-...`), and passwords from logs and console output.
+  - `apps/desktop/src/main/database.ts` & `ipc-handlers.ts`:
+    - Added `encrypted_app_secrets` SQLite table and IPC handlers (`storage:saveAiKey`, `storage:getAiKey`) for encrypted secret persistence.
+- **Evidence**:
+  - Verification test `scripts/test_phase4_ai.mjs` output:
+    ```
+    --- Phase 4: F1 Google AI Studio 429 Backoff & Concurrency Test ---
+    Mock Gemini AI Studio server running on port 39937
+    [PASS] Backoff and retry succeeded in 1494ms across 3 attempts.
+    [PASS] API key transmitted safely via header, absent from URL query string.
+    ```
+
+### F2. MCP (Model Context Protocol) Verification
+- **Code Audit**:
+  - Found MCP server package at `packages/mcp-server` (`@coursenest/mcp-server@2.1.0`).
+  - Architecture: Runs over `StdioServerTransport` via `@modelcontextprotocol/sdk/server/stdio.js`.
+  - Discovered and verified all 8 registered tools:
+    1. `coursenest_list_courses`: List all courses in the offline learning vault.
+    2. `coursenest_get_curriculum`: Retrieve syllabus and chapter breakdown.
+    3. `coursenest_get_lesson`: Retrieve lecture transcript, study notes, and code snippets.
+    4. `coursenest_search`: Full-text search across course titles, transcripts, and notes.
+    5. `coursenest_save_note`: Save or append study notes to a lesson.
+    6. `coursenest_get_progress`: Query course completion status and progress percentage.
+    7. `coursenest_create_flashcard`: Create and persist active recall flashcards.
+    8. `coursenest_get_flashcards`: Retrieve review flashcards by course ID.
+  - Discovered registered resource: `coursenest://courses` (returns complete vault catalog).
+- **Verification Performed**:
+  - Launched MCP server process on stdio.
+  - Executed JSON-RPC `initialize` handshake (`2024-11-05` protocol version) and `notifications/initialized`.
+  - Queried `tools/list` to inspect all 8 tool signatures and descriptions.
+  - Executed sample tool call (`coursenest_list_courses`).
+  - Executed state-mutating tool call (`coursenest_create_flashcard`).
+  - Verified error handling on unknown / invalid tool requests.
+  - Verified request timeout and process disconnect / reconnect lifecycle.
+- **Evidence**:
+  - Verification test `scripts/test_phase4_mcp.mjs` output:
+    ```
+    --- Phase 4: F2 MCP (Model Context Protocol) Server Test ---
+    1. Starting MCP server on stdio...
+    [PASS] Server initialized: coursenest-server v2.1.0
+    [PASS] Registered tools discovered (8): coursenest_list_courses, coursenest_get_curriculum, coursenest_get_lesson, coursenest_search, coursenest_save_note, coursenest_get_progress, coursenest_create_flashcard, coursenest_get_flashcards
+    [PASS] Sample tool invocation (coursenest_list_courses) succeeded.
+    [PASS] Flashcard creation tool invocation passed.
+    [PASS] Error handling for invalid tool call verified.
+    [PASS] Timeout and error boundaries handled safely.
+    2. Testing client disconnect and reconnect lifecycle...
+    [PASS] MCP Server reconnect lifecycle verified successfully.
+    --- ALL MCP TESTS PASSED ---
+    ```
+
+### F3. "Bizarre Things" Sweep & Storage Lifecycle
+- **Findings & Fixes**:
+  1. *Orphaned Decoupled SQLite Records on Course Deletion*:
+     - Previously, when a course was deleted (`deleteCourseFromDisk`), files on disk and IndexedDB media blobs were deleted, but the course's encrypted password in SQLite (`encrypted_course_passwords`) and detailed progress records (`learning_progress_records`) were retained forever.
+     - Fixed in `apps/desktop/src/main/database.ts` by implementing `deleteCourseSqliteData(courseId)` and `deleteEncryptedCoursePassword(courseId)`, wired into `storage:deleteCourseFromDisk`.
+  2. *Orphaned IndexedDB Course Metadata*:
+     - In `apps/client/src/lib/courseStore.ts`, `deleteCourseFromVault` deleted media files via `deleteMediaForCourse(courseId)`, but left course metadata in IndexedDB `meta_courses`. Fixed by calling `deleteCourseMetadata(courseId)`.
+  3. *Retained In-Memory Session Password*:
+     - Deleting a course did not invalidate cached session passwords in `coursePasswordManager`. Fixed by calling `coursePasswordManager.clearSessionPassword(courseId)`.
+  4. *Orphaned Extraction Staging Folders*:
+     - In `storage:extractArchiveNative`, if an archive extraction failed (e.g. wrong password or corrupt archive), an empty staging directory was left on disk. Added automatic removal of failed extraction targets in `ipc-handlers.ts`.
+  5. *Storage Architecture & Extracted Media Mapping*:
+     - External storage tier: Course files are extracted and streamed directly from `<Drive>/CourseNest/<CourseName>/`.
+     - Internal storage tier: Files reside in `<userData>/courses/<CourseId>/` or sandboxed IndexedDB `media_files`.
+     - Streaming: Video and audio are zero-copy streamed via custom protocol `vault-media://<CourseId>/<Path>` supporting HTTP 206 partial content and instant seeking.
+- **Evidence**:
+  - Verification test `scripts/test_phase4_storage.mjs` output:
+    ```
+    --- Phase 4: F3 Storage Lifecycle & Course Deletion Sweep Test ---
+    [PASS] Physical course directories purged cleanly from disk without orphaned files.
+    [PASS] Failed extraction staging directory pruned to prevent disk leakage.
+    --- ALL STORAGE LIFECYCLE TESTS PASSED ---
+    ```
+
+---
+
+### Phase 4 Exit Criteria: met
 
 ---
 

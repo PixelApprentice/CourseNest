@@ -91,6 +91,21 @@ const electronAPI = {
     getCoursePassword: (courseId: string) =>
       ipcRenderer.invoke('storage:getCoursePassword', courseId) as Promise<string | null>,
 
+    deleteCoursePassword: (courseId: string) =>
+      ipcRenderer.invoke('storage:deleteCoursePassword', courseId) as Promise<{
+        success: boolean;
+        error?: string;
+      }>,
+
+    saveAiKey: (apiKey: string) =>
+      ipcRenderer.invoke('storage:saveAiKey', apiKey) as Promise<{
+        success: boolean;
+        error?: string;
+      }>,
+
+    getAiKey: () =>
+      ipcRenderer.invoke('storage:getAiKey') as Promise<string | null>,
+
     setExternalMountPath: (mountPath: string) =>
       ipcRenderer.invoke('storage:setExternalMountPath', mountPath) as Promise<{
         success: boolean;

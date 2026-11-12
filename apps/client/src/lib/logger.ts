@@ -78,6 +78,14 @@ function getStoredLogs(): LogEntry[] {
   return initial;
 }
 
+function redactSensitive(str?: string): string | undefined {
+  if (!str) return str;
+  return str
+    .replace(/AIza[0-9A-Za-z-_]{35}/g, '[REDACTED_GEMINI_KEY]')
+    .replace(/sk-[a-zA-Z0-9_-]{20,}/g, '[REDACTED_API_KEY]')
+    .replace(/(?:password|passphrase|pass)\s*[:=]\s*[^\s,]+/gi, 'password=[REDACTED]');
+}
+
 export function addLog(
   level: LogLevel,
   category: LogCategory,
@@ -85,15 +93,19 @@ export function addLog(
   details?: string,
   stack?: string,
 ): LogEntry {
+  const sanitizedMessage = redactSensitive(message) || message;
+  const sanitizedDetails = redactSensitive(details);
+  const sanitizedStack = redactSensitive(stack);
+
   const logs = getStoredLogs();
   const entry: LogEntry = {
     id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     timestamp: new Date().toISOString(),
     level,
     category,
-    message,
-    details,
-    stack,
+    message: sanitizedMessage,
+    details: sanitizedDetails,
+    stack: sanitizedStack,
   };
 
   logs.unshift(entry);
@@ -109,11 +121,11 @@ export function addLog(
 
   // Also log to browser developer console for development debugging
   if (level === 'ERROR') {
-    console.error(`[CourseNest:${category}] ${message}`, details, stack);
+    console.error(`[CourseNest:${category}] ${sanitizedMessage}`, sanitizedDetails, sanitizedStack);
   } else if (level === 'WARN') {
-    console.warn(`[CourseNest:${category}] ${message}`, details);
+    console.warn(`[CourseNest:${category}] ${sanitizedMessage}`, sanitizedDetails);
   } else {
-    console.log(`[CourseNest:${category}] ${message}`, details);
+    console.log(`[CourseNest:${category}] ${sanitizedMessage}`, sanitizedDetails);
   }
 
   return entry;

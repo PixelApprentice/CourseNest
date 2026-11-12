@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { deleteMediaForCourse } from './mediaVault';
+import { deleteMediaForCourse, deleteCourseMetadata } from './mediaVault';
+import { coursePasswordManager } from './coursePasswordManager';
 
 export interface QuizQuestion {
   id: string;
@@ -644,14 +645,24 @@ export async function deleteCourseFromVault(courseId: string): Promise<void> {
   const updated = current.filter((c) => c.id !== courseId);
   saveVaultCourses(updated);
 
-  // 1. Purge all decompressed media files (video, audio, PDF, handouts) from IndexedDB
+  // 1. Purge all decompressed media files and metadata from IndexedDB
   try {
     await deleteMediaForCourse(courseId);
+    await deleteCourseMetadata(courseId);
   } catch (err) {
-    console.warn(`Could not purge media blobs for course ${courseId}:`, err);
+    console.warn(`Could not purge media blobs or metadata for course ${courseId}:`, err);
   }
 
-  // 2. Permanently delete external files from disk if running in Electron
+  // 2. Clear in-memory password cache and safeStorage entry
+  try {
+    coursePasswordManager.clearSessionPassword(courseId);
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.storage?.deleteCoursePassword) {
+      electron.storage.deleteCoursePassword(courseId).catch?.(() => {});
+    }
+  } catch {}
+
+  // 3. Permanently delete external files from disk if running in Electron
   const electron = (window as any).electron || (window as any).__ELECTRON__;
   if (electron?.storage?.deleteCourseFromDisk) {
     try {
@@ -665,7 +676,7 @@ export async function deleteCourseFromVault(courseId: string): Promise<void> {
     }
   }
 
-  // 3. Clean up associated progress keys
+  // 4. Clean up associated progress keys
   try {
     const progressPrefix = `${VAULT_PROGRESS_KEY}:${courseId}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {

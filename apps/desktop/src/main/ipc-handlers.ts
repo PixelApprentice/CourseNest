@@ -11,6 +11,10 @@ import {
   getVolumeRegistryDb,
   saveEncryptedCoursePassword,
   getEncryptedCoursePassword,
+  deleteEncryptedCoursePassword,
+  deleteCourseSqliteData,
+  saveEncryptedAppSecret,
+  getEncryptedAppSecret,
   type DetailedProgressRecord,
   type VolumeRegistryRecord,
 } from './database.js';
@@ -504,6 +508,45 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('storage:getCoursePassword', async (_event, courseId: string) => {
     try {
       const encBase64 = getEncryptedCoursePassword(courseId);
+      if (!encBase64 || !safeStorage.isEncryptionAvailable()) {
+        return null;
+      }
+      return safeStorage.decryptString(Buffer.from(encBase64, 'base64'));
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle('storage:deleteCoursePassword', async (_event, courseId: string) => {
+    try {
+      deleteEncryptedCoursePassword(courseId);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message };
+    }
+  });
+
+  // SafeStorage OS-Level Encrypted AI API Key Handlers
+  ipcMain.handle('storage:saveAiKey', async (_event, apiKey: string) => {
+    try {
+      if (!apiKey) {
+        saveEncryptedAppSecret('ai_api_key', '');
+        return { success: true };
+      }
+      if (!safeStorage.isEncryptionAvailable()) {
+        return { success: false, error: 'OS safeStorage unavailable' };
+      }
+      const encrypted = safeStorage.encryptString(apiKey);
+      const ok = saveEncryptedAppSecret('ai_api_key', encrypted.toString('base64'));
+      return { success: ok };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Failed to save encrypted AI API key' };
+    }
+  });
+
+  ipcMain.handle('storage:getAiKey', async () => {
+    try {
+      const encBase64 = getEncryptedAppSecret('ai_api_key');
       if (!encBase64 || !safeStorage.isEncryptionAvailable()) {
         return null;
       }
@@ -1042,12 +1085,27 @@ export function registerIpcHandlers(): void {
           } catch {}
         }
 
+        // If extraction failed, remove empty or partial staging directory to prevent orphaned folders
+        try {
+          if (existsSync(resolvedTarget)) {
+            const files = await readdir(resolvedTarget);
+            if (files.length === 0) {
+              await rm(resolvedTarget, { recursive: true, force: true });
+            }
+          }
+        } catch {}
+
         return {
           success: false,
           extractedFiles: [],
           error: 'No native extractor available or archive password incorrect',
         };
       } catch (err: any) {
+        try {
+          if (existsSync(targetDir)) {
+            await rm(targetDir, { recursive: true, force: true });
+          }
+        } catch {}
         return {
           success: false,
           extractedFiles: [],
@@ -1076,6 +1134,12 @@ export function registerIpcHandlers(): void {
 
         const candidateDirs = new Set<string>();
         if (courseDir) candidateDirs.add(courseDir);
+
+        // Internal vault paths
+        try {
+          candidateDirs.add(join(app.getPath('userData'), 'courses', courseId));
+          candidateDirs.add(join(app.getPath('userData'), 'CourseNest_vault_courses', courseId));
+        } catch {}
 
         const baseDir = mountPath || configuredExternalMountPath;
         if (baseDir) {
@@ -1106,6 +1170,10 @@ export function registerIpcHandlers(): void {
             console.warn(`Could not remove course dir ${dir}:`, e?.message);
           }
         }
+
+        // Clean up decoupled SQLite learning progress and encrypted password records
+        deleteCourseSqliteData(courseId);
+        deleteEncryptedCoursePassword(courseId);
 
         return { success: true };
       } catch (err: any) {

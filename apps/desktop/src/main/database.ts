@@ -278,6 +278,12 @@ export async function initializeDatabase(): Promise<ISqliteConnection | null> {
           encrypted_password_base64 TEXT NOT NULL,
           updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS encrypted_app_secrets (
+          key TEXT PRIMARY KEY,
+          encrypted_value_base64 TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
       `);
     }
 
@@ -321,6 +327,72 @@ export function getEncryptedCoursePassword(courseId: string): string | null {
     return row?.encrypted_password_base64 || null;
   } catch (err: any) {
     console.warn('getEncryptedCoursePassword warning:', err?.message);
+    return null;
+  }
+}
+
+/**
+ * Delete an encrypted course password from SQLite database.
+ */
+export function deleteEncryptedCoursePassword(courseId: string): boolean {
+  try {
+    if (!dbConnection) return false;
+    dbConnection.prepare('DELETE FROM encrypted_course_passwords WHERE course_id = ?').run(courseId);
+    return true;
+  } catch (err: any) {
+    console.warn('deleteEncryptedCoursePassword warning:', err?.message);
+    return false;
+  }
+}
+
+/**
+ * Purge all SQLite decoupled data for a deleted course (progress + passwords).
+ */
+export function deleteCourseSqliteData(courseId: string): boolean {
+  try {
+    if (!dbConnection) return false;
+    dbConnection.prepare('DELETE FROM encrypted_course_passwords WHERE course_id = ?').run(courseId);
+    dbConnection.prepare('DELETE FROM learning_progress_records WHERE course_id = ?').run(courseId);
+    return true;
+  } catch (err: any) {
+    console.warn('deleteCourseSqliteData warning:', err?.message);
+    return false;
+  }
+}
+
+/**
+ * Save an encrypted app secret (e.g. AI API key) into SQLite database.
+ */
+export function saveEncryptedAppSecret(key: string, encryptedBase64: string): boolean {
+  try {
+    if (!dbConnection) return false;
+    const now = new Date().toISOString();
+    dbConnection.prepare(`
+      INSERT INTO encrypted_app_secrets (key, encrypted_value_base64, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        encrypted_value_base64 = excluded.encrypted_value_base64,
+        updated_at = excluded.updated_at
+    `).run(key, encryptedBase64, now);
+    return true;
+  } catch (err: any) {
+    console.warn('saveEncryptedAppSecret warning:', err?.message);
+    return false;
+  }
+}
+
+/**
+ * Retrieve an encrypted app secret from SQLite database.
+ */
+export function getEncryptedAppSecret(key: string): string | null {
+  try {
+    if (!dbConnection) return null;
+    const row = dbConnection.prepare(`
+      SELECT encrypted_value_base64 FROM encrypted_app_secrets WHERE key = ?
+    `).get(key) as { encrypted_value_base64: string } | undefined;
+    return row?.encrypted_value_base64 || null;
+  } catch (err: any) {
+    console.warn('getEncryptedAppSecret warning:', err?.message);
     return null;
   }
 }

@@ -24,6 +24,21 @@ export interface AiConfig {
 
 const AI_CONFIG_KEY = 'coursenest_ai_config_v1';
 
+let inMemoryApiKey: string | null = null;
+
+// Asynchronously hydrate safeStorage API key if running in Electron desktop
+if (typeof window !== 'undefined') {
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.getAiKey) {
+    electron.storage.getAiKey().then((key: string | null) => {
+      if (key) {
+        inMemoryApiKey = key;
+        window.dispatchEvent(new Event('coursenest_ai_config_changed'));
+      }
+    }).catch(() => {});
+  }
+}
+
 const DEFAULT_AI_CONFIG: AiConfig = {
   isEnabled: true,
   provider: 'gemini',
@@ -35,18 +50,33 @@ const DEFAULT_AI_CONFIG: AiConfig = {
 };
 
 export function getAiConfig(): AiConfig {
+  let baseConfig = DEFAULT_AI_CONFIG;
   try {
     const raw = localStorage.getItem(AI_CONFIG_KEY);
     if (raw) {
-      return { ...DEFAULT_AI_CONFIG, ...JSON.parse(raw) };
+      baseConfig = { ...DEFAULT_AI_CONFIG, ...JSON.parse(raw) };
     }
   } catch {}
-  return DEFAULT_AI_CONFIG;
+
+  if (inMemoryApiKey !== null) {
+    baseConfig.apiKey = inMemoryApiKey;
+  }
+  return baseConfig;
 }
 
 export function saveAiConfig(config: AiConfig): void {
   try {
-    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+    inMemoryApiKey = config.apiKey;
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.storage?.saveAiKey) {
+      electron.storage.saveAiKey(config.apiKey).catch(() => {});
+      // In localStorage, store empty apiKey so plaintext is never left in localStorage
+      const safeConfig = { ...config, apiKey: '' };
+      localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(safeConfig));
+    } else {
+      localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+    }
+
     window.dispatchEvent(new Event('coursenest_ai_config_changed'));
     addLog(
       'INFO',
@@ -264,11 +294,95 @@ export function generateOfflineLocalAnswer(
   };
 }
 
+let activeInflightQuery: Promise<AiQueryResponse> | null = null;
+
+/**
+ * Resilient fetch with exponential backoff and jitter for HTTP 429 and 503.
+ * Respects Retry-After headers and Google AI Studio retryDelay fields.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3
+): Promise<Response> {
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    try {
+      const res = await fetch(url, options);
+      if (res.status === 429 || res.status === 503) {
+        if (attempt >= maxRetries) {
+          return res;
+        }
+        const retryAfterHeader = res.headers.get('retry-after');
+        let delayMs = 0;
+        if (retryAfterHeader) {
+          const parsed = parseInt(retryAfterHeader, 10);
+          if (!isNaN(parsed) && parsed > 0) {
+            delayMs = parsed * 1000;
+          }
+        }
+        if (delayMs === 0) {
+          try {
+            const clone = res.clone();
+            const data = await clone.json();
+            const delayStr = data?.error?.details?.find?.((d: any) => d.retryDelay)?.retryDelay;
+            if (delayStr && typeof delayStr === 'string') {
+              const seconds = parseFloat(delayStr.replace(/s$/, ''));
+              if (!isNaN(seconds) && seconds > 0) {
+                delayMs = seconds * 1000;
+              }
+            }
+          } catch {}
+        }
+        if (delayMs === 0) {
+          // Exponential backoff with jitter: 1s, 2s, 4s...
+          delayMs = Math.min(1000 * Math.pow(2, attempt) + Math.random() * 500, 10000);
+        }
+        delayMs = Math.min(delayMs, 15000);
+        addLog(
+          'INFO',
+          'AI',
+          `Rate limited (HTTP ${res.status}). Waiting ${Math.round(delayMs / 1000)}s before retry ${attempt + 1}/${maxRetries}...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        attempt++;
+        continue;
+      }
+      return res;
+    } catch (netErr: any) {
+      if (attempt >= maxRetries) throw netErr;
+      const delayMs = 1000 * Math.pow(2, attempt);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      attempt++;
+    }
+  }
+  throw new Error('Maximum retries exceeded');
+}
+
 /**
  * Main Question Dispatcher:
  * Coordinates local vector retrieval, cloud/local LLM APIs, and In-App Tool execution.
+ * Enforces sequential concurrency lock to prevent API hammering.
  */
 export async function askAiAssistant(payload: AiQueryPayload): Promise<AiQueryResponse> {
+  if (activeInflightQuery) {
+    try {
+      await activeInflightQuery;
+    } catch {}
+  }
+
+  const execution = doAskAiAssistant(payload);
+  activeInflightQuery = execution;
+  try {
+    return await execution;
+  } finally {
+    if (activeInflightQuery === execution) {
+      activeInflightQuery = null;
+    }
+  }
+}
+
+async function doAskAiAssistant(payload: AiQueryPayload): Promise<AiQueryResponse> {
   const config = getAiConfig();
   const effectiveMode = payload.pedagogicalMode || config.pedagogicalMode || 'socratic';
 
@@ -363,16 +477,21 @@ ${payload.question}`;
     let rawOutputText = '';
 
     if (config.provider === 'gemini') {
-      const model = config.modelName || 'gemini-1.5-flash';
+      const model = (config.modelName || 'gemini-1.5-flash').trim().replace(/^models\//, '') || 'gemini-1.5-flash';
       let baseUrl = config.baseUrl.trim().replace(/\/+$/, '');
       if (!baseUrl.includes('/v1')) {
         baseUrl += '/v1beta';
       }
-      const endpoint = `${baseUrl}/models/${model}:generateContent?key=${config.apiKey.trim()}`;
+      const endpoint = `${baseUrl}/models/${model}:generateContent`;
 
-      const res = await fetch(endpoint, {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (config.apiKey) {
+        headers['x-goog-api-key'] = config.apiKey.trim();
+      }
+
+      const res = await fetchWithRetry(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           contents: [
             {
@@ -389,7 +508,13 @@ ${payload.question}`;
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.error?.message || `Gemini API returned status ${res.status}`);
+        const rawMsg = errorData?.error?.message || `Gemini API returned status ${res.status}`;
+        if (res.status === 429) {
+          throw new Error(
+            `Google AI Studio rate limit or quota exceeded (HTTP 429: ${rawMsg}). Automatic retries were attempted with backoff, but your current quota window is exhausted.`
+          );
+        }
+        throw new Error(rawMsg);
       }
 
       const data = await res.json();
@@ -413,7 +538,7 @@ ${payload.question}`;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
 
-      const res = await fetch(endpoint, {
+      const res = await fetchWithRetry(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -456,9 +581,17 @@ ${payload.question}`;
     };
   } catch (err: any) {
     addLog('WARN', 'AI', 'Remote RAG query failed', err.message);
+    const isQuota =
+      err.message?.includes('429') ||
+      err.message?.includes('quota') ||
+      err.message?.includes('RESOURCE_EXHAUSTED');
+    const userMessage = isQuota
+      ? `### ⚠️ Google AI Studio Rate Limit / Quota Exceeded (HTTP 429)\n\n${err.message}\n\n**Recommendations:**\n- Wait 60 seconds for the free-tier per-minute quota to refresh.\n- Check your quota allocation at [ai.google.dev](https://ai.google.dev).\n- Or continue studying offline using CourseNest's built-in **Offline Study Engine** (no API key required).`
+      : `### ⚠️ AI Query Failed\n\n**Error:** ${err.message || 'Unable to connect to AI provider'}.\n\n*Please verify your API key, base URL, and model name in Settings > Study Companion.*`;
+
     return {
       success: false,
-      text: `### ⚠️ AI Query Failed\n\n**Error:** ${err.message || 'Unable to connect to AI provider'}.\n\n*Please verify your API key, base URL, and model name in Settings > Study Companion.*`,
+      text: userMessage,
       error: err.message || 'Remote AI query failed',
     };
   }
