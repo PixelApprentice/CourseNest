@@ -14,6 +14,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { ProgressBar } from '../../components/ProgressBar';
 import { CurriculumRoadmapDiagram } from '../../components/CurriculumRoadmapDiagram';
 import { ThemeLoader } from '../../components/ThemeLoader';
+import { ThemeBackdropPattern } from '../../components/ThemeBackdropPattern';
 import { 
   IconArrowLeft, 
   IconPlayerPlay, 
@@ -113,22 +114,28 @@ export function CourseLandingPage() {
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
-      {/* Back button */}
-      <div>
-        <Link
-          to="/library"
-          className="inline-flex items-center gap-2 text-xs font-mono font-medium text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] transition-colors"
-        >
-          <IconArrowLeft size={14} />
-          <span>Back to My Courses</span>
-        </Link>
-      </div>
+    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8 relative">
+      {/* Subtle theme backdrop pattern across page */}
+      <ThemeBackdropPattern className="absolute inset-0 pointer-events-none z-0 opacity-40 overflow-hidden select-none" idPrefix="course-overview" />
 
-      {/* Course Hero Banner */}
-      <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 md:p-8 space-y-6">
-        <div className="flex flex-col md:flex-row items-start justify-between gap-6">
-          <div className="space-y-4 flex-1">
+      <div className="relative z-10 space-y-8">
+        {/* Back button */}
+        <div>
+          <Link
+            to="/library"
+            className="inline-flex items-center gap-2 text-xs font-mono font-medium text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] transition-colors"
+          >
+            <IconArrowLeft size={14} />
+            <span>Back to My Courses</span>
+          </Link>
+        </div>
+
+        {/* Course Hero Banner with Theme Pattern Overlay */}
+        <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 md:p-8 space-y-6 relative overflow-hidden shadow-sm">
+          <ThemeBackdropPattern className="absolute inset-0 pointer-events-none z-0 overflow-hidden select-none" idPrefix="course-hero" />
+          <div className="relative z-10">
+            <div className="flex flex-col md:flex-row items-start justify-between gap-6">
+              <div className="space-y-4 flex-1">
             <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
               <StatusBadge tone="success" label={course.subject} showDot={false} />
               <span className="text-[var(--cn-text-muted)]">•</span>
@@ -261,6 +268,7 @@ export function CourseLandingPage() {
           </div>
         </div>
       </div>
+    </div>
 
       {/* Learning Objectives */}
       {course.learningObjectives && course.learningObjectives.length > 0 && (
@@ -478,6 +486,7 @@ export function CourseLandingPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

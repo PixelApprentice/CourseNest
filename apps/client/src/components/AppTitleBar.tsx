@@ -19,6 +19,7 @@ import {
 } from '@tabler/icons-react';
 import { APP_VERSION } from '@coursenest/config';
 import { NotificationDropdown } from './NotificationDropdown';
+import { ThemeBackdropPattern } from './ThemeBackdropPattern';
 import { usePlayback, togglePlaybackPlayPause } from '../lib/playbackStore';
 import { IconPlayerPause } from '@tabler/icons-react';
 
@@ -111,9 +112,12 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
     : 'External Volume';
 
   return (
-    <header className="h-11 shrink-0 bg-[var(--cn-surface)] border-b border-[var(--cn-border)] flex items-center justify-between px-3.5 select-none text-[12px] text-[var(--cn-text-muted)] font-sans relative z-50 transition-colors">
+    <header className="h-11 shrink-0 bg-[var(--cn-surface)] border-b border-[var(--cn-border)] flex items-center justify-between px-3.5 select-none text-[12px] text-[var(--cn-text-muted)] font-sans relative z-50 transition-colors overflow-hidden">
+      {/* Theme Backdrop Pattern Overlay on Navbar Surface */}
+      <ThemeBackdropPattern className="absolute inset-0 pointer-events-none z-0 overflow-hidden select-none" idPrefix="navbar" />
+
       {/* Left: Mobile Menu + Emblem + App Identity + Page Context (Draggable) */}
-      <div className="flex items-center gap-2.5 min-w-0 cn-window-drag flex-1">
+      <div className="flex items-center gap-2.5 min-w-0 cn-window-drag flex-1 relative z-10">
         {onToggleMobileMenu && (
           <button
             type="button"
@@ -145,7 +149,7 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
       {playback && playback.isPlaying ? (
         <div 
           onClick={() => navigate(`/course/${playback.courseId}/lesson/${playback.lessonId}`)}
-          className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] text-[11px] font-mono cursor-pointer hover:bg-[var(--cn-primary-tint)]/80 transition-colors cn-window-no-drag shadow-xs animate-in fade-in"
+          className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] text-[11px] font-mono cursor-pointer hover:bg-[var(--cn-primary-tint)]/80 transition-colors cn-window-no-drag shadow-xs animate-in fade-in relative z-10"
           title={`Now Playing: ${playback.lessonTitle} (${playback.courseTitle}). Click to jump to lesson.`}
         >
           {/* YouTube-style animated equalizer bars */}
@@ -170,13 +174,13 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
           </button>
         </div>
       ) : (
-        <div className="hidden lg:flex items-center justify-center text-[11px] text-[var(--cn-text-muted)] font-mono opacity-60 cn-window-drag px-4">
+        <div className="hidden lg:flex items-center justify-center text-[11px] text-[var(--cn-text-muted)] font-mono opacity-60 cn-window-drag px-4 relative z-10">
           Course Library
         </div>
       )}
 
       {/* Right: Storage Status + Tools + Window Controls */}
-      <div className="flex items-center gap-2 shrink-0 cn-window-no-drag">
+      <div className="flex items-center gap-2 shrink-0 cn-window-no-drag relative z-10">
         {/* Storage State Pill */}
         <button
           onClick={handleReconnectStorage}

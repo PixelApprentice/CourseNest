@@ -537,3 +537,67 @@ All core workflows were exercised and validated end-to-end via automated verific
 ## Found but Not Fixed
 1. `packages/importer/src/zipImporter.ts#L480`: Pure-browser fallback when WebAssembly 7z is used in non-Electron web sandboxes stores binary assets in IndexedDB. In the Electron desktop application, zero-copy physical filesystem streaming is used instead. No action needed for desktop.
 2. `packages/mcp-server/src/index.ts#L18`: MCP server notes, flashcards, and progress fall back to user home directory dotfiles (`~/.coursenest-notes.json`, etc.) when running in standalone CLI mode without an active Electron vault path environment variable. Works as designed for external AI CLI tools.
+
+---
+
+## Phase 6: Post-Merge Systematic Debugging (Patterns & Video Controls Auto-Hide)
+
+### 1. Root Cause Analysis & Empirical Diagnostics
+
+#### Bug 1: Theme Patterns Missing on Sidebar and Navbar
+- **Root Cause**:
+  1. `ThemeBackdropPattern.tsx` was defined with SVG patterns for all 8 types (`dots`, `arabesque`, `petals`, `confetti`, `grid`, `screentone`, `botanical`, `none`), but was not instantiated or mounted anywhere inside `Sidebar.tsx`, `AppTitleBar.tsx`, or `AppLayout.tsx`.
+  2. Both `Sidebar.tsx` and `AppTitleBar.tsx` rendered opaque surface backgrounds (`bg-[var(--cn-surface)]`). Even if a global backdrop had existed beneath them, the opaque surface background completely concealed it.
+- **Fix**:
+  1. Enhanced `ThemeBackdropPattern.tsx` to support collision-free SVG pattern IDs via React `useId()`, custom container `className`, `opacityClassName`, and `idPrefix`.
+  2. Mounted `<ThemeBackdropPattern className="absolute inset-0 pointer-events-none z-0 overflow-hidden select-none" idPrefix="sidebar" />` inside `Sidebar.tsx`, placing navigation items on `relative z-10`.
+  3. Mounted `<ThemeBackdropPattern className="absolute inset-0 pointer-events-none z-0 overflow-hidden select-none" idPrefix="navbar" />` inside `AppTitleBar.tsx`, placing titlebar buttons and drag targets on `relative z-10`.
+  4. Mounted `<ThemeBackdropPattern idPrefix="app-bg" />` in `AppLayout.tsx` for global atmospheric pattern coverage across the window.
+
+#### Bug 2: Theme Patterns Hidden on Course Overview (`CourseLandingPage`)
+- **Root Cause**:
+  1. `CourseLandingPage.tsx` rendered the course hero banner (`border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-6 md:p-8 space-y-6`), which completely blocked the window background.
+  2. `ThemeBackdropPattern` was completely absent from both `AppLayout.tsx` and `CourseLandingPage.tsx`.
+- **Fix**:
+  1. Mounted `<ThemeBackdropPattern className="absolute inset-0 pointer-events-none z-0 opacity-40 overflow-hidden select-none" idPrefix="course-overview" />` across the course overview page container.
+  2. Mounted `<ThemeBackdropPattern className="absolute inset-0 pointer-events-none z-0 overflow-hidden select-none" idPrefix="course-hero" />` inside the Course Hero Banner container, placing all hero details (course title, instructor, badges, progress bar, action buttons) cleanly on `relative z-10`.
+
+#### Bug 3: Video Player Controls Not Auto-Hiding
+- **Root Cause**:
+  1. In `VlcMediaViewer.tsx`, both the header overlay (`line 1093`) and bottom controls bar (`line 1260`) registered `onPointerEnter={() => { isPointerOverControlsRef.current = true; revealControls(); }}`.
+  2. When a user clicks "Play", their cursor is positioned directly over the play button or control bar.
+  3. When the user stops moving the mouse, no `pointerleave` event fires because the mouse did not move.
+  4. `shouldPreventAutoHide()` checked `isPointerOverControlsRef.current`. Because it remained `true`, `shouldPreventAutoHide()` continually returned `true`.
+  5. In `scheduleAutoHide()`, `if (shouldPreventAutoHide()) { setIsControlsVisible(true); return; }` immediately returned without scheduling any `window.setTimeout()` timer.
+  6. Furthermore, in JSX, `isControlsVisible || shouldPreventAutoHide() ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'` forced the controls to stay visible at 100% opacity forever.
+- **Fix**:
+  1. Removed `isPointerOverControlsRef` completely.
+  2. Revised `shouldPreventAutoHide()` so it guards strictly against active playback states: paused (`!isPlayingRef.current`), buffering (`isBufferingRef.current`), playback error (`hasPlaybackErrorRef.current`), scrubber dragging (`isSeekingRef.current`), VLC drawer opened (`showVlcPanelRef.current`), and dropdown menus focused (`isMenuOpenRef.current`).
+  3. Added `onPointerLeave={scheduleAutoHide}` on the player container.
+  4. When video is actively playing and no menu/scrubbing is occurring, stationarily resting the mouse over the play button or control bar now correctly counts down 3000ms and hides both controls (`opacity-0 pointer-events-none`) and mouse cursor (`cursor-none [&_*]:cursor-none`).
+  5. Any pointer movement or touch immediately triggers `revealControls()`, restoring controls and cursor instantly.
+
+---
+
+### 2. Verification Evidence
+
+Executed `scripts/test_pattern_and_autohide_fixes.mjs`:
+```text
+=== TEST SUITE: THEME PATTERNS & VIDEO CONTROLS AUTO-HIDE ===
+
+✔ ThemeBackdropPattern contains all 8 theme pattern types with unique IDs and custom className support.
+✔ Sidebar.tsx correctly layers ThemeBackdropPattern across the sidebar surface.
+✔ AppTitleBar.tsx correctly layers ThemeBackdropPattern across the navbar surface.
+✔ AppLayout.tsx mounts global ThemeBackdropPattern.
+✔ CourseLandingPage.tsx renders ThemeBackdropPattern on both the course overview page and the hero banner.
+✔ VlcMediaViewer auto-hide logic verified: isPointerOverControlsRef removed, timer fires unconditionally after 3s inactivity.
+
+ALL VERIFICATION CHECKS PASSED SUCCESSFULLY.
+```
+
+Packaged Linux Unpacked App via electron-builder:
+- Built SSR bundle for Electron main & preload
+- Built Vite bundle for client with all 6399 transformed modules
+- Packaging platform: `linux arch=x64 electron=33.4.11`
+- Target: `apps/desktop/release/linux-unpacked` (clean build, 0 warnings/errors)
+

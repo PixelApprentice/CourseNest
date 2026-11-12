@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { ThemeScenicBackdrop } from '../components/ThemeScenicBackdrop';
+import { ThemeBackdropPattern } from '../components/ThemeBackdropPattern';
 import { ThemeSelectorModal } from '../components/ThemeSelectorModal';
 import { AppTitleBar } from '../components/AppTitleBar';
 import { YouTubeMiniPlayer } from '../components/YouTubeMiniPlayer';
@@ -129,6 +130,9 @@ export function AppLayout({ children }: AppLayoutProps) {
     <div className="flex flex-col h-screen overflow-hidden bg-[var(--cn-bg)] text-[var(--cn-text-primary)] antialiased relative">
       {/* Bespoke Theme Atmospheric Scenic Backdrop (Halal Mosque Skyline, Sakura Garden, Ghibli, Manga, Cyberpunk) */}
       <ThemeScenicBackdrop />
+
+      {/* Global Theme Atmospheric Backdrop Pattern */}
+      <ThemeBackdropPattern idPrefix="app-bg" />
 
       {/* Floating YouTube-Style Picture-in-Picture Mini Player */}
       <YouTubeMiniPlayer />
