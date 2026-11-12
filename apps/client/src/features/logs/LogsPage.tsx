@@ -129,7 +129,7 @@ export function LogsPage() {
         <div>
           <div className="flex items-center gap-2 text-xs font-mono text-[var(--cn-primary)] font-semibold mb-1">
             <IconTerminal size={14} />
-            <span>SYSTEM LOGS & TELEMETRY</span>
+            <span>SYSTEM LOGS</span>
           </div>
           <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-[var(--cn-text-primary)]">
             System Diagnostics & Error Logs
@@ -143,7 +143,7 @@ export function LogsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleCopyLogs}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
+            className="cn-btn cn-btn-md cn-btn-secondary cn-btn-tactile font-mono"
           >
             <IconCopy size={13} />
             <span>{copiedSuccess ? 'Copied' : 'Copy'}</span>
@@ -151,7 +151,7 @@ export function LogsPage() {
 
           <button
             onClick={handleDownloadText}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-colors"
+            className="cn-btn cn-btn-md cn-btn-secondary cn-btn-tactile font-mono"
           >
             <IconDownload size={13} />
             <span>Export .log</span>
@@ -159,7 +159,7 @@ export function LogsPage() {
 
           <button
             onClick={handleDownloadJson}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary)] text-white text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
+            className="cn-btn cn-btn-md cn-btn-primary cn-btn-tactile font-mono"
           >
             <IconDownload size={13} />
             <span>Export JSON</span>

@@ -6,14 +6,14 @@ export function NotFoundPage() {
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-8">
-      <h1 className="text-7xl font-bold text-(--cn-text-muted) mb-2 font-mono">404</h1>
-      <p className="text-lg text-(--cn-text-secondary) mb-6">Page not found in local vault</p>
+      <h1 className="text-7xl font-bold text-[var(--cn-text-muted)] mb-2 font-mono">404</h1>
+      <p className="text-lg text-[var(--cn-text-secondary)] mb-6">Page not found</p>
       <button
         onClick={() => navigate('/')}
-        className="flex items-center gap-2 px-4 py-2 bg-(--cn-primary) text-white rounded-lg hover:bg-(--cn-primary-hover) text-sm font-medium transition-colors"
+        className="cn-btn cn-btn-md cn-btn-primary cn-btn-tactile px-4"
       >
         <IconHome size={16} />
-        Go Home
+        <span>Return Home</span>
       </button>
     </div>
   );

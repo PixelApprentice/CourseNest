@@ -265,7 +265,66 @@ Test dataset size: 25 MB
 
 ## Phase 3: Themes, Shell, Design System
 
-*(To be implemented in Phase 3)*
+### T1. Navbar & Sidebar Shell Theme Alignment
+- **Problem**: The top navbar header had a mismatched background (`bg-(--cn-surface-subtle)`) and border styles compared to the sidebar (`bg-[var(--cn-surface)]`), creating an inconsistent seam. In addition, `AppTitleBar.tsx` used Tailwind v4 parentheses syntax (`bg-(--cn-...)`), which did not dynamically respond to theme token changes.
+- **Fix**:
+  - In `apps/client/src/components/AppTitleBar.tsx`, updated the header container to `bg-[var(--cn-surface)] border-b border-[var(--cn-border)]`.
+  - Converted all CSS token references in `AppTitleBar.tsx` and `AppLayout.tsx` to canonical `[var(--cn-...)]` syntax (`bg-[var(--cn-surface)]`, `text-[var(--cn-text-muted)]`, `border-[var(--cn-border)]`, etc.).
+  - Both navbar and sidebar now share the exact same background, border, text, and 44px (`h-11`) height for a seamless single desktop window shell.
+
+### T2. Theme Patterns & Canonical Button Tokens
+- **Theme Patterns**: Per user request, all theme pattern types (`dots`, `arabesque`, `petals`, `confetti`, `grid`, `screentone`, `botanical`, `none`) and scenic artwork illustrations across all 9 themes are fully preserved and active.
+- **Canonical Button Tokens**: The border, shadow, and texture of the 3 buttons in Settings > Logs are strictly preserved and wired to the standard design system classes in `apps/client/src/styles/global.css`:
+  - `Copy`: `.cn-btn .cn-btn-md .cn-btn-secondary .cn-btn-tactile`
+  - `Export .log`: `.cn-btn .cn-btn-md .cn-btn-secondary .cn-btn-tactile`
+  - `Export JSON`: `.cn-btn .cn-btn-md .cn-btn-primary .cn-btn-tactile`
+  - Maintained crisp borders (`border-[var(--cn-border)]`), subtle shadows (`box-shadow: 0 1px 2px rgba(0,0,0,0.05)`), and tactile click feedback (`active:scale-[0.97]`).
+
+### T3. Complete Token Set Consistency Across All Themes
+- **Problem**: Themes previously had missing tokens. In particular, `--cn-border-highlight` was only defined in Obsidian, causing hover states on secondary buttons in all other themes to fall back to dark gray. Furthermore, `--cn-success-tint`, `--cn-warning-tint`, `--cn-danger-tint`, and `--cn-info-tint` were undefined in CSS.
+- **Fix**:
+  - In `apps/client/src/styles/global.css`, added the complete, missing token definitions to all 9 themes (Obsidian, Halal, Sakura, Toybox, Cyberpunk, Manga, Ghibli, OLED, Paper) in both light mode and dark contrast modes:
+    - `--cn-border-highlight`
+    - `--cn-success-tint`
+    - `--cn-warning-tint`
+    - `--cn-danger-tint`
+    - `--cn-info`
+    - `--cn-info-tint`
+  - Verified consistent contrast, borders, and tactile hover states across all themes.
+
+### T4. Advanced / Technical Text Sweep
+- **Cleaned UI Jargon**:
+  - `apps/client/src/components/EmbeddedDocumentViewer.tsx`: Replaced fake placeholder textbook text loaded with "Amdahl's Law", "CAS lock-free queues", "Zip Slip path traversal", and "Memory-mapped I/O and process registers" with clean, realistic student study guide notes (Overview, Key Principles, Practical Examples, Summary, and Discussion Questions).
+  - `apps/client/src/features/logs/LogsPage.tsx`: Removed "SYSTEM LOGS & TELEMETRY" -> "SYSTEM LOGS".
+  - `apps/client/src/components/AppTitleBar.tsx`: Simplified titles to "Overview", "My Courses", "Import Materials", and "Settings". Replaced "Private Offline Study Vault" with "Course Library" and "Internal Vault" with "Internal Storage".
+  - `apps/client/src/layouts/Sidebar.tsx`: Simplified "Settings & Logs" to "Settings".
+  - `apps/client/src/pages/NotFoundPage.tsx`: Replaced "Page not found in local vault" with "Page not found".
+
+### T5. Removal of Confusing Storage Cards
+- **Sidebar Telemetry Widget**: In `apps/client/src/layouts/Sidebar.tsx`, removed the confusing bottom card that displayed "Vault Storage", "Active", "Encrypted Local", and "0 MB". Replaced it with a clean collapse toggle button (`IconChevronLeft` / `IconChevronRight`).
+- **Theme Modal Footer**: In `apps/client/src/components/ThemeSelectorModal.tsx`, removed the confusing footer statement "Themes are saved offline in your local vault with 0% cloud tracking", simplifying the dialog to a clean "Done" action button.
+
+### T6. Sidebar Resizability & Viewport Verification
+- **Verified Features**:
+  - Drag handle resizability between `SIDEBAR_MIN_WIDTH` (180px) and `SIDEBAR_MAX_WIDTH` (420px).
+  - Persistence of sidebar width in `localStorage`.
+  - Double-click reset to default width (256px).
+  - Keyboard accessibility (ArrowLeft, ArrowRight, Home, End, Enter, Space).
+  - Auto-collapse to 64px icon rail when dragged narrow (<180px).
+  - Slide-over overlay drawer below 768px viewport width.
+- **Evidence & Screenshots**:
+  - Automated screenshot capture with Playwright across all required viewports and zoom levels, saved to `/docs/ui-audit/`:
+    - `before_360px.png` / `after_360px.png`
+    - `before_768px.png` / `after_768px.png`
+    - `before_1024px.png` / `after_1024px.png`
+    - `before_1366px.png` / `after_1366px.png`
+    - `before_1920px.png` / `after_1920px.png`
+    - `before_1024px_zoom125.png` / `after_1024px_zoom125.png` (125% display zoom)
+    - `before_1024px_zoom150.png` / `after_1024px_zoom150.png` (150% display zoom)
+
+---
+
+### Phase 3 Exit Criteria: met
 
 ---
 

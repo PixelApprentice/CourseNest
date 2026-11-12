@@ -5,13 +5,11 @@ import {
   IconUpload, 
   IconSettings, 
   IconSparkles,
-  IconDatabase,
-  IconShieldCheck,
   IconChevronLeft,
   IconChevronRight
 } from '@tabler/icons-react';
 import { BrandLogo } from '../components/BrandLogo';
-import { useVaultCourses, getVaultAnalytics } from '../lib/courseStore';
+import { useVaultCourses } from '../lib/courseStore';
 
 interface SidebarProps {
   isCollapsed?: boolean;
@@ -21,14 +19,13 @@ interface SidebarProps {
 
 export function Sidebar({ isCollapsed = false, onToggleCollapse, className = '' }: SidebarProps) {
   const { courses } = useVaultCourses();
-  const analytics = getVaultAnalytics();
 
   const navItems = [
     { to: '/', icon: IconLayoutDashboard, label: 'Overview' },
     { to: '/library', icon: IconBooks, label: 'My Courses' },
     { to: '/import', icon: IconUpload, label: 'Import Materials' },
     { to: '/studio', icon: IconSparkles, label: 'Course Studio' },
-    { to: '/settings', icon: IconSettings, label: 'Settings & Logs' },
+    { to: '/settings', icon: IconSettings, label: 'Settings' },
   ];
 
   return (
@@ -105,7 +102,7 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, className = '' 
         ))}
       </nav>
 
-      {/* Footer / Telemetry Widget */}
+      {/* Footer Navigation Action */}
       {isCollapsed ? (
         <div className="p-2 border-t border-[var(--cn-border)]/60 flex flex-col items-center gap-2">
           {onToggleCollapse && (
@@ -114,49 +111,25 @@ export function Sidebar({ isCollapsed = false, onToggleCollapse, className = '' 
               onClick={onToggleCollapse}
               title="Expand sidebar"
               aria-label="Expand sidebar"
-              className="p-2 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] transition-colors"
+              className="p-2 rounded-lg text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] transition-colors cursor-pointer"
             >
               <IconChevronRight size={16} />
             </button>
           )}
-          <div 
-            className="w-8 h-8 rounded-lg bg-[var(--cn-surface-subtle)] border border-[var(--cn-border)] flex items-center justify-center text-[var(--cn-primary)]"
-            title={`Vault Storage: ${analytics.totalCourses} courses • ${analytics.estimatedStorageMB} MB`}
-          >
-            <IconDatabase size={15} />
-          </div>
         </div>
       ) : (
-        <div className="p-3.5 mx-3 mb-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-bg)] space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <IconDatabase size={15} className="text-[var(--cn-primary)]" />
-              <span className="text-[11px] font-semibold text-[var(--cn-text-primary)]">Vault Storage</span>
-            </div>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--cn-success-tint)] text-[var(--cn-success)] border border-[var(--cn-success)]/30 font-medium">
-              Active
-            </span>
+        onToggleCollapse && (
+          <div className="p-3 border-t border-[var(--cn-border)]/60">
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] transition-colors w-full cursor-pointer"
+            >
+              <IconChevronLeft size={16} />
+              <span>Collapse sidebar</span>
+            </button>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <div>
-              <p className="text-[10px] text-[var(--cn-text-muted)]">Courses</p>
-              <p className="font-mono font-semibold text-[var(--cn-text-primary)]">{analytics.totalCourses}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[var(--cn-text-muted)]">Lessons</p>
-              <p className="font-mono font-semibold text-[var(--cn-text-primary)]">{analytics.totalLessons}</p>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-[var(--cn-border)]/60 flex items-center justify-between text-[10px] text-[var(--cn-text-muted)]">
-            <span className="flex items-center gap-1">
-              <IconShieldCheck size={13} className="text-[var(--cn-success)]" />
-              Encrypted Local
-            </span>
-            <span className="font-mono font-medium text-[var(--cn-text-secondary)]">{analytics.estimatedStorageMB} MB</span>
-          </div>
-        </div>
+        )
       )}
     </aside>
   );
