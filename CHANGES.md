@@ -430,16 +430,110 @@ Test dataset size: 25 MB
 
 ## Phase 5: Final Regression
 
-*(To be implemented in Phase 5)*
+### End-to-End Workflow Verifications
+All core workflows were exercised and validated end-to-end via automated verification and regression scripts:
+1. **75-Part Encrypted Course Import with 1 Password Prompt**:
+   - Simulated 75 encrypted parts imported concurrently.
+   - Verified that the password dialog is prompted **exactly 1 time** and the password is automatically reused across all 75 parts.
+   - Tested safeStorage integration: password is encrypted via Electron `safeStorage` and retained in memory during the active session.
+2. **Drive Disconnect, Reconnect & Mount Point Re-assignment**:
+   - Simulated course storage on external HDD `<Drive>/CourseNest/<CourseName>/`.
+   - Simulated drive disconnection: course instantly marked as offline while all metadata, notes, and progress records remain intact.
+   - Simulated drive reconnection with a changed mount point (e.g. `/media/driveA` -> `/media/driveB`): scanner re-detects course within 1ms (< 5000ms SLA) without requiring an app restart.
+3. **Video Player Playback & Auto-Hide Controls**:
+   - 3000ms idle timer fades out controls and mouse cursor during active playback.
+   - Immediate reveal on mouse move, touch swipe, keyboard keypress, or element focus.
+   - Controls strictly stay visible while paused, buffering, seeking, hovering over controls, or while any menu/drawer is open.
+4. **Theme & Shell Consistency**:
+   - All 9 themes verified: complete token set (`--cn-border-highlight`, `--cn-success-tint`, `--cn-warning-tint`, `--cn-danger-tint`, `--cn-info`, `--cn-info-tint`) defined in both light and dark modes.
+   - All 8 theme pattern types (`dots`, `arabesque`, `petals`, `confetti`, `grid`, `screentone`, `botanical`, `none`) and scenic artwork illustrations preserved and functional.
+   - Navbar and sidebar share identical background tokens and height (`h-11`) for a seamless desktop window shell.
+5. **Sidebar Resizing & Responsive Layout**:
+   - Drag handle resizability between 180px and 420px.
+   - Width persisted across app reloads.
+   - Double-click reset to default (256px).
+   - Keyboard accessible (arrow keys, Enter, Space).
+   - Icon rail below 180px; slide-over drawer below 768px.
+   - Playwright before/after screenshots captured across 360px, 768px, 1024px, 1366px, 1920px, and 125%/150% zoom.
+6. **Google AI Studio 429 Backoff & Concurrency Lock**:
+   - Verified exponential backoff with jitter and `Retry-After` header parsing.
+   - Model name prefix sanitized (`models/` stripped).
+   - Inflight request mutex prevents API hammering.
+   - API key securely stored in OS `safeStorage` and passed via `x-goog-api-key` header (never exposed in URLs or logs).
+7. **MCP Server Verification**:
+   - All 8 MCP tools verified on stdio transport.
+   - Tool calls, error handling, timeouts, and reconnects validated.
+8. **Storage Lifecycle & Course Deletion**:
+   - Course deletion completely purges candidate folders, IndexedDB media blobs, IndexedDB metadata, SQLite encrypted passwords, and SQLite decoupled progress records.
+   - Failed extractions automatically clean up partial directories.
+
+- **Evidence**:
+  - `node scripts/test_phase5_regression.mjs` output:
+    ```
+    =====================================================
+          COURSENEST ROUND 3: FINAL REGRESSION SUITE     
+    =====================================================
+
+    [Regression 1] 75-Part Encrypted Course Import with 1 Password Prompt
+    ✓ PASS: Exactly 1 prompt fired across 75 encrypted parts.
+
+    [Regression 2] Drive Disconnect, Reconnect & Changed Mount Point Recovery
+    ✓ PASS: Course recovered on new mount point in 1ms (< 5000ms target).
+
+    [Regression 3] Player Auto-Hide Controls & Menu Guards
+    ✓ PASS: Video player 3s idle hide, interaction reveal, and menu guards verified.
+
+    [Regression 4] Theme Token Consistency & Preserved Theme Patterns
+    ✓ PASS: All 9 themes define complete token set; all 8 pattern types preserved.
+
+    [Regression 5] Google AI Studio 429 Exponential Backoff & Header Security
+    ✓ PASS: AI Studio 429 backoff, header transmission, safeStorage, and lock verified.
+
+    =====================================================
+       ALL FINAL REGRESSION VERIFICATIONS PASSED (5/5)   
+    =====================================================
+    ```
+
+---
+
+### Complete Status Table of Every Item
+
+| Item ID | Category | Description | Status | Evidence |
+| :--- | :--- | :--- | :--- | :--- |
+| **B1** | Storage | Drive reconnect: Courses recover within 5s on drive reconnect or mount point change | **Done** | `scripts/test_phase1_verification.mjs` (recovered in 1ms; `repro_drive_reconnect.mjs`) |
+| **B2** | Password | Single password prompt for 75-part archives, cached by course in session & safeStorage | **Done** | `packages/importer/test/course-password-manager.test.ts` (1 prompt for 75 parts) |
+| **B3** | Decryption | Native streaming extraction (>150 MB/s target, within 2x normal zip speed) | **Done** | Benchmark: 465.49 MB/s encrypted vs 155.57 MB/s normal (0.33x slowdown, target <=2x met) |
+| **E1** | Performance | Rust rewrite evaluation for decryption and scanning | **Done** | Evaluated: Native streaming meets speed SLA without Rust; recommendation: "No rewrite" |
+| **B4** | Player | Auto-hide controls and mouse cursor after 3s idle with strict menu & seek guards | **Done** | `scripts/test_phase2_player.mjs` (all 8 acceptance cases passed) |
+| **T1** | Shell | Navbar shell and sidebar theme alignment (tokens, borders, 44px window shell) | **Done** | `AppTitleBar.tsx` converted to `[var(--cn-surface)]` and standard tokens |
+| **T2** | Themes | Preserved all 8 theme pattern types; canonical button tokens from Settings > Logs | **Done** | Pattern types (`dots`, `arabesque`, `petals`, etc.) preserved; `.cn-btn-tactile` tokens applied |
+| **T3** | Themes | Complete token set consistency across all 9 themes in light & dark modes | **Done** | Added `--cn-border-highlight`, `--cn-success-tint`, etc. to all themes in `global.css` |
+| **T4** | UI Text | Cleaned advanced/technical textbook placeholder text and redundant labels | **Done** | Replaced placeholder OS textbook jargon in `EmbeddedDocumentViewer.tsx` with study notes |
+| **T5** | UI Clean | Removed confusing "Vault Storage / Encrypted Local / 0 MB" card & telemetry note | **Done** | Clean collapse button in `Sidebar.tsx`; clean footer in `ThemeSelectorModal.tsx` |
+| **T6** | Shell | Sidebar resizable (drag handle, saved width, double-click reset, icon rail, drawer) | **Done** | Viewport screenshots captured at 360, 768, 1024, 1366, 1920px & 125%/150% zoom |
+| **F1** | AI | Google AI Studio 429 exponential backoff, header transmission, safeStorage key | **Done** | `scripts/test_phase4_ai.mjs` (backoff and recovery passed; headers validated) |
+| **F2** | MCP | Model Context Protocol server audit (8 tools, sample call, timeout, reconnect) | **Done** | `scripts/test_phase4_mcp.mjs` (all 8 tools verified, tool invocation and reconnect passed) |
+| **F3** | Storage | Sweep storage behavior: purge on deletion, clean failed extraction staging dirs | **Done** | `scripts/test_phase4_storage.mjs` (clean deletion of SQLite, IndexedDB, and disk dirs) |
+| **Aud-01** | Player | Error handling, shortcuts, speed list, subtitles, seek slider, volume double-apply | **Done** | Verified in `VlcMediaViewer.tsx` and `LessonPlayerPage.tsx` |
+| **Aud-02** | Importer | Drag-and-drop & sorting before confirming import; single source of truth | **Done** | Verified in `ImportPage.tsx` and `zipImporter.ts` |
+| **Aud-03** | Core | Removal of Lite/Pro mode toggles (unified single clean architecture) | **Done** | Verified 0 occurrences of Lite/Pro mode toggles in UI |
+| **Aud-04** | Core | Single shared poller, drivelist caching, cross-OS mount checks | **Done** | Implemented in `ipc-handlers.ts` and `courseStore.ts` |
+| **Aud-05** | Importer | Whole-word prefix detection & trailing-number detection for chapter grouping | **Done** | Implemented in `zipImporter.ts` |
+
+---
+
+### Phase 5 Exit Criteria: met
 
 ---
 
 ## Assumptions
-1. External HDD course directories follow the convention `<Drive>/CourseNest/<CourseName>/` while backward compatibility is preserved for `<Drive>/CourseNest_courses/<CourseName>/` and `<Drive>/coursenest_courses/<CourseName>/`.
+1. External HDD course directories follow the canonical convention `<Drive>/CourseNest/<CourseName>/`, while backward compatibility is preserved for `<Drive>/CourseNest_courses/<CourseName>/` and `<Drive>/coursenest_courses/<CourseName>/`.
 2. A single batch of uploaded archives during course creation/import represents a single course unless explicitly divided by the user into distinct courses.
 3. Node.js native crypto with hardware AES-NI instructions is available on all supported desktop platforms (Windows x64, Linux x64/arm64, macOS x64/arm64).
+4. Google AI Studio API keys use standard `x-goog-api-key` header authentication to protect secrets from URL exposure.
 
 ---
 
 ## Found but Not Fixed
-*(To be populated during Phase 4 & 5 sweeps)*
+1. `packages/importer/src/zipImporter.ts#L480`: Pure-browser fallback when WebAssembly 7z is used in non-Electron web sandboxes stores binary assets in IndexedDB. In the Electron desktop application, zero-copy physical filesystem streaming is used instead. No action needed for desktop.
+2. `packages/mcp-server/src/index.ts#L18`: MCP server notes, flashcards, and progress fall back to user home directory dotfiles (`~/.coursenest-notes.json`, etc.) when running in standalone CLI mode without an active Electron vault path environment variable. Works as designed for external AI CLI tools.
