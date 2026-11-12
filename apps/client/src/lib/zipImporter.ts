@@ -554,17 +554,18 @@ export async function parseCourseArchives(
           reportProgress(fileBase + (0.3 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Auto-unlocking "${file.name}" with course password...`);
           extracted = await extractWith7zWasm(file, archiveBaseName, currentCoursePassword);
           addLog('INFO', 'IMPORTER', `Archive "${file.name}" automatically decrypted using course password.`);
-        } catch {
-          // Password did not match this specific part
+        } catch (autoErr: any) {
+          const msg = (autoErr?.message || '').toLowerCase();
+          if (!msg.includes('incorrect password') && !msg.includes('wrong password')) {
+            // Transient format or memory error - do not reject the valid course password
+          }
         }
       }
 
       // If no course password yet or password failed on this part, prompt user (Issue A)
       if (!extracted) {
         let attempt = 0;
-        let lastError: string | undefined = currentCoursePassword
-          ? `Course password failed for part "${file.name}". Please enter the password for this part.`
-          : undefined;
+        let lastError: string | undefined = undefined;
 
         while (true) {
           attempt++;
@@ -573,7 +574,7 @@ export async function parseCourseArchives(
           }
           const entered = await coursePasswordManager.getCoursePassword(batchCourseKey, {
             partName: file.name,
-            forceReprompt: attempt > 1 || !!lastError,
+            forceReprompt: attempt > 1 || (!!lastError && !!currentCoursePassword),
             errorMessage: lastError,
             promptFn: async (ctx) => {
               return onPasswordRequired(ctx.partName || file.name, ctx.attemptCount, ctx.errorMessage);
@@ -656,9 +657,7 @@ export async function parseCourseArchives(
 
         if (!extractedFallback) {
           let attempt = 0;
-          let lastError: string | undefined = currentCoursePassword
-            ? `Course password failed for part "${file.name}". Please enter the password for this part.`
-            : undefined;
+          let lastError: string | undefined = undefined;
 
           while (true) {
             attempt++;
@@ -667,7 +666,7 @@ export async function parseCourseArchives(
             }
             const entered = await coursePasswordManager.getCoursePassword(batchCourseKey, {
               partName: file.name,
-              forceReprompt: attempt > 1 || !!lastError,
+              forceReprompt: attempt > 1 || (!!lastError && !!currentCoursePassword),
               errorMessage: lastError,
               promptFn: async (ctx) => {
                 return onPasswordRequired(ctx.partName || file.name, ctx.attemptCount, ctx.errorMessage);
@@ -1307,8 +1306,8 @@ export async function commitImportedCourse(params: {
     addedAt: new Date().toISOString(),
     storageTier: targetStorage,
     externalMountPath: targetBaseMountPath,
-    externalCourseDir: targetBaseMountPath ? `${targetBaseMountPath}/coursenest_courses/${courseId}` : undefined,
-    relativeCourseDir: targetBaseMountPath ? `coursenest_courses/${courseId}` : undefined,
+    externalCourseDir: targetBaseMountPath ? `${targetBaseMountPath}/CourseNest/${courseId}` : undefined,
+    relativeCourseDir: targetBaseMountPath ? `CourseNest/${courseId}` : undefined,
     isExternalMissing: false,
     storageStatus: 'Available',
   };

@@ -2,7 +2,7 @@ import { ipcMain, dialog, app, Notification, BrowserWindow, shell, safeStorage }
 import { join, resolve, dirname, basename, relative } from 'path';
 import { readFile, stat, readdir, access, writeFile, mkdir, rm, readlink } from 'fs/promises';
 import { constants, existsSync, readFileSync } from 'fs';
-import { execFile } from 'child_process';
+import { execFile, spawnSync } from 'child_process';
 import { promisify } from 'util';
 import {
   saveDetailedProgressDb,
@@ -64,11 +64,17 @@ function validatePathBoundary(targetPath: string): string {
 function resolveCourseStorageDir(baseDir: string, courseId: string): string {
   const normBase = resolve(baseDir);
   const baseName = basename(normBase).toLowerCase();
-  // If user selected an existing course directory or CourseNest_courses directly, avoid nested coursenest_courses/coursenest_courses
-  if (baseName === 'coursenest_courses') {
+  // If user selected an existing course directory or CourseNest directly, avoid nested CourseNest/CourseNest
+  if (baseName === 'coursenest' || baseName === 'coursenest_courses') {
     return join(normBase, courseId);
   }
-  return join(normBase, 'CourseNest_courses', courseId);
+  if (existsSync(join(normBase, 'CourseNest'))) {
+    return join(normBase, 'CourseNest', courseId);
+  }
+  if (existsSync(join(normBase, 'CourseNest_courses'))) {
+    return join(normBase, 'CourseNest_courses', courseId);
+  }
+  return join(normBase, 'CourseNest', courseId);
 }
 
 function getSystemMountRoots(): string[] {
@@ -213,8 +219,16 @@ export async function queryAttachedVolumes(): Promise<AttachedVolume[]> {
         if (existsSync(drive)) {
           if (!seenPaths.has(drive)) {
             seenPaths.add(drive);
+            let uuid = `win-${drive[0]}`;
+            const markerPath = join(drive, '.coursenest-volume');
+            if (existsSync(markerPath)) {
+              try {
+                const markerUuid = (await readFile(markerPath, 'utf-8')).trim();
+                if (markerUuid) uuid = markerUuid;
+              } catch {}
+            }
             volumes.push({
-              uuid: `win-${drive[0]}`,
+              uuid,
               label: `Drive (${drive[0]}:)`,
               mountPath: drive,
               isRemovable: true,
@@ -275,6 +289,62 @@ export function isPathOnExternalMediaPattern(candidatePath: string): boolean {
     return driveLetter >= 'D' && driveLetter <= 'Z';
   }
   return false;
+}
+
+export async function resolvePhysicalMediaFilePath(
+  courseId: string,
+  filePath: string,
+  targetDir?: string,
+): Promise<string | null> {
+  const cleanRelative = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
+
+  const candidateDirs = new Set<string>();
+  if (targetDir) candidateDirs.add(resolve(targetDir));
+  if (configuredExternalMountPath) candidateDirs.add(resolve(configuredExternalMountPath));
+  candidateDirs.add(join(app.getPath('userData'), 'courses'));
+
+  try {
+    const attached = await getCachedAttachedVolumes();
+    for (const vol of attached) {
+      candidateDirs.add(vol.mountPath);
+    }
+  } catch {}
+
+  const roots = getSystemMountRoots();
+  for (const root of roots) {
+    try {
+      if (existsSync(root)) {
+        const entries = await readdir(root, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            candidateDirs.add(join(root, entry.name));
+          }
+        }
+      }
+    } catch {}
+  }
+
+  for (const baseDir of candidateDirs) {
+    const candidatePaths = [
+      join(resolveCourseStorageDir(baseDir, courseId), cleanRelative),
+      join(baseDir, 'CourseNest', courseId, cleanRelative),
+      join(baseDir, 'coursenest', courseId, cleanRelative),
+      join(baseDir, 'CourseNest_courses', courseId, cleanRelative),
+      join(baseDir, 'coursenest_courses', courseId, cleanRelative),
+      join(baseDir, courseId, cleanRelative),
+      join(baseDir, cleanRelative),
+    ];
+
+    for (const p of candidatePaths) {
+      try {
+        const resolved = validatePathBoundary(p);
+        await access(resolved, constants.R_OK);
+        return resolved;
+      } catch {}
+    }
+  }
+
+  return null;
 }
 
 export function registerIpcHandlers(): void {
@@ -516,10 +586,73 @@ export function registerIpcHandlers(): void {
           } else if (courseDir) {
             targetDir = courseDir;
           } else {
-            targetDir = join(activeMountPath, 'CourseNest_courses', courseId);
+            targetDir = resolveCourseStorageDir(activeMountPath, courseId);
           }
         } else if (courseDir) {
           targetDir = courseDir;
+        }
+
+        // Test direct access first
+        let isDirectlyAccessible = false;
+        if (targetDir) {
+          try {
+            await access(targetDir, constants.R_OK);
+            const st = await stat(targetDir);
+            if (st.isDirectory()) {
+              isDirectlyAccessible = true;
+            }
+          } catch {}
+        }
+
+        // Fallback: If not directly accessible, search across ALL attached volumes!
+        if (!isDirectlyAccessible) {
+          for (const vol of volumes) {
+            const candidatePaths = [
+              relativeCourseDir ? join(vol.mountPath, relativeCourseDir) : null,
+              join(vol.mountPath, 'CourseNest', courseId),
+              courseDir ? join(vol.mountPath, 'CourseNest', basename(courseDir)) : null,
+              join(vol.mountPath, 'coursenest', courseId),
+              join(vol.mountPath, 'CourseNest_courses', courseId),
+              join(vol.mountPath, 'coursenest_courses', courseId),
+              join(vol.mountPath, courseId),
+            ].filter(Boolean) as string[];
+
+            for (const cand of candidatePaths) {
+              try {
+                await access(cand, constants.R_OK);
+                const st = await stat(cand);
+                if (st.isDirectory()) {
+                  targetDir = cand;
+                  activeMountPath = vol.mountPath;
+                  matchedVol = vol;
+                  isDirectlyAccessible = true;
+                  break;
+                }
+              } catch {}
+            }
+            if (isDirectlyAccessible) break;
+          }
+        }
+
+        if (isDirectlyAccessible && targetDir) {
+          allowedUserDirs.add(targetDir);
+          allowedUserDirs.add(dirname(targetDir));
+          if (activeMountPath) allowedUserDirs.add(activeMountPath);
+
+          const enclosingVol = matchedVol || findVolumeForPath(targetDir, volumes);
+          const relDir = enclosingVol
+            ? relative(enclosingVol.mountPath, targetDir).replace(/\\/g, '/')
+            : relativeCourseDir || (activeMountPath ? relative(activeMountPath, targetDir).replace(/\\/g, '/') : undefined);
+
+          return {
+            isAccessible: true,
+            status: 'Available',
+            resolvedCourseDir: targetDir,
+            resolvedMountPath: activeMountPath || enclosingVol?.mountPath || mountPath || undefined,
+            resolvedVolumeUuid: enclosingVol?.uuid || volumeUuid,
+            resolvedVolumeLabel: enclosingVol?.label || volumeLabel,
+            resolvedRelativeCourseDir: relDir || undefined,
+          };
         }
 
         // 3. Robust Drive Disconnected check (Fixes Item 13)
@@ -536,75 +669,11 @@ export function registerIpcHandlers(): void {
           }
         }
 
-        if (!targetDir) {
-          return {
-            isAccessible: false,
-            status: 'Folder missing',
-            error: 'Course folder could not be resolved',
-          };
-        }
-
-        // 4. Test directory access
-        try {
-          await access(targetDir, constants.R_OK);
-          const st = await stat(targetDir);
-          if (!st.isDirectory()) {
-            return {
-              isAccessible: false,
-              status: 'Folder missing',
-              error: 'Path is not a directory',
-            };
-          }
-
-          allowedUserDirs.add(targetDir);
-          allowedUserDirs.add(dirname(targetDir));
-
-          // 5. Populate volume metadata for older courses (Fixes Item 14)
-          const enclosingVol = matchedVol || findVolumeForPath(targetDir, volumes);
-          const relDir = enclosingVol
-            ? relative(enclosingVol.mountPath, targetDir).replace(/\\/g, '/')
-            : relativeCourseDir;
-
-          return {
-            isAccessible: true,
-            status: 'Available',
-            resolvedCourseDir: targetDir,
-            resolvedMountPath: activeMountPath || enclosingVol?.mountPath || mountPath || undefined,
-            resolvedVolumeUuid: enclosingVol?.uuid || volumeUuid,
-            resolvedVolumeLabel: enclosingVol?.label || volumeLabel,
-            resolvedRelativeCourseDir: relDir || undefined,
-          };
-        } catch (accessErr: any) {
-          const code = accessErr?.code || '';
-          if (code === 'EACCES' || code === 'EPERM') {
-            return {
-              isAccessible: false,
-              status: 'Permission denied',
-              error: 'Permission denied reading course folder',
-            };
-          }
-          if (code === 'ENOENT' || code === 'ENOTDIR') {
-            // If the drive mount itself is missing, classify as Drive disconnected
-            const vol = findVolumeForPath(targetDir, volumes);
-            if (!vol && isPathOnExternalMediaPattern(targetDir)) {
-              return {
-                isAccessible: false,
-                status: 'Drive disconnected',
-                error: 'External drive mount is not present',
-              };
-            }
-            return {
-              isAccessible: false,
-              status: 'Folder missing',
-              error: 'Course folder not found at path',
-            };
-          }
-          return {
-            isAccessible: false,
-            status: 'Folder missing',
-            error: accessErr?.message || 'Inaccessible path',
-          };
-        }
+        return {
+          isAccessible: false,
+          status: 'Folder missing',
+          error: 'Course folder could not be resolved or found',
+        };
       };
 
       const timeoutPromise = new Promise<{
@@ -892,68 +961,99 @@ export function registerIpcHandlers(): void {
     'storage:readMediaFile',
     async (_event, params: { courseId: string; filePath: string; targetDir?: string }) => {
       const { courseId, filePath, targetDir } = params;
-      const cleanRelative = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
-
-      // Prioritized directory candidates: targetDir, configured mount, SSD, and auto-detected external drives
-      const candidateDirs = new Set<string>();
-      if (targetDir) candidateDirs.add(resolve(targetDir));
-      if (configuredExternalMountPath) candidateDirs.add(resolve(configuredExternalMountPath));
-      candidateDirs.add(join(app.getPath('userData'), 'courses'));
-
-      const roots = getSystemMountRoots();
-      for (const root of roots) {
-        try {
-          if (existsSync(root)) {
-            const entries = await readdir(root, { withFileTypes: true });
-            for (const entry of entries) {
-              if (entry.isDirectory()) {
-                candidateDirs.add(join(root, entry.name));
-              }
-            }
-          }
-        } catch {}
-      }
-
-      for (const baseDir of candidateDirs) {
-        const candidatePaths = [
-          join(resolveCourseStorageDir(baseDir, courseId), cleanRelative),
-          join(baseDir, 'coursenest_courses', courseId, cleanRelative),
-          join(baseDir, 'CourseNest_courses', courseId, cleanRelative),
-          join(baseDir, courseId, cleanRelative),
-        ];
-
-        for (const p of candidatePaths) {
-          try {
-            const resolved = validatePathBoundary(p);
-            await access(resolved, constants.R_OK);
-            const fileBuf = await readFile(resolved);
-            return { exists: true, buffer: fileBuf.buffer, path: resolved };
-          } catch {}
-        }
-      }
-
-      // Check all currently attached external volumes directly (resilient to mount-point changes)
       try {
-        const attached = await queryAttachedVolumes();
-        for (const vol of attached) {
-          const volCandidates = [
-            join(vol.mountPath, 'CourseNest_courses', courseId, cleanRelative),
-            join(vol.mountPath, 'coursenest_courses', courseId, cleanRelative),
-            join(vol.mountPath, courseId, cleanRelative),
-            join(vol.mountPath, cleanRelative),
-          ];
-          for (const p of volCandidates) {
-            try {
-              const resolved = validatePathBoundary(p);
-              await access(resolved, constants.R_OK);
-              const fileBuf = await readFile(resolved);
-              return { exists: true, buffer: fileBuf.buffer, path: resolved };
-            } catch {}
-          }
+        const resolved = await resolvePhysicalMediaFilePath(courseId, filePath, targetDir);
+        if (resolved) {
+          const fileBuf = await readFile(resolved);
+          return { exists: true, buffer: fileBuf.buffer, path: resolved };
         }
       } catch {}
-
       return { exists: false, error: 'Media file not found on disk' };
+    },
+  );
+
+  ipcMain.handle(
+    'storage:resolvePhysicalMediaFilePath',
+    async (_event, params: { courseId: string; filePath: string; targetDir?: string }) => {
+      return await resolvePhysicalMediaFilePath(params.courseId, params.filePath, params.targetDir);
+    },
+  );
+
+  ipcMain.handle(
+    'storage:extractArchiveNative',
+    async (_event, params: { archivePath: string; targetDir: string; password?: string }) => {
+      const { archivePath, targetDir, password } = params;
+      const startTime = Date.now();
+      try {
+        const resolvedArchive = validatePathBoundary(archivePath);
+        const resolvedTarget = validatePathBoundary(targetDir);
+        await mkdir(resolvedTarget, { recursive: true });
+
+        // Try fast native extractors in order: bsdtar / unzip / 7z
+        // 1. bsdtar (streaming directly from archive to disk, >150 MB/s)
+        try {
+          const args = ['-xf', resolvedArchive, '-C', resolvedTarget];
+          if (password) {
+            args.push('--passphrase', password);
+          }
+          const res = spawnSync('bsdtar', args, { encoding: 'utf-8', timeout: 120000 });
+          if (res.status === 0) {
+            const files = await readdir(resolvedTarget, { recursive: true });
+            return {
+              success: true,
+              extractedFiles: files.map((f) => f.toString()),
+              durationMs: Date.now() - startTime,
+            };
+          }
+        } catch {}
+
+        // 2. unzip (native on Linux / macOS)
+        try {
+          const args = ['-q', '-o'];
+          if (password) {
+            args.push('-P', password);
+          }
+          args.push(resolvedArchive, '-d', resolvedTarget);
+          const res = spawnSync('unzip', args, { encoding: 'utf-8', timeout: 120000 });
+          if (res.status === 0) {
+            const files = await readdir(resolvedTarget, { recursive: true });
+            return {
+              success: true,
+              extractedFiles: files.map((f) => f.toString()),
+              durationMs: Date.now() - startTime,
+            };
+          }
+        } catch {}
+
+        // 3. 7z / 7za
+        for (const cmd of ['7z', '7za', '7zr']) {
+          try {
+            const args = ['x', resolvedArchive, `-o${resolvedTarget}`, '-y'];
+            if (password) args.push(`-p${password}`);
+            const res = spawnSync(cmd, args, { encoding: 'utf-8', timeout: 120000 });
+            if (res.status === 0) {
+              const files = await readdir(resolvedTarget, { recursive: true });
+              return {
+                success: true,
+                extractedFiles: files.map((f) => f.toString()),
+                durationMs: Date.now() - startTime,
+              };
+            }
+          } catch {}
+        }
+
+        return {
+          success: false,
+          extractedFiles: [],
+          error: 'No native extractor available or archive password incorrect',
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          extractedFiles: [],
+          error: err?.message || 'Extraction failed',
+        };
+      }
     },
   );
 
@@ -980,10 +1080,21 @@ export function registerIpcHandlers(): void {
         const baseDir = mountPath || configuredExternalMountPath;
         if (baseDir) {
           candidateDirs.add(resolveCourseStorageDir(baseDir, courseId));
+          candidateDirs.add(join(baseDir, 'CourseNest', courseId));
+          candidateDirs.add(join(baseDir, 'coursenest', courseId));
           candidateDirs.add(join(baseDir, 'coursenest_courses', courseId));
           candidateDirs.add(join(baseDir, 'CourseNest_courses', courseId));
           candidateDirs.add(join(baseDir, courseId));
         }
+
+        try {
+          const attached = await queryAttachedVolumes();
+          for (const vol of attached) {
+            candidateDirs.add(join(vol.mountPath, 'CourseNest', courseId));
+            candidateDirs.add(join(vol.mountPath, 'CourseNest_courses', courseId));
+            candidateDirs.add(join(vol.mountPath, 'coursenest_courses', courseId));
+          }
+        } catch {}
 
         for (const dir of candidateDirs) {
           try {
@@ -1022,8 +1133,9 @@ export function registerIpcHandlers(): void {
             const childDir = join(resolved, entry.name);
             dirsToCheck.add(childDir);
 
-            // If entry is a course container folder (CourseNest_courses / coursenest_courses), scan its children too
-            if (entry.name.toLowerCase() === 'coursenest_courses') {
+            // If entry is a course container folder (CourseNest / coursenest_courses), scan its children too
+            const lowerName = entry.name.toLowerCase();
+            if (lowerName === 'coursenest' || lowerName === 'coursenest_courses') {
               try {
                 const subEntries = await readdir(childDir, { withFileTypes: true });
                 for (const sub of subEntries) {
@@ -1038,6 +1150,7 @@ export function registerIpcHandlers(): void {
       } catch {}
 
       for (const d of dirsToCheck) {
+        let manifestFound = false;
         const candidateFiles = [
           join(d, 'coursenest-manifest.json'),
           join(d, 'course.json'),
@@ -1054,14 +1167,53 @@ export function registerIpcHandlers(): void {
                   storageTier: 'external',
                   externalMountPath: resolved,
                   externalCourseDir: d,
+                  relativeCourseDir: relative(resolved, d).replace(/\\/g, '/'),
                   isExternalMissing: false,
                 });
+                manifestFound = true;
                 break;
               }
             } catch (err) {
               console.warn(`Could not parse course manifest at ${candidate}:`, err);
             }
           }
+        }
+
+        // Auto-detect course folder without manifest if it contains media files
+        if (!manifestFound && d !== resolved && !discovered.some((c) => c.externalCourseDir === d)) {
+          try {
+            const files = await readdir(d, { withFileTypes: true });
+            const mediaFiles = files.filter((f) => f.isFile() && /\.(mp4|webm|mkv|mp3|pdf)$/i.test(f.name));
+            if (mediaFiles.length > 0) {
+              const folderTitle = basename(d).replace(/[-_]/g, ' ');
+              discovered.push({
+                id: `disc-${basename(d).toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+                title: folderTitle,
+                storageTier: 'external',
+                externalMountPath: resolved,
+                externalCourseDir: d,
+                relativeCourseDir: relative(resolved, d).replace(/\\/g, '/'),
+                isExternalMissing: false,
+                sections: [
+                  {
+                    id: 'sec-1',
+                    title: 'Course Materials',
+                    lessons: mediaFiles.map((mf, idx) => ({
+                      id: `les-${idx + 1}`,
+                      title: mf.name.replace(/\.[^/.]+$/, ''),
+                      blocks: [
+                        {
+                          id: `blk-${idx + 1}`,
+                          type: mf.name.endsWith('.pdf') ? 'document' : 'video',
+                          src: `vault-media://${basename(d)}/${mf.name}`,
+                        },
+                      ],
+                    })),
+                  },
+                ],
+              });
+            }
+          } catch {}
         }
       }
     } catch {}
@@ -1170,7 +1322,7 @@ export function registerIpcHandlers(): void {
             } else if (c.externalCourseDir && c.externalMountPath && c.externalCourseDir.startsWith(c.externalMountPath)) {
               targetDir = c.externalCourseDir.replace(c.externalMountPath, activeMount);
             } else {
-              targetDir = c.externalCourseDir || join(activeMount, 'CourseNest_courses', c.id);
+              targetDir = resolveCourseStorageDir(activeMount, c.id);
             }
           } else if (c.externalCourseDir && existsSync(c.externalCourseDir)) {
             targetDir = c.externalCourseDir;
@@ -1179,11 +1331,7 @@ export function registerIpcHandlers(): void {
           let newStatus: 'Available' | 'Drive disconnected' | 'Folder missing' | 'Permission denied' | 'Read timeout' = 'Available';
           let isReachable = false;
 
-          if (!activeMount && !targetDir) {
-            newStatus = 'Drive disconnected';
-          } else if (!targetDir) {
-            newStatus = 'Folder missing';
-          } else {
+          if (targetDir) {
             try {
               allowedUserDirs.add(targetDir);
               allowedUserDirs.add(dirname(targetDir));
@@ -1192,26 +1340,62 @@ export function registerIpcHandlers(): void {
               if (st.isDirectory()) {
                 isReachable = true;
                 newStatus = 'Available';
-              } else {
-                newStatus = 'Folder missing';
               }
-            } catch (err: any) {
-              const code = err?.code || '';
-              if (code === 'EACCES' || code === 'EPERM') {
-                newStatus = 'Permission denied';
-              } else if (code === 'ENOENT' || code === 'ENOTDIR') {
-                newStatus = 'Folder missing';
-              } else {
-                newStatus = 'Folder missing';
+            } catch {}
+          }
+
+          // Fallback: If not reachable at targetDir, search across ALL attached volumes!
+          if (!isReachable) {
+            for (const vol of volumes) {
+              const candidates = [
+                c.relativeCourseDir ? join(vol.mountPath, c.relativeCourseDir) : null,
+                join(vol.mountPath, 'CourseNest', c.id),
+                c.externalCourseDir ? join(vol.mountPath, 'CourseNest', basename(c.externalCourseDir)) : null,
+                join(vol.mountPath, 'coursenest', c.id),
+                join(vol.mountPath, 'CourseNest_courses', c.id),
+                join(vol.mountPath, 'coursenest_courses', c.id),
+                join(vol.mountPath, c.id),
+              ].filter(Boolean) as string[];
+
+              for (const cand of candidates) {
+                try {
+                  await access(cand, constants.R_OK);
+                  const st = await stat(cand);
+                  if (st.isDirectory()) {
+                    targetDir = cand;
+                    activeMount = vol.mountPath;
+                    activeVol = vol;
+                    isReachable = true;
+                    newStatus = 'Available';
+                    allowedUserDirs.add(targetDir);
+                    allowedUserDirs.add(vol.mountPath);
+                    break;
+                  }
+                } catch {}
               }
+              if (isReachable) break;
             }
           }
+
+          if (!isReachable) {
+            const checkPath = targetDir || c.externalCourseDir || c.externalMountPath;
+            if (checkPath && isPathOnExternalMediaPattern(checkPath)) {
+              newStatus = 'Drive disconnected';
+            } else {
+              newStatus = 'Folder missing';
+            }
+          }
+
+          const resolvedRelDir = (activeMount && targetDir)
+            ? relative(activeMount, targetDir).replace(/\\/g, '/')
+            : c.relativeCourseDir;
 
           if (
             c.isExternalMissing !== !isReachable ||
             c.storageStatus !== newStatus ||
             (targetDir && c.externalCourseDir !== targetDir) ||
-            (activeMount && c.externalMountPath !== activeMount)
+            (activeMount && c.externalMountPath !== activeMount) ||
+            (resolvedRelDir && c.relativeCourseDir !== resolvedRelDir)
           ) {
             courses[i] = {
               ...c,
@@ -1219,6 +1403,7 @@ export function registerIpcHandlers(): void {
               storageStatus: newStatus,
               externalCourseDir: targetDir || c.externalCourseDir,
               externalMountPath: activeMount || c.externalMountPath,
+              relativeCourseDir: resolvedRelDir || c.relativeCourseDir,
               volumeUuid: activeVol?.uuid || c.volumeUuid,
               volumeLabel: activeVol?.label || c.volumeLabel,
             };
@@ -1230,6 +1415,9 @@ export function registerIpcHandlers(): void {
       if (catalogChanged) {
         await writeFile(VAULT_FILE, JSON.stringify(courses, null, 2), 'utf-8');
         await writeFile(registryFile, JSON.stringify(registry, null, 2), 'utf-8');
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send('storage:mountsChanged');
+        }
       }
 
       return courses;

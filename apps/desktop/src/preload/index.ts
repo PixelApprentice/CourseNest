@@ -117,6 +117,17 @@ const electronAPI = {
         error?: string;
       }>,
 
+    resolvePhysicalMediaFilePath: (params: { courseId: string; filePath: string; targetDir?: string }) =>
+      ipcRenderer.invoke('storage:resolvePhysicalMediaFilePath', params) as Promise<string | null>,
+
+    extractArchiveNative: (params: { archivePath: string; targetDir: string; password?: string }) =>
+      ipcRenderer.invoke('storage:extractArchiveNative', params) as Promise<{
+        success: boolean;
+        extractedFiles: string[];
+        durationMs?: number;
+        error?: string;
+      }>,
+
     scanDirectoryForCourses: (dirPath?: string) =>
       ipcRenderer.invoke('storage:scanDirectoryForCourses', dirPath) as Promise<any[]>,
 

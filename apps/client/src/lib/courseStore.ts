@@ -406,6 +406,8 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
         const reconciled = await electron.storage.reconcileAllVolumes();
         if (Array.isArray(reconciled) && reconciled.length > 0) {
           for (const c of reconciled) {
+            const isMissing = c.isExternalMissing ?? false;
+            const status = c.storageStatus || (isMissing ? 'Drive disconnected' : 'Available');
             if (courseMap.has(c.id)) {
               const existing = courseMap.get(c.id)!;
               courseMap.set(c.id, {
@@ -413,13 +415,15 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
                 ...c,
                 sections: existing.sections && existing.sections.length > 0 ? existing.sections : c.sections,
                 storageTier: 'external',
-                isExternalMissing: false,
+                isExternalMissing: isMissing,
+                storageStatus: status,
               });
             } else {
               courseMap.set(c.id, {
                 ...c,
                 storageTier: 'external',
-                isExternalMissing: false,
+                isExternalMissing: isMissing,
+                storageStatus: status,
                 isImported: true,
                 addedAt: c.addedAt || new Date().toISOString(),
               });
@@ -491,7 +495,7 @@ export async function reconcileVaultStorage(explicitMountPath?: string): Promise
               const res = await electron.storage.checkCoursePathAccess({
                 courseId: id,
                 courseDir: c.externalCourseDir,
-                mountPath: c.externalMountPath || explicitMountPath,
+                mountPath: explicitMountPath || c.externalMountPath,
                 relativeCourseDir: c.relativeCourseDir,
                 volumeUuid: c.volumeUuid,
                 volumeLabel: c.volumeLabel,

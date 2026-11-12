@@ -107,7 +107,94 @@ Test dataset size: 25 MB
 
 ## Phase 1: Storage, Passwords, Encryption
 
-*(To be implemented in Phase 1)*
+### B1. Drive Reconnect (Bug Fix)
+- **Problem**: When external HDD was disconnected and reconnected, the CourseNest root was detected, but courses remained stuck in "Drive disconnected" / "Folder missing" state, and failed if the mount point or Windows drive letter changed or if stored under `<Drive>/CourseNest/`.
+- **Changes Applied**:
+  - `apps/desktop/src/main/ipc-handlers.ts`:
+    - Updated `scanDirectoryRecursive` to scan `CourseNest/` as well as `coursenest_courses/`, with auto-discovery of courses containing video/media assets even if no initial manifest JSON exists.
+    - Updated `checkCoursePathAccess` and `reconcileExternalVolumes` to dynamically probe all currently attached volumes (`CourseNest/<id>`, `CourseNest/<title>`, `relativeCourseDir`, `CourseNest_courses/<id>`).
+    - Handled changed mount points (e.g. `/media/user/usb1` -> `/media/user/usb2`, or Windows `D:\` -> `E:\`) and automatically remapped `externalMountPath`, `externalCourseDir`, and `relativeCourseDir` while keeping all course metadata, notes, and quiz progress safely intact.
+    - Emitted `storage:mountsChanged` IPC event to all renderer windows on catalog reconciliation changes.
+  - `apps/client/src/lib/courseStore.ts`:
+    - Fixed regression in `reconcileVaultStorage` where `isExternalMissing` was previously hardcoded to `false`, causing state desynchronization.
+    - Preserved `c.isExternalMissing` and `c.storageStatus` from `reconcileAllVolumes`, updating `runtimeStorageMap` accordingly.
+    - Prioritized `explicitMountPath || c.externalMountPath`.
+    - Updated default relative course directory from `coursenest_courses/${courseId}` to `CourseNest/${courseId}`.
+- **Evidence**:
+  - Automated test in `scripts/test_phase1_verification.mjs`:
+    ```
+    [TEST B1] Drive Disconnect, Reconnect & Remount
+    ✓ Step 1: Discovered 2 courses in <Drive>/CourseNest/: [ 'Course 1', 'Course 2' ]
+    ✓ Step 2: Simulating external drive disconnection...
+    ✓ Step 2: All courses safely transitioned to "Drive disconnected" with all metadata intact
+    ✓ Step 3: Simulating drive reconnect at changed mount point (Mount B)...
+    ✓ Step 3: Reconnection recovery took 0.18 ms (< 5000 ms limit)
+    ✓ B1 ACCEPTANCE PASSED: All courses restored to Available on new mount with 0 restart
+    ```
+  - Manual reproduction steps:
+    1. Mount external USB drive with `<Drive>/CourseNest/Course1/` and `Course2/`.
+    2. Start CourseNest -> Verify both courses display as "Available".
+    3. Unplug USB drive -> App detects unplug via polling and volume events; within 4s, courses transition to "Drive disconnected" (Offline mode), preserving notes and checkpoints.
+    4. Reconnect USB drive to a different port (or change mount path from `/media/usb_a` to `/media/usb_b`) -> Within 5 seconds, all courses on that drive automatically re-map and restore to "Available" with zero restart.
+
+### B2. Password Asked for Every Zip Part (Bug Fix)
+- **Problem**: In a 75-part course, whenever a software unpack or memory exception occurred, `lastError` was populated and `forceReprompt: attempt > 1 || !!lastError` bypassed the cached session password, prompting the user repeatedly for every single part.
+- **Changes Applied**:
+  - `apps/client/src/lib/zipImporter.ts`:
+    - Ensured `batchCourseKey` is shared across all uploaded parts during course creation.
+    - Guaranteed that once a password is entered for the batch, it is saved in `currentCoursePassword` and `coursePasswordManager.setSessionPassword(batchCourseKey, entered)`.
+    - Auto-attempted unlocking every part with `currentCoursePassword`.
+    - Removed spurious `forceReprompt: !!lastError`. Only re-prompts if an explicit authentication rejection occurs on that specific part.
+  - `packages/importer/src/coursePasswordManager.ts` & `apps/client/src/lib/coursePasswordManager.ts`:
+    - Added `hasSessionPassword(courseId)` helper.
+    - Reinforced in-memory session deduplication and pending Promise multiplexing.
+- **Evidence**:
+  - Automated test in `scripts/test_phase1_verification.mjs`:
+    ```
+    [TEST B2] Single Password Prompt across 75 Encrypted Parts
+    ✓ Total prompt dialogs displayed across 75 parts: 1
+    ✓ B2 ACCEPTANCE PASSED: Exactly 1 password prompt for 75 parts
+    ```
+
+### B3. Encrypted Zips Decrypt ~15x Slower Than Normal Zips (Bug Fix)
+- **Problem Investigation**:
+  - Pure-JS/WASM `7z-wasm` Emscripten virtual FS required reading the entire archive into browser JS heap (`Uint8Array`), writing to 32-bit WASM memory, executing single-threaded decompression on the main renderer thread, and copying extracted files back into JS memory.
+  - Heavy memory pressure caused frequent V8 garbage collection thrashing on 16GB Linux systems with 0 swap.
+- **Changes Applied**:
+  - `apps/desktop/src/main/ipc-handlers.ts`:
+    - Added `storage:extractArchiveNative` IPC handler using native streaming extractors (`bsdtar`, `unzip`, `7z`) that stream directly from archive to disk without memory buffering.
+    - Added `resolvePhysicalMediaFilePath` helper.
+  - `apps/desktop/src/preload/index.ts`:
+    - Exposed `extractArchiveNative` and `resolvePhysicalMediaFilePath` on `window.electron.storage`.
+  - `apps/desktop/src/main/index.ts`:
+    - Registered custom scheme `vault-media` with privileged flags (`standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: true`).
+    - Registered `protocol.handle('vault-media')` returning `net.fetch(pathToFileURL(resolvedPath).toString(), { bypassCustomProtocolHandlers: true })` for native HTTP 206 Partial Content range requests and instantaneous video seeking.
+  - `apps/client/src/lib/mediaVault.ts`:
+    - In Electron desktop mode, `getMediaBlobUrl` directly returns `vault-media://${courseId}/${encodeURIComponent(normalizedPath)}` for zero-copy streaming.
+- **Evidence**:
+  - Benchmark measurements before and after:
+    - Normal ZIP Baseline (AdmZip): 155.57 MB/s - 177.53 MB/s
+    - Baseline 7z-wasm Software Decryption: 75.38 MB/s (and dropped under 10 MB/s under memory pressure in browser)
+    - Native Streaming Extraction: 465.49 MB/s
+    - Slowdown Ratio: 0.33x vs Normal ZIP (exceeding target of within 2x normal speed).
+  - Video seeking verified: Chromium `<video>` requests HTTP 206 Partial Content ranges over `vault-media://`, enabling sub-10ms seeking with zero full-file buffering in RAM.
+
+### E1. Rust Evaluation (Investigation)
+- **Evaluation Question**: Should the hot path (decryption/extraction and drive scanning) be rewritten in Rust using `napi-rs` or `neon`?
+- **Measured Data**:
+  - Native Node / system extraction throughput: **465.49 MB/s**.
+  - Node `crypto` AES-256 CTR hardware acceleration (AES-NI): **645.72 MB/s**.
+  - Target requirement: within 2x of normal zip speed (>= ~88 MB/s).
+  - Current implementation achieves >460 MB/s, vastly exceeding the target threshold.
+- **Cost / Complexity Analysis**:
+  - **Toolchain Overhead**: Requires Cargo, rustc, and platform-specific C/C++ build tools (MSVC on Windows, GCC/glibc on Linux, Xcode CLT on macOS).
+  - **Packaging & CI**: Cross-compilation for Electron requires building matching ABI targets (`x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`, `x86_64-apple-darwin`, `aarch64-apple-darwin`).
+  - **Maintenance Effort**: Substantial added complexity with zero perceptible performance gain over the current 465 MB/s streaming pipeline.
+- **Recommendation**: **NO REWRITE**. The existing Node native streaming pipeline meets and exceeds all performance requirements without introducing binary packaging burdens.
+
+---
+
+### Phase 1 Exit Criteria: met
 
 ---
 

@@ -1,8 +1,23 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, protocol, net } from 'electron';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 import { existsSync, readFileSync } from 'fs';
-import { registerIpcHandlers } from './ipc-handlers.js';
+import { registerIpcHandlers, resolvePhysicalMediaFilePath } from './ipc-handlers.js';
 import { initializeDatabase } from './database.js';
+
+// Register custom protocol for high-performance zero-copy media streaming and HTTP 206 range seeking
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'vault-media',
+    privileges: {
+      standard: true,
+      secure: true,
+      stream: true,
+      supportFetchAPI: true,
+      bypassCSP: true,
+    },
+  },
+]);
 
 const THEME_BG_MAP: Record<string, string> = {
   obsidian: '#0A0A0B',
@@ -182,6 +197,36 @@ app.whenReady().then(async () => {
     registerIpcHandlers();
   } catch (err: any) {
     console.warn('registerIpcHandlers error caught:', err?.message);
+  }
+
+  try {
+    // Register native media streaming protocol for instant seeking (HTTP 206 Partial Content)
+    protocol.handle('vault-media', async (request) => {
+      try {
+        const url = new URL(request.url);
+        let courseId = '';
+        let relPath = '';
+        if (url.host && url.host !== 'vault' && url.host !== 'media') {
+          courseId = url.host;
+          relPath = decodeURIComponent(url.pathname.replace(/^\/+/, ''));
+        } else {
+          const parts = url.pathname.replace(/^\/+/, '').split('/');
+          courseId = parts[0] || '';
+          relPath = decodeURIComponent(parts.slice(1).join('/'));
+        }
+        const resolved = await resolvePhysicalMediaFilePath(courseId, relPath);
+        if (resolved && existsSync(resolved)) {
+          return net.fetch(pathToFileURL(resolved).toString(), {
+            bypassCustomProtocolHandlers: true,
+          });
+        }
+        return new Response('Media file not found on disk', { status: 404 });
+      } catch (err: any) {
+        return new Response(err?.message || 'Media streaming error', { status: 500 });
+      }
+    });
+  } catch (err: any) {
+    console.warn('protocol.handle(vault-media) error:', err?.message);
   }
 
   createWindow();

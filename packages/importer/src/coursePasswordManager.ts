@@ -59,6 +59,11 @@ export class CoursePasswordManager {
     }
   }
 
+  public hasSessionPassword(courseId: string): boolean {
+    const key = this.resolveKey(courseId);
+    return this.sessionPasswords.has(key);
+  }
+
   public getSessionPassword(courseId: string): string | null {
     const key = this.resolveKey(courseId);
     return this.sessionPasswords.get(key) || null;

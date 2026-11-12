@@ -223,6 +223,21 @@ export async function getMediaBlobUrl(
   const normalizedPath = filePath.replace(/\\/g, '/').replace(/^\/+/, '');
   const key = `${courseId}::${normalizedPath}`;
 
+  // 1. In Electron desktop mode, use high-performance zero-copy native streaming with HTTP 206 Range seeking
+  const electron = (window as any).electron || (window as any).__ELECTRON__;
+  if (electron?.storage?.resolvePhysicalMediaFilePath) {
+    try {
+      const diskPath = await electron.storage.resolvePhysicalMediaFilePath({
+        courseId,
+        filePath: normalizedPath,
+        targetDir: externalMountPath,
+      });
+      if (diskPath) {
+        return `vault-media://${courseId}/${encodeURIComponent(normalizedPath)}`;
+      }
+    } catch {}
+  }
+
   if (objectUrlCache.has(key)) {
     const existing = objectUrlCache.get(key)!;
     // Re-insert to mark as most-recently-used in Map iteration order
