@@ -265,6 +265,18 @@ function deleteEncryptedCoursePassword(courseId) {
     return false;
   }
 }
+function getAllEncryptedCoursePasswords() {
+  try {
+    if (!dbConnection) return [];
+    const rows = dbConnection.prepare(`
+      SELECT encrypted_password_base64 FROM encrypted_course_passwords ORDER BY updated_at DESC
+    `).all();
+    return rows.map((r) => r.encrypted_password_base64).filter(Boolean);
+  } catch (err) {
+    console.warn("getAllEncryptedCoursePasswords warning:", err?.message);
+    return [];
+  }
+}
 function deleteCourseSqliteData(courseId) {
   try {
     if (!dbConnection) return false;
@@ -718,6 +730,25 @@ function registerIpcHandlers() {
       return { success: true };
     } catch (err) {
       return { success: false, error: err?.message };
+    }
+  });
+  ipcMain.handle("storage:getAllSavedCoursePasswords", async () => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return [];
+      const encList = getAllEncryptedCoursePasswords();
+      const decryptedList = [];
+      for (const encBase64 of encList) {
+        try {
+          const pass = safeStorage.decryptString(Buffer.from(encBase64, "base64"));
+          if (pass && !decryptedList.includes(pass)) {
+            decryptedList.push(pass);
+          }
+        } catch {
+        }
+      }
+      return decryptedList;
+    } catch {
+      return [];
     }
   });
   ipcMain.handle("storage:saveAiKey", async (_event, apiKey) => {
