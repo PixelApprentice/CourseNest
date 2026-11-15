@@ -20,14 +20,14 @@ export const ArchivePasswordModal: React.FC<ArchivePasswordModalProps> = ({
 }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberForCourse, setRememberForCourse] = useState(false);
+  const [rememberForCourse, setRememberForCourse] = useState(true);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setPassword('');
       setShowPassword(false);
-      setRememberForCourse(false);
+      setRememberForCourse(true);
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
@@ -130,7 +130,7 @@ export const ArchivePasswordModal: React.FC<ArchivePasswordModalProps> = ({
             </div>
           </div>
 
-          {/* Optional OS-Level Keychain Persistence Checkbox (Fixes Issue A) */}
+          {/* Optional OS-Level Keychain Persistence Checkbox */}
           <div className="pt-1">
             <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-[var(--cn-text-secondary)]">
               <input
@@ -140,14 +140,14 @@ export const ArchivePasswordModal: React.FC<ArchivePasswordModalProps> = ({
                 disabled={isLoading}
                 className="rounded border-[var(--cn-border)] text-[var(--cn-primary)] focus:ring-[var(--cn-primary)]"
               />
-              <span>Remember for this course (uses OS-level safeStorage encryption)</span>
+              <span>Remember password for this course and future course imports</span>
             </label>
           </div>
 
           {/* Local Security & Privacy Badge */}
           <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--cn-text-muted)] pt-0.5">
             <IconShieldCheck size={14} className="text-[var(--cn-primary)] shrink-0" />
-            <span>Kept in memory for this session by default. Passwords are never logged or stored in plaintext.</span>
+            <span>Decrypted locally. Saved securely in private vault to auto-unlock subsequent archives and future courses.</span>
           </div>
 
           {/* Modal Actions */}

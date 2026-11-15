@@ -1,5 +1,5 @@
 /**
- * CourseNest Unified Course Password Manager
+ * CourseNest Unified Course Password Manager (Browser Client)
  *
  * Guarantees:
  * 1. Single source of truth for all course password lookups.
@@ -25,20 +25,69 @@ export type PasswordPromptResult =
 export interface SafeStorageProvider {
   getCoursePassword: (courseId: string) => Promise<string | null>;
   saveCoursePassword: (courseId: string, password: string) => Promise<void>;
+  getAllSavedPasswords?: () => Promise<string[]>;
 }
 
 export class CoursePasswordManager {
   private sessionPasswords = new Map<string, string>();
+  private allKnownPasswords = new Set<string>();
   private pendingRequests = new Map<string, Promise<string | null>>();
   private aliasMap = new Map<string, string>();
   private safeStorageProvider?: SafeStorageProvider;
 
   constructor(safeStorageProvider?: SafeStorageProvider) {
     this.safeStorageProvider = safeStorageProvider;
+    this.initKnownPasswords();
   }
 
-  public setSafeStorageProvider(provider: SafeStorageProvider): void {
+  private initKnownPasswords(): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem('coursenest_known_passwords_vault_v1');
+        if (stored) {
+          const list = JSON.parse(stored);
+          if (Array.isArray(list)) {
+            for (const p of list) {
+              if (typeof p === 'string' && p.trim()) {
+                this.allKnownPasswords.add(p.trim());
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  public async setSafeStorageProvider(provider: SafeStorageProvider): Promise<void> {
     this.safeStorageProvider = provider;
+    if (provider.getAllSavedPasswords) {
+      try {
+        const saved = await provider.getAllSavedPasswords();
+        if (Array.isArray(saved)) {
+          for (const p of saved) {
+            if (typeof p === 'string' && p.trim()) {
+              this.allKnownPasswords.add(p.trim());
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  public getKnownPasswords(): string[] {
+    return Array.from(this.allKnownPasswords);
+  }
+
+  public rememberPasswordGlobally(password: string): void {
+    const clean = password?.trim();
+    if (!clean) return;
+    this.allKnownPasswords.add(clean);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const list = Array.from(this.allKnownPasswords).slice(-50);
+        localStorage.setItem('coursenest_known_passwords_vault_v1', JSON.stringify(list));
+      }
+    } catch {}
   }
 
   private resolveKey(courseId: string): string {
@@ -74,6 +123,7 @@ export class CoursePasswordManager {
     const clean = password?.trim();
     if (clean) {
       this.sessionPasswords.set(key, clean);
+      this.rememberPasswordGlobally(clean);
       const alias = this.aliasMap.get(key);
       if (alias) {
         this.sessionPasswords.set(alias, clean);
@@ -154,6 +204,9 @@ export class CoursePasswordManager {
         const remember = typeof result === 'object' ? !!result.rememberForCourse : false;
 
         if (!password) return null;
+
+        // Remember globally across all courses and subsequent imports
+        this.rememberPasswordGlobally(password);
 
         // Cache in memory for this session
         this.sessionPasswords.set(key, password);

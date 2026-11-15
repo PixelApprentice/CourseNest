@@ -12,6 +12,7 @@ import {
   saveEncryptedCoursePassword,
   getEncryptedCoursePassword,
   deleteEncryptedCoursePassword,
+  getAllEncryptedCoursePasswords,
   deleteCourseSqliteData,
   saveEncryptedAppSecret,
   getEncryptedAppSecret,
@@ -523,6 +524,25 @@ export function registerIpcHandlers(): void {
       return { success: true };
     } catch (err: any) {
       return { success: false, error: err?.message };
+    }
+  });
+
+  ipcMain.handle('storage:getAllSavedCoursePasswords', async () => {
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return [];
+      const encList = getAllEncryptedCoursePasswords();
+      const decryptedList: string[] = [];
+      for (const encBase64 of encList) {
+        try {
+          const pass = safeStorage.decryptString(Buffer.from(encBase64, 'base64'));
+          if (pass && !decryptedList.includes(pass)) {
+            decryptedList.push(pass);
+          }
+        } catch {}
+      }
+      return decryptedList;
+    } catch {
+      return [];
     }
   });
 

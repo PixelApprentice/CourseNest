@@ -126,4 +126,30 @@ describe('Course Password Manager - 75 Part Concurrency & Single Prompt Guarante
     assert.equal(savedToSafeStorage, true);
     assert.ok(safeStorageEncryptedValue.startsWith('SAFE_STORAGE_ENCRYPTED'));
   });
+
+  it('remembers passwords globally across different courses and allows auto-trial', async () => {
+    // 1. User enters password for Course A
+    await manager.getCoursePassword('course-A', {
+      promptFn: async () => 'shared-secret-pass',
+    });
+
+    // 2. Known passwords now contains Course A's password
+    const known = manager.getKnownPasswords();
+    assert.ok(known.includes('shared-secret-pass'), 'Known passwords pool contains Course A password');
+
+    // 3. User imports Course B which uses the same password
+    // Course B can query known passwords and test them before prompting
+    const knownCandidates = manager.getKnownPasswords();
+    assert.equal(knownCandidates[0], 'shared-secret-pass');
+
+    // 4. If Course C uses a different password, it gets remembered alongside Course A
+    await manager.getCoursePassword('course-C', {
+      promptFn: async () => 'another-secret-999',
+    });
+
+    const updatedKnown = manager.getKnownPasswords();
+    assert.ok(updatedKnown.includes('shared-secret-pass'));
+    assert.ok(updatedKnown.includes('another-secret-999'));
+    assert.equal(updatedKnown.length, 2);
+  });
 });

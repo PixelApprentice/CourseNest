@@ -346,6 +346,22 @@ export function deleteEncryptedCoursePassword(courseId: string): boolean {
 }
 
 /**
+ * Retrieve all encrypted course password ciphertexts from SQLite database.
+ */
+export function getAllEncryptedCoursePasswords(): string[] {
+  try {
+    if (!dbConnection) return [];
+    const rows = dbConnection.prepare(`
+      SELECT encrypted_password_base64 FROM encrypted_course_passwords ORDER BY updated_at DESC
+    `).all() as { encrypted_password_base64: string }[];
+    return rows.map((r) => r.encrypted_password_base64).filter(Boolean);
+  } catch (err: any) {
+    console.warn('getAllEncryptedCoursePasswords warning:', err?.message);
+    return [];
+  }
+}
+
+/**
  * Purge all SQLite decoupled data for a deleted course (progress + passwords).
  */
 export function deleteCourseSqliteData(courseId: string): boolean {

@@ -20,11 +20,20 @@ if (typeof window !== 'undefined') {
       },
       saveCoursePassword: async (courseId: string, password: string) => {
         try {
-          await electron.storage.saveCoursePassword(courseId, password);
+          await electron.storage.saveCoursePassword({ courseId, password });
         } catch {
           // Ignore
         }
       },
+      getAllSavedPasswords: electron.storage.getAllSavedCoursePasswords
+        ? async () => {
+            try {
+              return await electron.storage.getAllSavedCoursePasswords();
+            } catch {
+              return [];
+            }
+          }
+        : undefined,
     });
   }
 }
@@ -544,25 +553,34 @@ export async function parseCourseArchives(
       } catch {}
     }
 
-    // If encrypted or 7z: use 7z-wasm with course password reuse across all parts (Issue A)
+    // If encrypted or 7z: use 7z-wasm with candidate password auto-trial across parts and courses
     if (is7z || isEncrypted) {
       let extracted: DiscoveredArchiveFile[] | null = null;
 
-      // Automatically try the course password on every part!
-      if (currentCoursePassword) {
+      // Automatically try known candidate passwords (current course password + any remembered passwords from other courses)
+      const candidatePasswords = [
+        ...(currentCoursePassword ? [currentCoursePassword] : []),
+        ...coursePasswordManager.getKnownPasswords().filter((p) => p !== currentCoursePassword),
+      ];
+
+      for (const candidate of candidatePasswords) {
         try {
-          reportProgress(fileBase + (0.3 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Auto-unlocking "${file.name}" with course password...`);
-          extracted = await extractWith7zWasm(file, archiveBaseName, currentCoursePassword);
-          addLog('INFO', 'IMPORTER', `Archive "${file.name}" automatically decrypted using course password.`);
-        } catch (autoErr: any) {
-          const msg = (autoErr?.message || '').toLowerCase();
-          if (!msg.includes('incorrect password') && !msg.includes('wrong password')) {
-            // Transient format or memory error - do not reject the valid course password
+          reportProgress(fileBase + (0.3 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Auto-unlocking "${file.name}" with saved password...`);
+          extracted = await extractWith7zWasm(file, archiveBaseName, candidate);
+          currentCoursePassword = candidate;
+          coursePasswordManager.setSessionPassword(batchCourseKey, candidate);
+          coursePasswordManager.rememberPasswordGlobally(candidate);
+          if (courseId) {
+            coursePasswordManager.aliasCourse(batchCourseKey, courseId);
           }
+          addLog('INFO', 'IMPORTER', `Archive "${file.name}" automatically decrypted using remembered password.`);
+          break;
+        } catch {
+          // Candidate failed on this archive, test next
         }
       }
 
-      // If no course password yet or password failed on this part, prompt user (Issue A)
+      // If no candidate password worked, prompt user
       if (!extracted) {
         let attempt = 0;
         let lastError: string | undefined = undefined;
@@ -591,9 +609,10 @@ export async function parseCourseArchives(
             reportProgress(fileBase + (0.5 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Decrypting "${file.name}"...`);
             extracted = await extractWith7zWasm(file, archiveBaseName, entered);
             
-            // On success, save in memory and reuse across all remaining parts of this course!
+            // On success, save in memory and reuse across all remaining parts of this course and future courses!
             currentCoursePassword = entered;
             coursePasswordManager.setSessionPassword(batchCourseKey, entered);
+            coursePasswordManager.rememberPasswordGlobally(entered);
             if (courseId) {
               coursePasswordManager.aliasCourse(batchCourseKey, courseId);
             }
@@ -646,12 +665,24 @@ export async function parseCourseArchives(
       if (zipErr?.message?.toLowerCase().includes('encrypted') || isEncrypted) {
         let extractedFallback: DiscoveredArchiveFile[] | null = null;
 
-        // Try course password first
-        if (currentCoursePassword) {
+        // Try all candidate passwords (current course password + any remembered passwords from other courses)
+        const candidatePasswords = [
+          ...(currentCoursePassword ? [currentCoursePassword] : []),
+          ...coursePasswordManager.getKnownPasswords().filter((p) => p !== currentCoursePassword),
+        ];
+
+        for (const candidate of candidatePasswords) {
           try {
-            reportProgress(fileBase + (0.3 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Auto-unlocking "${file.name}" with course password...`);
-            extractedFallback = await extractWith7zWasm(file, archiveBaseName, currentCoursePassword);
-            addLog('INFO', 'IMPORTER', `Archive "${file.name}" automatically decrypted using course password.`);
+            reportProgress(fileBase + (0.3 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Auto-unlocking "${file.name}" with saved password...`);
+            extractedFallback = await extractWith7zWasm(file, archiveBaseName, candidate);
+            currentCoursePassword = candidate;
+            coursePasswordManager.setSessionPassword(batchCourseKey, candidate);
+            coursePasswordManager.rememberPasswordGlobally(candidate);
+            if (courseId) {
+              coursePasswordManager.aliasCourse(batchCourseKey, courseId);
+            }
+            addLog('INFO', 'IMPORTER', `Archive "${file.name}" automatically decrypted using remembered password.`);
+            break;
           } catch {}
         }
 
@@ -683,6 +714,7 @@ export async function parseCourseArchives(
               extractedFallback = await extractWith7zWasm(file, archiveBaseName, entered);
               currentCoursePassword = entered;
               coursePasswordManager.setSessionPassword(batchCourseKey, entered);
+              coursePasswordManager.rememberPasswordGlobally(entered);
               if (courseId) {
                 coursePasswordManager.aliasCourse(batchCourseKey, courseId);
               }

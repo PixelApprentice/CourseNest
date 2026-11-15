@@ -97,6 +97,9 @@ const electronAPI = {
         error?: string;
       }>,
 
+    getAllSavedCoursePasswords: () =>
+      ipcRenderer.invoke('storage:getAllSavedCoursePasswords') as Promise<string[]>,
+
     saveAiKey: (apiKey: string) =>
       ipcRenderer.invoke('storage:saveAiKey', apiKey) as Promise<{
         success: boolean;
