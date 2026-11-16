@@ -7,6 +7,7 @@ import {
   parseCourseArchives, 
   parseCourseFolder,
   commitImportedCourse, 
+  processDiscoveredFiles,
   type ProposalSection,
   type DiscoveredArchiveFile 
 } from '../../lib/zipImporter';
@@ -106,6 +107,35 @@ export function ImportPage() {
   const [savedCourseId, setSavedCourseId] = useState<string | null>(null);
   const rememberPasswordRef = useRef<{ password: string; remember: boolean } | null>(null);
 
+  // Incremental parsed archive cache preventing redundant re-reads and browser file handle revocation
+  const parsedArchiveCacheRef = useRef<Map<string, {
+    discoveredFiles: DiscoveredArchiveFile[];
+    meta: ArchiveMeta;
+    suggestedTitle?: string;
+  }>>(new Map());
+
+  const parsedFolderCacheRef = useRef<{
+    discoveredFiles: DiscoveredArchiveFile[];
+    sections: ProposalSection[];
+    metas: ArchiveMeta[];
+    suggestedTitle?: string;
+    folderFileCount: number;
+  } | null>(null);
+
+  const openZipPicker = () => {
+    if (zipInputRef.current) {
+      zipInputRef.current.value = '';
+      zipInputRef.current.click();
+    }
+  };
+
+  const openFolderPicker = () => {
+    if (folderInputRef.current) {
+      folderInputRef.current.value = '';
+      folderInputRef.current.click();
+    }
+  };
+
   // Password Prompt Modal State for Encrypted Archives (Fixes Issue A)
   const [passwordModalState, setPasswordModalState] = useState<{
     isOpen: boolean;
@@ -141,10 +171,21 @@ export function ImportPage() {
     });
   };
 
-  // Aggregate and parse all uploaded ZIPs and Folder files
+  // Aggregate and parse all uploaded ZIPs and Folder files with incremental caching
   const reprocessFiles = async (zips: File[], folders: File[]) => {
     setIsProcessing(true);
     setStatusMessage('Analyzing course files and chapter hierarchy...');
+
+    // In Electron, register file paths with security sandbox
+    const electron = (window as any).electron || (window as any).__ELECTRON__;
+    if (electron?.storage?.registerAllowedPath) {
+      for (const f of zips) {
+        if ((f as any).path) electron.storage.registerAllowedPath((f as any).path).catch?.(() => {});
+      }
+      for (const f of folders) {
+        if ((f as any).path) electron.storage.registerAllowedPath((f as any).path).catch?.(() => {});
+      }
+    }
 
     try {
       const allDiscovered: DiscoveredArchiveFile[] = [];
@@ -158,70 +199,129 @@ export function ImportPage() {
       const folderWeight = hasZips && hasFolders ? 0.5 : 1.0;
       const folderOffset = hasZips && hasFolders ? 50 : 0;
 
-      // 1. Process ZIP archives with real-time monotonic progress
+      // 1. Process ZIP archives with incremental caching
       if (hasZips) {
         setImportProgress(5);
-        const zipResult = await parseCourseArchives(
-          zips,
-          (pct, msg) => {
-            setImportProgress(Math.min(hasFolders ? 50 : 100, Math.round(pct * zipWeight)));
-            setStatusMessage(msg);
-          },
-          requestPassword,
-          appendToCourseId || undefined,
-        );
-        allDiscovered.push(...zipResult.discoveredFiles);
-        combinedSections.push(...zipResult.sections);
-        if (!detectedTitle) detectedTitle = zipResult.suggestedTitle;
 
-        for (let i = 0; i < zips.length; i++) {
-          const zf = zips[i]!;
-          metas.push({
-            id: `zip-${zf.name}-${zf.size}`,
-            name: zf.name,
-            type: 'zip',
-            sizeBytes: zf.size,
-            filesCount: zipResult.discoveredFiles.filter((df) => df.archiveName === zf.name.replace(/\.[^/.]+$/, '')).length,
-          });
+        // Find archives that have not been parsed yet
+        const unparsedZips = zips.filter((zf) => !parsedArchiveCacheRef.current.has(`${zf.name}_${zf.size}`));
+
+        if (unparsedZips.length > 0) {
+          const zipResult = await parseCourseArchives(
+            unparsedZips,
+            (pct, msg) => {
+              setImportProgress(Math.min(hasFolders ? 50 : 100, Math.round(pct * zipWeight)));
+              setStatusMessage(msg);
+            },
+            requestPassword,
+            appendToCourseId || undefined,
+          );
+
+          for (const zf of unparsedZips) {
+            const zfBase = zf.name.replace(/\.[^/.]+$/, '');
+            const matchingFiles = zipResult.discoveredFiles.filter(
+              (df) => df.archiveName === zfBase || df.archiveName?.startsWith(zfBase)
+            );
+            const filesCount = matchingFiles.length > 0
+              ? matchingFiles.length
+              : (unparsedZips.length === 1 ? zipResult.discoveredFiles.length : 0);
+
+            const meta: ArchiveMeta = {
+              id: `zip-${zf.name}-${zf.size}`,
+              name: zf.name,
+              type: 'zip',
+              sizeBytes: zf.size,
+              filesCount,
+            };
+
+            parsedArchiveCacheRef.current.set(`${zf.name}_${zf.size}`, {
+              discoveredFiles: matchingFiles.length > 0 ? matchingFiles : zipResult.discoveredFiles,
+              meta,
+              suggestedTitle: zipResult.suggestedTitle,
+            });
+          }
+        }
+
+        // Assemble all active ZIP files from cache
+        const zipDiscovered: DiscoveredArchiveFile[] = [];
+        for (const zf of zips) {
+          const cached = parsedArchiveCacheRef.current.get(`${zf.name}_${zf.size}`);
+          if (cached) {
+            zipDiscovered.push(...cached.discoveredFiles);
+            metas.push(cached.meta);
+            if (!detectedTitle && cached.suggestedTitle) {
+              detectedTitle = cached.suggestedTitle;
+            }
+          }
+        }
+
+        allDiscovered.push(...zipDiscovered);
+
+        if (zipDiscovered.length > 0) {
+          try {
+            const parsedStructure = processDiscoveredFiles(zipDiscovered, zips[0]?.name || 'Course');
+            combinedSections.push(...parsedStructure.sections);
+            if (!detectedTitle && parsedStructure.suggestedTitle) {
+              detectedTitle = parsedStructure.suggestedTitle;
+            }
+          } catch (structureErr: any) {
+            console.warn('Structure grouping warning:', structureErr);
+          }
         }
       }
 
-      // 2. Process Folder files (webkitdirectory) with real-time monotonic progress
+      // 2. Process Folder files (webkitdirectory)
       if (hasFolders) {
-        const folderResult = await parseCourseFolder(folders, (pct, msg) => {
-          setImportProgress(Math.min(100, Math.round(folderOffset + pct * folderWeight)));
-          setStatusMessage(msg);
-        });
-        allDiscovered.push(...folderResult.discoveredFiles);
-        
-        // Merge sections
+        if (!parsedFolderCacheRef.current || parsedFolderCacheRef.current.folderFileCount !== folders.length) {
+          const folderResult = await parseCourseFolder(folders, (pct, msg) => {
+            setImportProgress(Math.min(100, Math.round(folderOffset + pct * folderWeight)));
+            setStatusMessage(msg);
+          });
+
+          // Group folder metas by top-level directory
+          const topDirs = new Set<string>();
+          for (const f of folders) {
+            const parts = (f.webkitRelativePath || f.name).split('/');
+            topDirs.add(parts[0] || 'Course Folder');
+          }
+
+          const folderMetas: ArchiveMeta[] = [];
+          for (const dir of topDirs) {
+            const dirFiles = folders.filter((f) => (f.webkitRelativePath || f.name).startsWith(dir));
+            const dirSize = dirFiles.reduce((acc, f) => acc + f.size, 0);
+            folderMetas.push({
+              id: `folder-${dir}`,
+              name: dir,
+              type: 'folder',
+              sizeBytes: dirSize,
+              filesCount: dirFiles.length,
+            });
+          }
+
+          parsedFolderCacheRef.current = {
+            discoveredFiles: folderResult.discoveredFiles,
+            sections: folderResult.sections,
+            metas: folderMetas,
+            suggestedTitle: folderResult.suggestedTitle,
+            folderFileCount: folders.length,
+          };
+        }
+
+        const cachedFolder = parsedFolderCacheRef.current!;
+        allDiscovered.push(...cachedFolder.discoveredFiles);
+        metas.push(...cachedFolder.metas);
+
+        // Merge sections with proper positional offset
         const offset = combinedSections.length;
-        const adjustedFolderSections = folderResult.sections.map((s, idx) => ({
+        const adjustedFolderSections = cachedFolder.sections.map((s, idx) => ({
           ...s,
           position: s.position + offset,
           id: `sec-folder-${idx + offset + 1}`,
         }));
         combinedSections.push(...adjustedFolderSections);
-        
-        if (!detectedTitle) detectedTitle = folderResult.suggestedTitle;
 
-        // Group folder metas by top-level directory
-        const topDirs = new Set<string>();
-        for (const f of folders) {
-          const parts = (f.webkitRelativePath || f.name).split('/');
-          topDirs.add(parts[0] || 'Course Folder');
-        }
-
-        for (const dir of topDirs) {
-          const dirFiles = folders.filter((f) => (f.webkitRelativePath || f.name).startsWith(dir));
-          const dirSize = dirFiles.reduce((acc, f) => acc + f.size, 0);
-          metas.push({
-            id: `folder-${dir}`,
-            name: dir,
-            type: 'folder',
-            sizeBytes: dirSize,
-            filesCount: dirFiles.length,
-          });
+        if (!detectedTitle && cachedFolder.suggestedTitle) {
+          detectedTitle = cachedFolder.suggestedTitle;
         }
       }
 
@@ -244,14 +344,21 @@ export function ImportPage() {
       }
     } catch (err: any) {
       console.error('Archive processing error:', err);
-      alert(`Error reading course files: ${err.message || 'Unknown error'}`);
+      const isReadErr =
+        err?.message?.toLowerCase().includes('permission problems') ||
+        err?.name === 'NotReadableError' ||
+        err?.message?.toLowerCase().includes('could not be read');
+      const friendlyMsg = isReadErr
+        ? 'A file handle could not be read by the browser. If files were moved or stored on removable media, please re-select them.'
+        : (err.message || 'Unknown error');
+      alert(`Error reading course files: ${friendlyMsg}`);
       addLog('ERROR', 'IMPORTER', 'Failed to inspect files', err.message);
     } finally {
       setIsProcessing(false);
       setStatusMessage('');
       setPasswordModalState((prev) => ({ ...prev, isOpen: false, isLoading: false }));
-      if (zipInputRef.current) zipInputRef.current.value = '';
-      if (folderInputRef.current) folderInputRef.current.value = '';
+      // Note: Do NOT clear zipInputRef.current.value or folderInputRef.current.value here.
+      // In Chromium, resetting input.value revokes the browser permission handle for all active File objects!
     }
   };
 
@@ -417,6 +524,7 @@ export function ImportPage() {
     if (meta.type === 'zip') {
       const updated = accumulatedZipFiles.filter((f) => f.name !== meta.name);
       setAccumulatedZipFiles(updated);
+      parsedArchiveCacheRef.current.delete(`${meta.name}_${meta.sizeBytes}`);
       if (updated.length === 0 && accumulatedFolderFiles.length === 0) {
         setArchivesList([]);
         setDiscoveredFiles([]);
@@ -431,6 +539,7 @@ export function ImportPage() {
         return parts[0] !== meta.name;
       });
       setAccumulatedFolderFiles(updated);
+      parsedFolderCacheRef.current = null;
       if (accumulatedZipFiles.length === 0 && updated.length === 0) {
         setArchivesList([]);
         setDiscoveredFiles([]);
@@ -1059,7 +1168,7 @@ export function ImportPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
               {/* Option 1: ZIP Archive(s) */}
               <div
-                onClick={() => zipInputRef.current?.click()}
+                onClick={openZipPicker}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setIsDraggingZip(true);
@@ -1087,7 +1196,7 @@ export function ImportPage() {
 
               {/* Option 2: Extracted Folder */}
               <div
-                onClick={() => folderInputRef.current?.click()}
+                onClick={openFolderPicker}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setIsDraggingFolder(true);
@@ -1212,7 +1321,7 @@ export function ImportPage() {
             
             <div className="flex items-center gap-2">
               <button
-                onClick={() => zipInputRef.current?.click()}
+                onClick={openZipPicker}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
                 title="Add another ZIP archive to this course"
               >
@@ -1220,7 +1329,7 @@ export function ImportPage() {
                 <span>Add More ZIPs</span>
               </button>
               <button
-                onClick={() => folderInputRef.current?.click()}
+                onClick={openFolderPicker}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-bg)] text-xs font-mono text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
                 title="Add an extracted course folder"
               >
@@ -1514,7 +1623,7 @@ export function ImportPage() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <button
-                onClick={() => zipInputRef.current?.click()}
+                onClick={openZipPicker}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
                 title="Add another ZIP archive"
               >
