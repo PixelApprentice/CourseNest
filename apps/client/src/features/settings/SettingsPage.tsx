@@ -211,7 +211,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-4xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 md:p-10 max-w-4xl mx-auto space-y-6 sm:space-y-8">
       {/* Page Title & Navigation Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--cn-border)] pb-4">
         <div>
@@ -231,7 +231,8 @@ export function SettingsPage() {
             className="cn-tab-btn"
           >
             <IconSettings size={15} />
-            <span>Preferences & Storage</span>
+            <span className="hidden sm:inline">Preferences & Storage</span>
+            <span className="sm:hidden">Preferences</span>
           </button>
 
           <button
@@ -240,7 +241,8 @@ export function SettingsPage() {
             className="cn-tab-btn"
           >
             <IconHeart size={15} className={activeTab === 'credits' ? 'text-rose-500 fill-rose-500/20' : ''} />
-            <span>Open Source Credits</span>
+            <span className="hidden sm:inline">Open Source Credits</span>
+            <span className="sm:hidden">Credits</span>
           </button>
 
           <button
@@ -249,7 +251,8 @@ export function SettingsPage() {
             className="cn-tab-btn"
           >
             <IconTerminal size={15} />
-            <span>System Logs</span>
+            <span className="hidden sm:inline">System Logs</span>
+            <span className="sm:hidden">Logs</span>
           </button>
         </div>
       </div>

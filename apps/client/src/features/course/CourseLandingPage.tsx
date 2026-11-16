@@ -148,7 +148,7 @@ export function CourseLandingPage() {
             </div>
 
             {isEditingTitle ? (
-              <div className="flex items-center gap-2 max-w-xl">
+              <div className="flex items-center gap-2 max-w-xl w-full flex-wrap sm:flex-nowrap">
                 <input
                   type="text"
                   value={editedTitle}
@@ -158,7 +158,7 @@ export function CourseLandingPage() {
                     if (e.key === 'Escape') handleCancelEdit();
                   }}
                   autoFocus
-                  className="flex-1 px-3 py-1.5 text-xl font-bold bg-[var(--cn-bg)] border border-[var(--cn-primary)] rounded-lg text-[var(--cn-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cn-primary)]/30 font-sans"
+                  className="flex-1 min-w-[200px] px-3 py-1.5 text-xl font-bold bg-[var(--cn-bg)] border border-[var(--cn-primary)] rounded-lg text-[var(--cn-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--cn-primary)]/30 font-sans"
                 />
                 <button
                   onClick={handleSaveTitle}
@@ -178,11 +178,11 @@ export function CourseLandingPage() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-start justify-between gap-4">
-                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)] flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+                <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--cn-text-primary)] flex-1 min-w-0 break-words">
                   {course.title}
                 </h1>
-                <div className="flex items-center gap-1.5 shrink-0 pt-1">
+                <div className="flex items-center gap-1.5 shrink-0 pt-1 flex-wrap self-start sm:self-auto">
                   <Link
                     to={`/import?courseId=${course.id}`}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] text-[var(--cn-text-secondary)] hover:text-[var(--cn-primary)] hover:border-[var(--cn-primary)]/50 text-xs font-mono font-medium transition-colors"

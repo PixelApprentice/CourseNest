@@ -91,7 +91,7 @@ export function LibraryPage() {
         }
       }}
       onDrop={handleDropFiles}
-      className="p-6 md:p-10 max-w-6xl mx-auto space-y-8 relative"
+      className="p-4 sm:p-6 md:p-10 max-w-6xl mx-auto space-y-6 sm:space-y-8 relative"
     >
       {/* Global Drag-and-Drop Overlay */}
       {isDraggingFiles && (
@@ -123,7 +123,7 @@ export function LibraryPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start md:self-auto">
+        <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
           <Link
             to="/import"
             className="cn-btn cn-btn-md cn-btn-primary"

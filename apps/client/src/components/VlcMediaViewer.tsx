@@ -1306,8 +1306,8 @@ export function VlcMediaViewer({
         </div>
 
         {/* Action Controls Toolbar */}
-        <div className="flex items-center justify-between text-white font-mono text-xs">
-          <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center justify-between text-white font-mono text-xs flex-wrap gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Play/Pause */}
             <button
               onClick={togglePlay}
@@ -1320,14 +1320,14 @@ export function VlcMediaViewer({
             {/* Frame-by-Frame Steppers */}
             <button
               onClick={() => stepFrame(-1)}
-              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white hidden sm:inline-block"
               title="Step -1 Frame (-33ms)"
             >
               ◀|
             </button>
             <button
               onClick={() => stepFrame(1)}
-              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] text-white/80 hover:text-white hidden sm:inline-block"
               title="Step +1 Frame (+33ms)"
             >
               |▶
@@ -1336,14 +1336,14 @@ export function VlcMediaViewer({
             {/* Jump -5s / +5s */}
             <button
               onClick={() => seekRelative(-5)}
-              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)]"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)] hidden sm:inline-block"
               title="Rewind 5s (←)"
             >
               -5s
             </button>
             <button
               onClick={() => seekRelative(5)}
-              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)]"
+              className="cn-btn-tactile px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[11px] hover:text-[var(--cn-brand)] hidden sm:inline-block"
               title="Forward 5s (→)"
             >
               +5s
@@ -1371,7 +1371,7 @@ export function VlcMediaViewer({
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Subtitles / CC Toggle and Language Selector */}
             <div className="flex items-center gap-1">
               <input

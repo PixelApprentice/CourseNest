@@ -857,7 +857,7 @@ export function ImportPage() {
   );
 
   return (
-    <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
+    <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto space-y-6 sm:space-y-8">
       {/* Existing Course Append Notice */}
       {targetExistingCourse && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-xs shadow-xs">
@@ -884,8 +884,8 @@ export function ImportPage() {
       )}
 
       {/* Modern Responsive Step Progress Tracker */}
-      <nav aria-label="Import Progress" className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-4 sm:p-5 shadow-xs">
-        <ol className="flex items-center w-full">
+      <nav aria-label="Import Progress" className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-3 sm:p-5 shadow-xs overflow-x-auto">
+        <ol className="flex items-center w-full min-w-[280px]">
           {[
             { id: 'select', title: 'Select Files', short: 'Files' },
             { id: 'inventory', title: 'Archive Scan', short: 'Scan' },
@@ -1502,7 +1502,7 @@ export function ImportPage() {
 
       {/* STEP 3: PROPOSED STRUCTURE REVIEW */}
       {step === 'review' && (
-        <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-8 space-y-6">
+        <div className="border border-[var(--cn-border)] rounded-2xl bg-[var(--cn-surface)] p-5 sm:p-8 space-y-6">
           <div className="border-b border-[var(--cn-border)] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="font-bold text-lg text-[var(--cn-text-primary)]">
@@ -1512,7 +1512,7 @@ export function ImportPage() {
                 Check and adjust how your chapters, sections, and lessons are arranged before saving.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 onClick={() => zipInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-mono text-[var(--cn-text-primary)] hover:border-[var(--cn-primary)] transition-colors"
@@ -1676,7 +1676,7 @@ export function ImportPage() {
                         <span className="text-xs font-mono text-[var(--cn-text-muted)] font-semibold shrink-0">
                           Section {sIdx + 1}:
                         </span>
-                        <div className="relative flex-1 max-w-md flex items-center">
+                        <div className="relative flex-1 min-w-0 max-w-md flex items-center">
                           <input
                             type="text"
                             value={sec.title}
@@ -1819,7 +1819,7 @@ export function ImportPage() {
                                     </button>
                                   </div>
 
-                                  <div className="relative flex-1 max-w-sm flex items-center">
+                                  <div className="relative flex-1 min-w-0 max-w-sm flex items-center">
                                     <input
                                       type="text"
                                       value={les.title}
@@ -1836,19 +1836,20 @@ export function ImportPage() {
                                     {les.files.map((f, fIdx) => (
                                       <span
                                         key={fIdx}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--cn-bg)] border border-[var(--cn-border)]"
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[var(--cn-bg)] border border-[var(--cn-border)] max-w-full"
+                                        title={f.filename}
                                       >
                                         {f.type === 'video' ? (
-                                          <IconVideo size={11} className="text-orange-400" />
+                                          <IconVideo size={11} className="text-orange-400 shrink-0" />
                                         ) : f.type === 'document' ? (
-                                          <IconFileText size={11} className="text-sky-400" />
+                                          <IconFileText size={11} className="text-sky-400 shrink-0" />
                                         ) : f.type === 'code' ? (
-                                          <IconCode size={11} className="text-emerald-400" />
+                                          <IconCode size={11} className="text-emerald-400 shrink-0" />
                                         ) : (
-                                          <IconFileText size={11} className="text-purple-400" />
+                                          <IconFileText size={11} className="text-purple-400 shrink-0" />
                                         )}
-                                        <span>{f.filename}</span>
-                                        {f.sizeBytes > 0 && <span>({(f.sizeBytes / 1024 / 1024).toFixed(1)}MB)</span>}
+                                        <span className="truncate max-w-[150px] sm:max-w-xs">{f.filename}</span>
+                                        {f.sizeBytes > 0 && <span className="shrink-0">({(f.sizeBytes / 1024 / 1024).toFixed(1)}MB)</span>}
                                       </span>
                                     ))}
                                   </div>

@@ -655,7 +655,7 @@ export function CourseStudioPage() {
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
           <button
             onClick={handleExportJson}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-xs font-semibold text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] transition-colors shadow-xs"

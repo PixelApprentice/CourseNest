@@ -523,22 +523,22 @@ export function LessonPlayerPage() {
   return (
     <div className="flex flex-col h-full bg-[var(--cn-bg)]">
       {/* Top Player Action Bar */}
-      <header className="h-16 px-4 md:px-6 border-b border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="h-16 px-3 sm:px-4 md:px-6 border-b border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between shrink-0 z-10 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Link
             to={`/course/${courseData.id}`}
             className="flex items-center gap-1.5 text-xs font-mono font-medium text-[var(--cn-text-secondary)] hover:text-[var(--cn-text-primary)] transition-colors shrink-0"
           >
             <IconArrowLeft size={14} />
-            <span className="hidden sm:inline">Course Overview</span>
+            <span className="hidden sm:inline">Overview</span>
           </Link>
           <span className="text-[var(--cn-text-muted)] font-mono hidden sm:inline">|</span>
-          <span className="text-xs font-bold text-[var(--cn-text-primary)] truncate max-w-xs md:max-w-md">
+          <span className="text-xs font-bold text-[var(--cn-text-primary)] truncate max-w-[130px] sm:max-w-xs md:max-w-md">
             {activeLesson.title}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Storage status chip */}
           {isExternalDisconnected && (
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-[var(--cn-warning-tint)] text-[var(--cn-warning)] border border-[var(--cn-warning)]/40">
@@ -550,14 +550,14 @@ export function LessonPlayerPage() {
           {/* Completion checkmark */}
           <button
             onClick={handleToggleCompletion}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
               isCompleted
                 ? 'bg-[var(--cn-success-tint)] text-[var(--cn-success)] border-[var(--cn-success)]/40'
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
             }`}
           >
             <IconCircleCheck size={14} />
-            <span>{isCompleted ? 'Completed' : 'Mark Done'}</span>
+            <span className="hidden sm:inline">{isCompleted ? 'Completed' : 'Mark Done'}</span>
           </button>
 
           {/* Bookmarks Tab Toggle */}
@@ -621,7 +621,7 @@ export function LessonPlayerPage() {
           <button
             onClick={() => setActiveSidePanel(activeSidePanel === 'curriculum' ? 'none' : 'curriculum')}
             title="Curriculum Outline"
-            className={`p-2 rounded-lg border text-xs transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
+            className={`p-1.5 sm:p-2 rounded-lg border text-xs transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-95 ${
               activeSidePanel === 'curriculum'
                 ? 'bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border-[var(--cn-primary)]/40'
                 : 'border-[var(--cn-border)] text-[var(--cn-text-secondary)] hover:bg-[var(--cn-surface-subtle)]'
@@ -834,8 +834,8 @@ export function LessonPlayerPage() {
               );
 
               return (
-                <div key={block.id} className="p-5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5">
+                <div key={block.id} className="p-4 sm:p-5 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3.5 min-w-0">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
                       isPptx 
                         ? 'bg-orange-500/15 text-orange-400' 
@@ -843,15 +843,15 @@ export function LessonPlayerPage() {
                     }`}>
                       {isPptx ? <IconPresentation size={20} /> : <IconFileText size={20} />}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-[var(--cn-text-primary)]">{filename}</h4>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-[var(--cn-text-primary)] truncate max-w-xs sm:max-w-md">{filename}</h4>
                       <p className="text-xs text-[var(--cn-text-muted)] mt-0.5 font-mono">
                         {isPptx ? 'PowerPoint Presentation Deck' : 'Course Handout & Document'} • {(size / 1024 / 1024).toFixed(1)} MB
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                     {isPptx ? (
                       <button
                         onClick={async () => {
@@ -915,16 +915,16 @@ export function LessonPlayerPage() {
               const isUrl = Boolean(block.src && (block.src.startsWith('http://') || block.src.startsWith('https://')));
 
               return (
-                <div key={block.id} className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
+                <div key={block.id} className="p-4 rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className="w-9 h-9 rounded-lg bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] flex items-center justify-center shrink-0">
                       {isUrl ? <IconLink size={18} /> : <IconDownload size={18} />}
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold text-[var(--cn-text-primary)]">{block.title || filename}</p>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-[var(--cn-text-primary)] truncate">{block.title || filename}</p>
                       <p className="text-[11px] text-[var(--cn-text-muted)] font-mono">
                         {isUrl ? (
-                          <span className="truncate max-w-sm block text-[var(--cn-primary)]">{block.src}</span>
+                          <span className="truncate max-w-xs sm:max-w-sm block text-[var(--cn-primary)]">{block.src}</span>
                         ) : (
                           `${(size / 1024).toFixed(0)} KB • Course File Attachment`
                         )}
@@ -933,7 +933,7 @@ export function LessonPlayerPage() {
                   </div>
 
                   {isUrl ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                       <button
                         onClick={() => setActiveMiniUrl({ url: block.src!, title: block.title || filename })}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--cn-primary)] text-[var(--cn-primary-text)] text-xs font-mono font-semibold hover:bg-[var(--cn-primary-hover)] transition-colors shadow-xs"
@@ -1150,9 +1150,18 @@ export function LessonPlayerPage() {
         </div>
       </div>
 
+        {/* Mobile / Narrow Screen Drawer Backdrop */}
+        {activeSidePanel !== 'none' && (
+          <div
+            className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-40 animate-in fade-in duration-150"
+            onClick={() => setActiveSidePanel('none')}
+            aria-hidden="true"
+          />
+        )}
+
         {/* Side Rail 1: Personal Notes */}
         {activeSidePanel === 'notes' && (
-          <aside className="w-88 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 z-20 shadow-xl">
+          <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-96 max-w-full lg:static lg:w-88 lg:z-20 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 shadow-2xl lg:shadow-xl animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--cn-border)]">
               <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)]">Lesson Notes</span>
               <button onClick={() => setActiveSidePanel('none')} className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)]">
@@ -1188,7 +1197,7 @@ export function LessonPlayerPage() {
 
         {/* Side Rail 2: Bookmarks */}
         {activeSidePanel === 'bookmarks' && (
-          <aside className="w-88 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 z-20 shadow-xl">
+          <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-96 max-w-full lg:static lg:w-88 lg:z-20 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 shadow-2xl lg:shadow-xl animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--cn-border)]">
               <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)]">Timestamp Bookmarks</span>
               <button onClick={() => setActiveSidePanel('none')} className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)]">
@@ -1251,7 +1260,7 @@ export function LessonPlayerPage() {
 
         {/* Side Rail 3: Curriculum Outline */}
         {activeSidePanel === 'curriculum' && (
-          <aside className="w-88 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 z-20 shadow-xl overflow-y-auto">
+          <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-96 max-w-full lg:static lg:w-88 lg:z-20 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] p-4 flex flex-col shrink-0 shadow-2xl lg:shadow-xl overflow-y-auto animate-in slide-in-from-right duration-200">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--cn-border)]">
               <span className="text-xs font-mono font-bold text-[var(--cn-text-primary)]">Curriculum Navigation</span>
               <button onClick={() => setActiveSidePanel('none')} className="p-1.5 rounded hover:bg-[var(--cn-surface-subtle)] text-[var(--cn-text-muted)]">
@@ -1297,7 +1306,7 @@ export function LessonPlayerPage() {
 
         {/* Side Rail 4: AI Reading Companion */}
         {activeSidePanel === 'ai-tutor' && (
-          <aside className="w-96 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] flex flex-col shrink-0 z-20 shadow-2xl">
+          <aside className="fixed inset-y-0 right-0 z-50 w-full sm:w-96 max-w-full lg:static lg:w-96 lg:z-20 border-l border-[var(--cn-border)] bg-[var(--cn-surface)] flex flex-col shrink-0 shadow-2xl animate-in slide-in-from-right duration-200">
             <div className="p-2 border-b border-[var(--cn-border)] flex justify-end bg-[var(--cn-surface-subtle)]/30">
               <button
                 onClick={() => setActiveSidePanel('none')}

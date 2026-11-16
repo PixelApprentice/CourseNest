@@ -76,8 +76,8 @@ export function CurriculumRoadmapDiagram({
           </p>
         </div>
 
-        <div className="flex items-center gap-4 shrink-0 font-mono">
-          <div className="text-right">
+        <div className="flex items-center gap-4 shrink-0 font-mono self-start sm:self-auto">
+          <div className="text-left sm:text-right">
             <div className="text-sm font-bold text-[var(--cn-text-primary)]">
               {completedCount} of {totalCount} Completed
             </div>
@@ -85,7 +85,7 @@ export function CurriculumRoadmapDiagram({
               {overallPercent}% Syllabus Progress
             </div>
           </div>
-          <div className="w-24">
+          <div className="w-24 shrink-0">
             <ProgressBar value={overallPercent} size="md" tone={overallPercent === 100 ? 'success' : 'primary'} />
           </div>
         </div>
@@ -230,7 +230,7 @@ export function CurriculumRoadmapDiagram({
                               )}
                             </div>
 
-                            <div className="flex items-center gap-2.5 shrink-0 text-[11px] font-mono text-[var(--cn-text-secondary)]">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 shrink-0 text-[11px] font-mono text-[var(--cn-text-secondary)]">
                               <div className="flex items-center gap-1">
                                 {getContentTypeIcon(contentType)}
                                 <span className="capitalize">{contentType}</span>

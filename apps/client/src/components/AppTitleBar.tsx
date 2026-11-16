@@ -122,7 +122,7 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
           <button
             type="button"
             onClick={onToggleMobileMenu}
-            className="md:hidden p-1 rounded-md text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] transition-colors cn-window-no-drag cursor-pointer"
+            className="md:hidden p-1 rounded-md text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-hover)] transition-colors cn-window-no-drag cursor-pointer shrink-0"
             title="Open Navigation"
             aria-label="Open Navigation"
           >
@@ -130,7 +130,7 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
           </button>
         )}
 
-        <div className="flex items-center gap-2 cn-window-no-drag cursor-pointer" onClick={() => navigate('/')}>
+        <div className="flex items-center gap-2 cn-window-no-drag cursor-pointer shrink-0" onClick={() => navigate('/')}>
           <span className="font-extrabold text-[12px] tracking-tight text-[var(--cn-text-primary)] hover:text-[var(--cn-primary)] transition-colors">
             CourseNest
           </span>
@@ -139,8 +139,8 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
           </span>
         </div>
 
-        <span className="text-[var(--cn-border-highlight)]">/</span>
-        <span className="truncate font-medium text-[var(--cn-text-secondary)] text-[11px] max-w-65">
+        <span className="text-[var(--cn-border-highlight)] hidden sm:inline">/</span>
+        <span className="truncate font-medium text-[var(--cn-text-secondary)] text-[11px] max-w-40 sm:max-w-65 hidden sm:inline">
           {getPageTitle()}
         </span>
       </div>
@@ -149,16 +149,16 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
       {playback && playback.isPlaying ? (
         <div 
           onClick={() => navigate(`/course/${playback.courseId}/lesson/${playback.lessonId}`)}
-          className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] text-[11px] font-mono cursor-pointer hover:bg-[var(--cn-primary-tint)]/80 transition-colors cn-window-no-drag shadow-xs animate-in fade-in relative z-10"
+          className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[var(--cn-primary-tint)] border border-[var(--cn-primary)]/40 text-[var(--cn-primary)] text-[11px] font-mono cursor-pointer hover:bg-[var(--cn-primary-tint)]/80 transition-colors cn-window-no-drag shadow-xs animate-in fade-in relative z-10 max-w-[200px] sm:max-w-xs"
           title={`Now Playing: ${playback.lessonTitle} (${playback.courseTitle}). Click to jump to lesson.`}
         >
           {/* YouTube-style animated equalizer bars */}
-          <span className="flex items-end gap-0.5 h-3">
+          <span className="flex items-end gap-0.5 h-3 shrink-0">
             <span className="w-0.5 bg-[var(--cn-primary)] rounded-full animate-pulse h-2" />
             <span className="w-0.5 bg-[var(--cn-primary)] rounded-full animate-pulse h-3 [animation-delay:150ms]" />
             <span className="w-0.5 bg-[var(--cn-primary)] rounded-full animate-pulse h-1.5 [animation-delay:300ms]" />
           </span>
-          <span className="font-semibold truncate max-w-50">
+          <span className="font-semibold truncate max-w-24 sm:max-w-48">
             {playback.lessonTitle}
           </span>
           <button
@@ -167,7 +167,7 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
               e.stopPropagation();
               togglePlaybackPlayPause();
             }}
-            className="p-0.5 hover:opacity-80 active:scale-95 ml-0.5"
+            className="p-0.5 hover:opacity-80 active:scale-95 ml-0.5 shrink-0"
             title="Pause playback"
           >
             <IconPlayerPause size={12} />
@@ -202,19 +202,19 @@ export function AppTitleBar({ onOpenThemeModal, onToggleMobileMenu }: AppTitleBa
           {storageConfig.volumeType === 'external' ? (
             storageConfig.isMounted ? (
               <>
-                <IconDeviceFloppy size={11} className="text-[var(--cn-primary)]" />
-                <span className="truncate max-w-30">{isRechecking ? 'Checking...' : mountLabel}</span>
+                <IconDeviceFloppy size={11} className="text-[var(--cn-primary)] shrink-0" />
+                <span className="hidden sm:inline truncate max-w-28">{isRechecking ? 'Checking...' : mountLabel}</span>
               </>
             ) : (
               <>
-                <IconAlertTriangle size={11} className="text-[var(--cn-warning)]" />
-                <span>{isRechecking ? 'Detecting...' : 'HDD Offline'}</span>
+                <IconAlertTriangle size={11} className="text-[var(--cn-warning)] shrink-0" />
+                <span className="hidden sm:inline">{isRechecking ? 'Detecting...' : 'HDD Offline'}</span>
               </>
             )
           ) : (
             <>
-              <IconCircleCheck size={11} className="text-[var(--cn-success)]" />
-              <span>Internal Storage</span>
+              <IconCircleCheck size={11} className="text-[var(--cn-success)] shrink-0" />
+              <span className="hidden sm:inline">Internal Storage</span>
             </>
           )}
         </button>

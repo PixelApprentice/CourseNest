@@ -42,14 +42,14 @@ export function CourseCard({
   return (
     <div
       className={`group relative rounded-xl border border-[var(--cn-border)] bg-[var(--cn-surface)] hover:border-[var(--cn-border-highlight)] transition-[border-color,box-shadow,transform] duration-150 ease-out hover:-translate-y-0.5 overflow-hidden flex ${
-        viewMode === 'list' ? 'flex-row items-center p-5 gap-6' : 'flex-col'
+        viewMode === 'list' ? 'flex-col sm:flex-row sm:items-center p-4 sm:p-5 gap-4 sm:gap-6' : 'flex-col'
       }`}
     >
       {/* Header / Preview Area */}
       <div
         className={`${
           viewMode === 'list'
-            ? 'w-52 h-36 rounded-lg shrink-0'
+            ? 'w-full sm:w-52 h-44 sm:h-36 rounded-lg shrink-0'
             : 'w-full h-36'
         } relative overflow-hidden bg-[var(--cn-surface-subtle)] border-b border-[var(--cn-border)] flex flex-col justify-between p-4`}
       >
@@ -135,7 +135,7 @@ export function CourseCard({
       </div>
 
       {/* Course Info & Progress */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+      <div className="p-4 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-4">
         <div>
           <h3 className="font-sans font-bold text-base text-[var(--cn-text-primary)] group-hover:text-[var(--cn-primary)] transition-colors line-clamp-1 mb-1.5">
             {course.title}
@@ -164,7 +164,7 @@ export function CourseCard({
         </div>
 
         {/* Curriculum Metadata */}
-        <div className="flex items-center gap-4 text-[11px] font-mono text-[var(--cn-text-muted)] pt-1 border-t border-[var(--cn-border)]/60">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] font-mono text-[var(--cn-text-muted)] pt-1 border-t border-[var(--cn-border)]/60">
           <span className="flex items-center gap-1.5">
             <IconStack2 size={13} className="text-[var(--cn-primary)]" />
             {totalSections} Chapters
@@ -196,7 +196,7 @@ export function CourseCard({
         </div>
 
         {/* Action Row */}
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[var(--cn-border)]/60">
           <Link
             to={lastLessonId ? `/course/${course.id}/lesson/${lastLessonId}` : `/course/${course.id}`}
             className="cn-btn cn-btn-sm cn-btn-primary"

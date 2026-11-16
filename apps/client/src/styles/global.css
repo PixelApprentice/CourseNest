@@ -8,6 +8,20 @@
 /* =============================================================================
    1. DEFAULT TOKENS & OBSIDIAN MOSS (Deep Focus Studio)
    ============================================================================= */
+/* Global Root Viewport Overflow Containment */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+}
+
+#root {
+  overflow-x: hidden;
+  max-width: 100vw;
+  min-height: 100vh;
+}
+
 :root,
 [data-theme="obsidian"],
 [data-theme="dark"],

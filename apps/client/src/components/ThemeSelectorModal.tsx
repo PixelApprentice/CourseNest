@@ -36,30 +36,30 @@ export function ThemeSelectorModal({ isOpen, onClose }: ThemeSelectorModalProps)
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-5 border-b border-[var(--cn-border)] flex items-center justify-between bg-[var(--cn-surface-subtle)]/50 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/20 shadow-xs">
+        <div className="px-5 sm:px-6 py-4 sm:py-5 border-b border-[var(--cn-border)] flex items-center justify-between bg-[var(--cn-surface-subtle)]/50 shrink-0 gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="p-2.5 rounded-xl bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/20 shadow-xs shrink-0">
               <IconPalette size={20} />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-extrabold tracking-tight text-[var(--cn-text-primary)]">
-                  Visual Theme & Aesthetic Studio
+                <h2 className="text-base font-extrabold tracking-tight text-[var(--cn-text-primary)] truncate">
+                  Visual Theme Studio
                 </h2>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30">
+                <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[var(--cn-primary-tint)] text-[var(--cn-primary)] border border-[var(--cn-primary)]/30 shrink-0">
                   <IconBrush size={11} />
                   9 Curated Styles
                 </span>
               </div>
-              <p className="text-xs text-[var(--cn-text-muted)]">
-                Transform colors, open-source typography, and custom animations for your personal study vibe
+              <p className="text-xs text-[var(--cn-text-muted)] line-clamp-1">
+                Transform colors, typography, and atmospheric animations for your personal study vibe
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90"
+            className="p-2 rounded-xl text-[var(--cn-text-muted)] hover:text-[var(--cn-text-primary)] hover:bg-[var(--cn-surface-subtle)] border border-transparent hover:border-[var(--cn-border)] transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-90 shrink-0"
             title="Close theme studio"
             aria-label="Close theme studio"
           >
