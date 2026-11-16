@@ -314,6 +314,97 @@ export function isZipEncrypted(buffer: ArrayBuffer | Uint8Array): boolean {
   return false;
 }
 
+/**
+ * Fast non-blocking encryption check that inspects tiny header slices (<256 KB)
+ * instead of loading the entire multi-gigabyte archive into browser heap memory.
+ */
+export async function checkIfZipIsEncrypted(file: File): Promise<boolean> {
+  try {
+    // 1. Inspect local headers near the start of the file (128 KB slice)
+    const headSize = Math.min(file.size, 128 * 1024);
+    const headSlice = file.slice(0, headSize);
+    const headBuf = await headSlice.arrayBuffer();
+    if (isZipEncrypted(headBuf)) {
+      return true;
+    }
+
+    // 2. Inspect central directory headers near the end of the file (256 KB slice)
+    if (file.size > headSize) {
+      const tailSize = Math.min(file.size, 256 * 1024);
+      const tailSlice = file.slice(file.size - tailSize, file.size);
+      const tailBuf = await tailSlice.arrayBuffer();
+      if (isZipEncrypted(tailBuf)) {
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn('Fast ZIP encryption detection warning:', err);
+  }
+  return false;
+}
+
+/**
+ * Identifies auxiliary volumes of multi-part split archives (e.g., .z01, .part2.rar, .zip.002)
+ * so they are grouped with the primary archive instead of being scanned as separate courses.
+ */
+export function isAuxiliaryMultiPart(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  if (/\.z[0-9]{2,}$/i.test(lower)) return true;
+  if (/\.(?:zip|7z|rar)\.(?:00[2-9]|0[1-9][0-9]|[1-9][0-9]{2,})$/i.test(lower)) return true;
+  if (/\.part(?:0*[2-9]|[1-9][0-9]+)\.rar$/i.test(lower)) return true;
+  return false;
+}
+
+export interface ListedArchiveEntry {
+  path: string;
+  isFolder: boolean;
+  size: number;
+  encrypted: boolean;
+}
+
+export function parse7zListOutput(lines: string[]): ListedArchiveEntry[] {
+  const entries: ListedArchiveEntry[] = [];
+  let current: Partial<ListedArchiveEntry> | null = null;
+
+  for (let rawLine of lines) {
+    const line = rawLine.trim();
+    if (line.startsWith('----------')) {
+      if (current && current.path) {
+        entries.push({
+          path: current.path,
+          isFolder: !!current.isFolder,
+          size: current.size ?? 0,
+          encrypted: !!current.encrypted,
+        });
+      }
+      current = {};
+      continue;
+    }
+    if (!current) continue;
+
+    const eqIdx = line.indexOf('=');
+    if (eqIdx !== -1) {
+      const key = line.substring(0, eqIdx).trim();
+      const val = line.substring(eqIdx + 1).trim();
+      if (key === 'Path') current.path = val;
+      else if (key === 'Folder') current.isFolder = val === '+';
+      else if (key === 'Size') current.size = parseInt(val, 10) || 0;
+      else if (key === 'Encrypted') current.encrypted = val === '+';
+    }
+  }
+
+  if (current && current.path) {
+    entries.push({
+      path: current.path,
+      isFolder: !!current.isFolder,
+      size: current.size ?? 0,
+      encrypted: !!current.encrypted,
+    });
+  }
+
+  return entries;
+}
+
 // -----------------------------------------------------------------------------
 // Safe In-Memory & OS Keychain Password Management (Fixes Issue A)
 // Never stored in plaintext localStorage or logs. Kept in memory per session by default.
@@ -335,7 +426,140 @@ export async function resolveCoursePassword(courseId?: string): Promise<string |
   return coursePasswordManager.getCoursePassword(courseId || 'default-session');
 }
 
-async function extractWith7zWasm(
+// Active session cache for extracting files on demand during course commit
+interface ArchiveSession {
+  archiveKey: string;
+  sz: any;
+  stagingDir: string;
+}
+
+let activeArchiveSession: ArchiveSession | null = null;
+
+export async function cleanupArchiveExtractionSessions(): Promise<void> {
+  if (activeArchiveSession) {
+    try {
+      const deleteRecursive = (dir: string) => {
+        const entries = activeArchiveSession!.sz.FS.readdir(dir);
+        for (const entry of entries) {
+          if (entry === '.' || entry === '..') continue;
+          const full = `${dir}/${entry}`;
+          const stat = activeArchiveSession!.sz.FS.stat(full);
+          if (activeArchiveSession!.sz.FS.isDir(stat.mode)) {
+            deleteRecursive(full);
+            activeArchiveSession!.sz.FS.rmdir(full);
+          } else {
+            activeArchiveSession!.sz.FS.unlink(full);
+          }
+        }
+      };
+      deleteRecursive(activeArchiveSession.stagingDir);
+      activeArchiveSession.sz.FS.rmdir(activeArchiveSession.stagingDir);
+    } catch {}
+    activeArchiveSession = null;
+  }
+}
+
+/**
+ * On-demand single-file extractor for encrypted archives used during commit.
+ * Caches the active archive staging directory and immediately releases memory
+ * for extracted files once read, preventing memory accumulation across archives.
+ */
+async function extractFileFromArchiveSession(
+  archiveFile: File,
+  relPath: string,
+  mimeType: string,
+  password?: string,
+): Promise<Blob> {
+  const archiveKey = `${archiveFile.name}_${archiveFile.size}`;
+
+  // If active session is for a different archive, clean it up before switching
+  if (activeArchiveSession && activeArchiveSession.archiveKey !== archiveKey) {
+    await cleanupArchiveExtractionSessions();
+  }
+
+  if (!activeArchiveSession) {
+    const SevenZip = (await import('7z-wasm')).default;
+    const sz = await SevenZip({ print: () => {}, printErr: () => {} });
+    const id = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const ext = archiveFile.name.includes('.') ? '.' + archiveFile.name.split('.').pop() : '.bin';
+    const memArchive = `/archive_session_${id}${ext}`;
+    const stagingDir = `/staging_session_${id}`;
+
+    let buffer: Uint8Array;
+    try {
+      buffer = new Uint8Array(await archiveFile.arrayBuffer());
+    } catch (readErr: any) {
+      throw new Error(`Failed to read archive file "${archiveFile.name}". The file handle may have been closed or moved: ${readErr?.message || readErr}`);
+    }
+
+    sz.FS.writeFile(memArchive, buffer);
+    buffer = null as any;
+
+    try {
+      sz.FS.mkdir(stagingDir);
+    } catch {}
+
+    const args = ['x', memArchive, `-o${stagingDir}`, '-y'];
+    if (password) args.push(`-p${password}`);
+    sz.callMain(args);
+
+    // Unlink the archive buffer immediately to save WASM RAM; staging files remain
+    try {
+      sz.FS.unlink(memArchive);
+    } catch {}
+
+    activeArchiveSession = {
+      archiveKey,
+      sz,
+      stagingDir,
+    };
+  }
+
+  const sz = activeArchiveSession.sz;
+  const fullStagingPath = `${activeArchiveSession.stagingDir}/${relPath}`;
+
+  try {
+    const bytes = sz.FS.readFile(fullStagingPath);
+    // Unlink this specific file immediately after reading to release memory immediately
+    try {
+      sz.FS.unlink(fullStagingPath);
+    } catch {}
+    return new Blob([bytes as any], { type: mimeType });
+  } catch {
+    // If not found at direct path, locate recursively in staging
+    const findAndReadFile = (dir: string, targetName: string): Uint8Array | null => {
+      const entries = sz.FS.readdir(dir);
+      for (const entry of entries) {
+        if (entry === '.' || entry === '..') continue;
+        const current = `${dir}/${entry}`;
+        const stat = sz.FS.stat(current);
+        if (sz.FS.isDir(stat.mode)) {
+          const res = findAndReadFile(current, targetName);
+          if (res) return res;
+        } else if (entry === targetName || current.endsWith(targetName)) {
+          const content = sz.FS.readFile(current);
+          try { sz.FS.unlink(current); } catch {}
+          return content;
+        }
+      }
+      return null;
+    };
+
+    const filename = relPath.split('/').pop() || relPath;
+    const foundBytes = findAndReadFile(activeArchiveSession.stagingDir, filename);
+    if (foundBytes) {
+      return new Blob([foundBytes as any], { type: mimeType });
+    }
+
+    throw new Error(`Failed to locate "${relPath}" in extracted archive staging`);
+  }
+}
+
+/**
+ * Inspects an encrypted or 7z archive WITHOUT extracting file contents into memory.
+ * Tests password integrity and lists file metadata, then immediately releases virtual memory.
+ */
+async function inspectArchiveWith7zWasm(
   file: File,
   archiveBaseName: string,
   password?: string,
@@ -350,48 +574,36 @@ async function extractWith7zWasm(
   const id = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const ext = file.name.includes('.') ? '.' + file.name.split('.').pop() : '.bin';
   const memArchiveName = `/archive_${id}${ext}`;
-  const stagingDir = `/staging_${id}`;
 
-  const buffer = new Uint8Array(await file.arrayBuffer());
-  sz.FS.writeFile(memArchiveName, buffer);
-
+  // Read archive buffer safely with explicit diagnostics
+  let buffer: Uint8Array;
   try {
-    sz.FS.mkdir(stagingDir);
-  } catch {}
-
-  const args = ['x', memArchiveName, `-o${stagingDir}`, '-y'];
-  if (password) {
-    args.push(`-p${password}`);
+    buffer = new Uint8Array(await file.arrayBuffer());
+  } catch (readErr: any) {
+    throw new Error(
+      `Could not read archive "${file.name}". Typically due to file lock or revoked handle: ${readErr?.message || readErr}`
+    );
   }
 
-  const exitCode = (sz.callMain(args) as unknown as number) ?? 0;
+  try {
+    sz.FS.writeFile(memArchiveName, buffer);
+  } finally {
+    // Release JS ArrayBuffer reference immediately
+    buffer = null as any;
+  }
 
-  const cleanupVirtualFS = () => {
+  // 1. Verify password using "t" (test) command without extracting any files to memory/disk
+  const testArgs = ['t', memArchiveName, '-y'];
+  if (password) {
+    testArgs.push(`-p${password}`);
+  }
+  const testExit = (sz.callMain(testArgs) as unknown as number) ?? 0;
+
+  if (testExit !== 0) {
     try {
       sz.FS.unlink(memArchiveName);
     } catch {}
-    try {
-      const deleteRecursive = (dir: string) => {
-        const entries = sz.FS.readdir(dir);
-        for (const entry of entries) {
-          if (entry === '.' || entry === '..') continue;
-          const full = `${dir}/${entry}`;
-          const stat = sz.FS.stat(full);
-          if (sz.FS.isDir(stat.mode)) {
-            deleteRecursive(full);
-            sz.FS.rmdir(full);
-          } else {
-            sz.FS.unlink(full);
-          }
-        }
-      };
-      deleteRecursive(stagingDir);
-      sz.FS.rmdir(stagingDir);
-    } catch {}
-  };
 
-  if (exitCode !== 0) {
-    cleanupVirtualFS();
     const combinedOutput = [...stdoutLogs, ...stderrLogs].join('\n').toLowerCase();
     const isPasswordError =
       combinedOutput.includes('wrong password') ||
@@ -400,61 +612,69 @@ async function extractWith7zWasm(
       combinedOutput.includes('cannot open encrypted') ||
       combinedOutput.includes('data error in encrypted');
 
-    if (isPasswordError || password || exitCode === 2) {
+    if (isPasswordError || password || testExit === 2) {
       throw new Error(
         password
           ? 'Incorrect password. Please verify and try again.'
           : 'Archive is password-protected. Password required.'
       );
     }
-    throw new Error(`Extraction failed with exit code ${exitCode}: ${stderrLogs.join(' ') || stdoutLogs.join(' ') || 'Corrupted archive or unsupported format'}`);
+    throw new Error(
+      `Archive test failed with exit code ${testExit}: ${stderrLogs.join(' ') || stdoutLogs.join(' ') || 'Corrupted archive or unsupported format'}`
+    );
   }
 
+  // 2. List archive headers with "l -slt" to get paths and sizes WITHOUT extracting files
+  stdoutLogs.length = 0;
+  stderrLogs.length = 0;
+  const listArgs = ['l', '-slt', memArchiveName];
+  if (password) {
+    listArgs.push(`-p${password}`);
+  }
+  sz.callMain(listArgs);
+
+  // Immediately unlink archive from virtual FS to free WASM memory
+  try {
+    sz.FS.unlink(memArchiveName);
+  } catch {}
+
+  const parsedEntries = parse7zListOutput(stdoutLogs);
   const results: DiscoveredArchiveFile[] = [];
 
-  const traverseDir = (dir: string, baseRel: string) => {
-    const entries = sz.FS.readdir(dir);
-    for (const entry of entries) {
-      if (entry === '.' || entry === '..') continue;
-      const fullPath = `${dir}/${entry}`;
-      const relPath = baseRel ? `${baseRel}/${entry}` : entry;
-      const stat = sz.FS.stat(fullPath);
-      if (sz.FS.isDir(stat.mode)) {
-        traverseDir(fullPath, relPath);
-      } else {
-        if (isIgnored(relPath)) continue;
-        if (relPath.includes('../') || relPath.includes('..\\') || relPath.startsWith('/') || relPath.startsWith('\\')) {
-          addLog('WARN', 'SECURITY', `Blocked unsafe path in archive: ${relPath}`);
-          continue;
-        }
-
-        const filename = entry;
-        const ext = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
-        const { type, mimeType } = detectFileType(ext);
-
-        const fileBytes = sz.FS.readFile(fullPath);
-        const fileBlob = new Blob([fileBytes as any], { type: mimeType });
-
-        results.push({
-          originalPath: relPath,
-          cleanPath: relPath,
-          filename,
-          sizeBytes: stat.size || fileBlob.size,
-          fileType: type,
-          mimeType,
-          archiveName: archiveBaseName,
-          getData: async () => fileBlob,
-        });
-      }
+  for (const entry of parsedEntries) {
+    if (entry.isFolder) continue;
+    const relPath = entry.path.replace(/\\/g, '/');
+    if (isIgnored(relPath)) continue;
+    if (relPath.includes('../') || relPath.includes('..\\') || relPath.startsWith('/') || relPath.startsWith('\\')) {
+      addLog('WARN', 'SECURITY', `Blocked unsafe path in archive: ${relPath}`);
+      continue;
     }
-  };
 
-  traverseDir(stagingDir, '');
+    const filename = relPath.split('/').pop() || relPath;
+    const itemExt = filename.includes('.') ? '.' + filename.split('.').pop()! : '';
+    const { type, mimeType } = detectFileType(itemExt);
 
-  cleanupVirtualFS();
+    results.push({
+      originalPath: relPath,
+      cleanPath: relPath,
+      filename,
+      sizeBytes: entry.size,
+      fileType: type,
+      mimeType,
+      archiveName: archiveBaseName,
+      getData: async () => {
+        return extractFileFromArchiveSession(file, relPath, mimeType, password);
+      },
+    });
+  }
 
   return results;
 }
+
+/**
+ * Backward compatibility alias for extractWith7zWasm
+ */
+const extractWith7zWasm = inspectArchiveWith7zWasm;
 
 /**
  * Parse one or multiple ZIP files
@@ -496,6 +716,12 @@ export async function parseCourseArchives(
     const is7z = lowerName.endsWith('.7z') || lowerName.endsWith('.7zip');
     const isZip = lowerName.endsWith('.zip') || lowerName.endsWith('.tar.gz') || lowerName.endsWith('.tgz');
     const archiveBaseName = file.name.replace(/\.[^/.]+$/, '');
+
+    // Skip auxiliary volumes of multi-part archives (.z01, .part2.rar, .002) as they are extracted with the master part
+    if (isAuxiliaryMultiPart(file.name)) {
+      addLog('INFO', 'IMPORTER', `Recognized multi-volume companion part: ${file.name} (handled with primary volume)`);
+      continue;
+    }
 
     // 1. RAR Archives (.rar) via node-unrar-js WASM
     if (isRar) {
@@ -542,15 +768,11 @@ export async function parseCourseArchives(
       continue;
     }
 
-    // 2. Encrypted Check & Decompression
+    // 2. Encrypted Check & Decompression (Lightweight sliced check, 0 MB heap bloat)
     let isEncrypted = false;
-    let fileBuffer: ArrayBuffer | null = null;
 
     if (isZip) {
-      try {
-        fileBuffer = await file.arrayBuffer();
-        isEncrypted = isZipEncrypted(fileBuffer);
-      } catch {}
+      isEncrypted = await checkIfZipIsEncrypted(file);
     }
 
     // If encrypted or 7z: use 7z-wasm with candidate password auto-trial across parts and courses
@@ -633,7 +855,7 @@ export async function parseCourseArchives(
 
     // 3. Standard Non-Encrypted ZIP Archives via JSZip (Fast Path)
     try {
-      const zip = await JSZip.loadAsync(fileBuffer || file);
+      const zip = await JSZip.loadAsync(file);
       reportProgress(fileBase + (0.7 / files.length) * 75, `[Queue ${i + 1}/${files.length}] Decompressing headers: ${file.name}...`);
 
       zip.forEach((relPath, entry) => {
@@ -805,7 +1027,7 @@ export async function parseCourseFolder(
  * Core Hierarchy Organizer:
  * Automatically groups chapters, sections, companion subtitles, and lesson attachments.
  */
-function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: string): ParsedArchiveResult {
+export function processDiscoveredFiles(files: DiscoveredArchiveFile[], fallbackTitle: string): ParsedArchiveResult {
   if (files.length === 0) {
     throw new Error('No valid course materials found in the uploaded archive or folder.');
   }
@@ -1372,6 +1594,8 @@ export async function commitImportedCourse(params: {
   reportProgress(98, 'Verifying course integrity...');
   reportProgress(100, 'Complete! Course saved and ready for offline study.');
   addLog('INFO', 'IMPORTER', `Course saved to ${targetStorage === 'external' ? 'external drive' : 'offline vault'}: ${courseTitle}`, `${finalSections.length} sections, ${totalFiles} files`);
+
+  await cleanupArchiveExtractionSessions();
 
   return courseData;
 }
