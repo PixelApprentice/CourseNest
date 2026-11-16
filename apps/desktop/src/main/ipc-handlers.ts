@@ -58,6 +58,9 @@ function validatePathBoundary(targetPath: string): string {
     resolvedPath.startsWith('/Volumes') ||
     resolvedPath.startsWith(join(homeDir, 'Downloads')) ||
     resolvedPath.startsWith(join(homeDir, 'Documents')) ||
+    resolvedPath.startsWith(join(homeDir, 'Desktop')) ||
+    resolvedPath.startsWith(join(homeDir, 'Videos')) ||
+    resolvedPath.startsWith(join(homeDir, 'Courses')) ||
     /^[a-zA-Z]:\\/.test(resolvedPath);
 
   if (!isAllowedInternal && !isAllowedExternal && !isUserAllowed && !isStandardMediaMount) {
@@ -1170,6 +1173,17 @@ export function registerIpcHandlers(): void {
       }
     },
   );
+
+  ipcMain.handle('storage:registerAllowedPath', async (_event, filePath: string) => {
+    try {
+      const resolved = resolve(filePath);
+      allowedUserDirs.add(dirname(resolved));
+      allowedUserDirs.add(resolved);
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
+  });
 
   // Permanently delete a course directory and remove from persistent catalog
   ipcMain.handle(

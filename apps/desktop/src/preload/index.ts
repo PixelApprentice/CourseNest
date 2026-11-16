@@ -146,6 +146,9 @@ const electronAPI = {
         error?: string;
       }>,
 
+    registerAllowedPath: (filePath: string) =>
+      ipcRenderer.invoke('storage:registerAllowedPath', filePath) as Promise<{ success: boolean }>,
+
     scanDirectoryForCourses: (dirPath?: string) =>
       ipcRenderer.invoke('storage:scanDirectoryForCourses', dirPath) as Promise<any[]>,
 
