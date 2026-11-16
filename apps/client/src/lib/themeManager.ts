@@ -381,6 +381,11 @@ export function applyTheme(themeId: ThemeId): void {
       document.documentElement.classList.remove('dark');
     }
 
+    const metaScheme = typeof document !== 'undefined' ? document.querySelector('meta[name="color-scheme"]') : null;
+    if (metaScheme) {
+      metaScheme.setAttribute('content', theme.isDark ? 'dark' : 'light');
+    }
+
     window.dispatchEvent(
       new CustomEvent('coursenest_theme_changed', {
         detail: { themeId, theme },
@@ -403,6 +408,10 @@ export function useTheme() {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+    const initialMetaScheme = typeof document !== 'undefined' ? document.querySelector('meta[name="color-scheme"]') : null;
+    if (initialMetaScheme) {
+      initialMetaScheme.setAttribute('content', def.isDark ? 'dark' : 'light');
     }
 
     // In Electron desktop environment, verify against native preferences file

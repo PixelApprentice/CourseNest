@@ -154,7 +154,11 @@ export function CourseLandingPage() {
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveTitle();
+                    if (e.key === 'Enter') {
+                      if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                      e.preventDefault();
+                      handleSaveTitle();
+                    }
                     if (e.key === 'Escape') handleCancelEdit();
                   }}
                   autoFocus

@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#0D1117" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -30,10 +31,15 @@
           else if (saved === 'light') theme = 'paper';
           else if (saved && validThemes.indexOf(saved) !== -1) theme = saved;
           document.documentElement.setAttribute('data-theme', theme);
-          if (darkThemes.indexOf(theme) !== -1) {
+          var isDark = darkThemes.indexOf(theme) !== -1;
+          if (isDark) {
             document.documentElement.classList.add('dark');
           } else {
             document.documentElement.classList.remove('dark');
+          }
+          var metaScheme = document.querySelector('meta[name="color-scheme"]');
+          if (metaScheme) {
+            metaScheme.content = isDark ? 'dark' : 'light';
           }
         } catch (e) {}
       })();

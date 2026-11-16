@@ -924,7 +924,13 @@ export function CourseStudioPage() {
                     type="url"
                     value={coverUrlInput}
                     onChange={(e) => setCoverUrlInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleApplyUrlImage())}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                        e.preventDefault();
+                        handleApplyUrlImage();
+                      }
+                    }}
                     placeholder="Or paste picture URL"
                     className="w-full px-2.5 py-1.5 rounded-lg border border-[var(--cn-border)] bg-[var(--cn-surface)] text-[11px] text-[var(--cn-text-primary)] focus:outline-none focus:border-[var(--cn-primary)]"
                   />
