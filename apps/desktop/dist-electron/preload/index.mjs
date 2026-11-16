@@ -38,6 +38,7 @@ const electronAPI = {
     readMediaFile: (params) => ipcRenderer.invoke("storage:readMediaFile", params),
     resolvePhysicalMediaFilePath: (params) => ipcRenderer.invoke("storage:resolvePhysicalMediaFilePath", params),
     extractArchiveNative: (params) => ipcRenderer.invoke("storage:extractArchiveNative", params),
+    registerAllowedPath: (filePath) => ipcRenderer.invoke("storage:registerAllowedPath", filePath),
     scanDirectoryForCourses: (dirPath) => ipcRenderer.invoke("storage:scanDirectoryForCourses", dirPath),
     listExternalMounts: () => ipcRenderer.invoke("storage:listExternalMounts"),
     getPersistentCourses: () => ipcRenderer.invoke("storage:getPersistentCourses"),

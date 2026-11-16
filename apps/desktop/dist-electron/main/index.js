@@ -330,7 +330,7 @@ function validatePathBoundary(targetPath) {
   const isAllowedInternal = resolvedPath.startsWith(dataDir) || resolvedPath.startsWith(tempDir) || resolvedPath.startsWith(documentsDir) || resolvedPath.startsWith(downloadsDir);
   const isAllowedExternal = configuredExternalMountPath ? resolvedPath.startsWith(resolve(configuredExternalMountPath)) : false;
   const isUserAllowed = Array.from(allowedUserDirs).some((d) => resolvedPath.startsWith(d));
-  const isStandardMediaMount = resolvedPath.startsWith("/media") || resolvedPath.startsWith("/run/media") || resolvedPath.startsWith("/mnt") || resolvedPath.startsWith("/Volumes") || resolvedPath.startsWith(join(homeDir, "Downloads")) || resolvedPath.startsWith(join(homeDir, "Documents")) || /^[a-zA-Z]:\\/.test(resolvedPath);
+  const isStandardMediaMount = resolvedPath.startsWith("/media") || resolvedPath.startsWith("/run/media") || resolvedPath.startsWith("/mnt") || resolvedPath.startsWith("/Volumes") || resolvedPath.startsWith(join(homeDir, "Downloads")) || resolvedPath.startsWith(join(homeDir, "Documents")) || resolvedPath.startsWith(join(homeDir, "Desktop")) || resolvedPath.startsWith(join(homeDir, "Videos")) || resolvedPath.startsWith(join(homeDir, "Courses")) || /^[a-zA-Z]:\\/.test(resolvedPath);
   if (!isAllowedInternal && !isAllowedExternal && !isUserAllowed && !isStandardMediaMount) {
     throw new Error(`Access denied: path "${targetPath}" is outside authorized storage directories`);
   }
@@ -1283,6 +1283,16 @@ function registerIpcHandlers() {
       }
     }
   );
+  ipcMain.handle("storage:registerAllowedPath", async (_event, filePath) => {
+    try {
+      const resolved = resolve(filePath);
+      allowedUserDirs.add(dirname(resolved));
+      allowedUserDirs.add(resolved);
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
+  });
   ipcMain.handle(
     "storage:deleteCourseFromDisk",
     async (_event, params) => {
