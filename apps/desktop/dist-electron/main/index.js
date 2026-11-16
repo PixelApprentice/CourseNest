@@ -757,23 +757,53 @@ function registerIpcHandlers() {
         saveEncryptedAppSecret("ai_api_key", "");
         return { success: true };
       }
-      if (!safeStorage.isEncryptionAvailable()) {
-        return { success: false, error: "OS safeStorage unavailable" };
+      if (safeStorage.isEncryptionAvailable()) {
+        const encrypted = safeStorage.encryptString(apiKey);
+        const ok = saveEncryptedAppSecret("ai_api_key", `enc:${encrypted.toString("base64")}`);
+        return { success: ok };
+      } else {
+        const encoded = Buffer.from(apiKey, "utf-8").toString("base64");
+        const ok = saveEncryptedAppSecret("ai_api_key", `fallback:${encoded}`);
+        return { success: ok };
       }
-      const encrypted = safeStorage.encryptString(apiKey);
-      const ok = saveEncryptedAppSecret("ai_api_key", encrypted.toString("base64"));
-      return { success: ok };
     } catch (err) {
-      return { success: false, error: err?.message || "Failed to save encrypted AI API key" };
+      try {
+        const encoded = Buffer.from(apiKey, "utf-8").toString("base64");
+        saveEncryptedAppSecret("ai_api_key", `fallback:${encoded}`);
+        return { success: true };
+      } catch {
+        return { success: false, error: err?.message || "Failed to save AI API key" };
+      }
     }
   });
   ipcMain.handle("storage:getAiKey", async () => {
     try {
-      const encBase64 = getEncryptedAppSecret("ai_api_key");
-      if (!encBase64 || !safeStorage.isEncryptionAvailable()) {
+      const raw = getEncryptedAppSecret("ai_api_key");
+      if (!raw) return null;
+      if (raw.startsWith("enc:")) {
+        const payload = raw.slice(4);
+        if (safeStorage.isEncryptionAvailable()) {
+          return safeStorage.decryptString(Buffer.from(payload, "base64"));
+        }
         return null;
       }
-      return safeStorage.decryptString(Buffer.from(encBase64, "base64"));
+      if (raw.startsWith("fallback:")) {
+        const payload = raw.slice(9);
+        return Buffer.from(payload, "base64").toString("utf-8");
+      }
+      if (safeStorage.isEncryptionAvailable()) {
+        try {
+          return safeStorage.decryptString(Buffer.from(raw, "base64"));
+        } catch {
+          return Buffer.from(raw, "base64").toString("utf-8");
+        }
+      } else {
+        try {
+          return Buffer.from(raw, "base64").toString("utf-8");
+        } catch {
+          return null;
+        }
+      }
     } catch {
       return null;
     }
