@@ -50,7 +50,7 @@ const DEFAULT_AI_CONFIG: AiConfig = {
 };
 
 export function getAiConfig(): AiConfig {
-  let baseConfig = DEFAULT_AI_CONFIG;
+  let baseConfig = { ...DEFAULT_AI_CONFIG };
   try {
     const raw = localStorage.getItem(AI_CONFIG_KEY);
     if (raw) {
@@ -58,7 +58,7 @@ export function getAiConfig(): AiConfig {
     }
   } catch {}
 
-  if (inMemoryApiKey !== null) {
+  if (inMemoryApiKey !== null && inMemoryApiKey !== '') {
     baseConfig.apiKey = inMemoryApiKey;
   }
   return baseConfig;
@@ -66,15 +66,16 @@ export function getAiConfig(): AiConfig {
 
 export function saveAiConfig(config: AiConfig): void {
   try {
-    inMemoryApiKey = config.apiKey;
+    const cleanKey = (config.apiKey || '').trim().replace(/^["']|["']$/g, '').trim();
+    const cleanConfig = { ...config, apiKey: cleanKey };
+    inMemoryApiKey = cleanKey;
+
+    // Always persist to localStorage so that if safeStorage is delayed or fails on Linux, the user's key is not lost
+    localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(cleanConfig));
+
     const electron = (window as any).electron || (window as any).__ELECTRON__;
     if (electron?.storage?.saveAiKey) {
-      electron.storage.saveAiKey(config.apiKey).catch(() => {});
-      // In localStorage, store empty apiKey so plaintext is never left in localStorage
-      const safeConfig = { ...config, apiKey: '' };
-      localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(safeConfig));
-    } else {
-      localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(config));
+      electron.storage.saveAiKey(cleanKey).catch(() => {});
     }
 
     window.dispatchEvent(new Event('coursenest_ai_config_changed'));
@@ -477,16 +478,28 @@ ${payload.question}`;
     let rawOutputText = '';
 
     if (config.provider === 'gemini') {
-      const model = (config.modelName || 'gemini-1.5-flash').trim().replace(/^models\//, '') || 'gemini-1.5-flash';
-      let baseUrl = config.baseUrl.trim().replace(/\/+$/, '');
+      const cleanKey = (config.apiKey || '').trim().replace(/^["']|["']$/g, '').trim();
+      let model = (config.modelName || 'gemini-1.5-flash').trim();
+      model = model.replace(/^models\//, '').replace(/\s+/g, '-');
+      if (!model) model = 'gemini-1.5-flash';
+
+      let baseUrl = (config.baseUrl || '').trim().replace(/\/+$/, '');
+      if (!baseUrl) {
+        baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
+      }
+      baseUrl = baseUrl.replace(/\/models\/?$/, '');
       if (!baseUrl.includes('/v1')) {
         baseUrl += '/v1beta';
       }
-      const endpoint = `${baseUrl}/models/${model}:generateContent`;
+
+      // Google AI Studio expects key via query parameter ?key= and supports x-goog-api-key header
+      const endpoint = cleanKey
+        ? `${baseUrl}/models/${model}:generateContent?key=${encodeURIComponent(cleanKey)}`
+        : `${baseUrl}/models/${model}:generateContent`;
 
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (config.apiKey) {
-        headers['x-goog-api-key'] = config.apiKey.trim();
+      if (cleanKey) {
+        headers['x-goog-api-key'] = cleanKey;
       }
 
       const res = await fetchWithRetry(endpoint, {
@@ -509,16 +522,41 @@ ${payload.question}`;
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         const rawMsg = errorData?.error?.message || `Gemini API returned status ${res.status}`;
+        if (res.status === 400 && (rawMsg.includes('API key') || rawMsg.includes('API_KEY'))) {
+          throw new Error(
+            `Invalid Google AI Studio API key. Please verify that your key is correctly copied from https://aistudio.google.com/app/apikey (Details: ${rawMsg})`
+          );
+        }
+        if (res.status === 404) {
+          throw new Error(
+            `Model "${model}" not found on Google AI Studio. Try "gemini-1.5-flash" or "gemini-2.0-flash". (Details: ${rawMsg})`
+          );
+        }
         if (res.status === 429) {
           throw new Error(
-            `Google AI Studio rate limit or quota exceeded (HTTP 429: ${rawMsg}). Automatic retries were attempted with backoff, but your current quota window is exhausted.`
+            `Google AI Studio rate limit or quota exceeded (HTTP 429: ${rawMsg}). Automatic retries were attempted with backoff, but your current quota window is exhausted. Wait 60s or check ai.google.dev.`
           );
         }
         throw new Error(rawMsg);
       }
 
       const data = await res.json();
-      rawOutputText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const candidate = data.candidates?.[0];
+      if (candidate?.finishReason && candidate.finishReason !== 'STOP' && !candidate.content?.parts?.[0]?.text) {
+        if (candidate.finishReason === 'SAFETY') {
+          throw new Error('Gemini response was blocked by safety filters for this content.');
+        }
+        if (candidate.finishReason === 'RECITATION') {
+          throw new Error('Gemini flagged recitation check on this excerpt.');
+        }
+      }
+      rawOutputText = candidate?.content?.parts?.[0]?.text || '';
+      if (!rawOutputText && data.promptFeedback?.blockReason) {
+        throw new Error(`Gemini blocked prompt: ${data.promptFeedback.blockReason}`);
+      }
+      if (!rawOutputText) {
+        throw new Error('Gemini returned an empty response.');
+      }
     } else {
       // DeepSeek, Ollama, OpenAI-compatible
       let defaultBaseUrl = 'https://api.openai.com/v1';
@@ -535,8 +573,9 @@ ${payload.question}`;
       const rawBase = config.baseUrl.trim().replace(/\/+$/, '') || defaultBaseUrl;
       const endpoint = rawBase.endsWith('/chat/completions') ? rawBase : `${rawBase}/chat/completions`;
 
+      const cleanKey = (config.apiKey || '').trim().replace(/^["']|["']$/g, '').trim();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
+      if (cleanKey) headers['Authorization'] = `Bearer ${cleanKey}`;
 
       const res = await fetchWithRetry(endpoint, {
         method: 'POST',
